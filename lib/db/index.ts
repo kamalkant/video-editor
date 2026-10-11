@@ -7,7 +7,10 @@ import { seedDefaultData, SEED_ADMIN_PASSWORD } from "./seed";
 import { verifyPassword } from "../auth/passwords";
 
 const DB_DIR = join(process.cwd(), "data");
-const DB_PATH = process.env.VDO_DB_PATH || join(DB_DIR, "VDO.db");
+// `next build` prerenders pages in several worker processes at once: each gets its own throwaway database,
+// so the build never races to seed (or prints an admin password into) the real one, which is made at first start
+const BUILDING = process.env.NEXT_PHASE === "phase-production-build" && !process.env.VDO_DB_PATH;
+const DB_PATH = BUILDING ? ":memory:" : process.env.VDO_DB_PATH || join(DB_DIR, "VDO.db");
 /** The SQLite file (admin system health shows its size). */
 export const DB_FILE = DB_PATH;
 
@@ -73,7 +76,7 @@ function runSqliteMigrations(db: DatabaseSync): void {
 export function getDb(): DatabaseSync {
   if (_db) return _db;
 
-  if (!existsSync(dirname(DB_PATH))) {
+  if (DB_PATH !== ":memory:" && !existsSync(dirname(DB_PATH))) {
     mkdirSync(dirname(DB_PATH), { recursive: true });
   }
 
@@ -88,6 +91,9 @@ export function getDb(): DatabaseSync {
   }
   db.exec("PRAGMA foreign_keys = ON;");
 
+  // one process at a time (a write lock, waited for via busy_timeout): two servers starting on an empty
+  // database must not both create the first super admin
+  db.exec("BEGIN IMMEDIATE;");
   try {
     // Run incremental migrations first so existing tables have required columns
     runSqliteMigrations(db);
@@ -96,11 +102,11 @@ export function getDb(): DatabaseSync {
     db.exec(SCHEMA_SQL);
 
     // Run default seeds (admin user and default feature flags)
-    seedDefaultData(db);
-  } catch (err: any) {
-    if (!err?.message?.includes("locked") && !err?.message?.includes("busy")) {
-      throw err;
-    }
+    seedDefaultData(db, { throwaway: BUILDING });
+    db.exec("COMMIT;");
+  } catch (err) {
+    db.exec("ROLLBACK;");
+    throw err;
   }
 
   _db = db;

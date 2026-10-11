@@ -361,7 +361,8 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
 /** The first super admin's password when INITIAL_ADMIN_PASSWORD isn't set (development only; must be changed at first sign-in). */
 export const SEED_ADMIN_PASSWORD = "Admin@12345";
 
-export function seedDefaultData(db: DatabaseSync) {
+/** `throwaway`: a build worker's in-memory copy (lib/db/index), so its made-up admin password isn't printed. */
+export function seedDefaultData(db: DatabaseSync, { throwaway = false } = {}) {
   const now = Date.now();
 
   // 1. Seed Feature Flags if missing
@@ -392,7 +393,7 @@ export function seedDefaultData(db: DatabaseSync) {
     // never the well-known default in production: a random one, printed once, changed at first sign-in
     const envPass = process.env.INITIAL_ADMIN_PASSWORD?.trim();
     const defaultPass = envPass || (process.env.NODE_ENV === "production" ? randomBytes(12).toString("base64url") : SEED_ADMIN_PASSWORD);
-    if (!envPass && process.env.NODE_ENV === "production") {
+    if (!envPass && process.env.NODE_ENV === "production" && !throwaway) {
       console.warn(`[ViPlay] Created super admin ${defaultEmail} with a one-time password: ${defaultPass} (change it at first sign-in, or set INITIAL_ADMIN_PASSWORD)`);
     }
     const { hash, salt } = hashPassword(defaultPass);

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { newUuid } from "./uuid";
 import { mediaIdsOf, type TimelineDoc } from "@/lib/edit/doc";
 import { summaryOf, type Project, type ProjectSummary } from "@/lib/projects/model";
 import {
@@ -28,12 +28,7 @@ import type {
   StoredProject,
 } from "./types";
 
-function generateId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return randomUUID();
-}
+const generateId = newUuid;
 
 /**
  * AccountWorkspace enforces strict storage-level account isolation.

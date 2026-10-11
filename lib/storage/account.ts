@@ -29,25 +29,15 @@ export function isValidAccountCode(code: string): boolean {
 }
 
 /**
- * Computes a SHA-256 hash of a string using Web Crypto API (browser + Node 18+).
+ * Computes a SHA-256 hash of a string using Web Crypto API (browser + Node 22+).
  */
 async function sha256Bytes(input: string): Promise<Uint8Array> {
   const enc = new TextEncoder();
   const data = enc.encode(input);
 
-  if (typeof crypto !== "undefined" && crypto.subtle) {
-    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-    return new Uint8Array(hashBuffer);
-  }
-
-  // Fallback for Node environments where crypto.subtle might not be global
-  try {
-    const nodeCrypto = await import("node:crypto");
-    const hash = nodeCrypto.createHash("sha256").update(data).digest();
-    return new Uint8Array(hash);
-  } catch {
-    throw new Error("SHA-256 cryptographic provider is not available");
-  }
+  // (Web Crypto: every browser, and Node 22+ as a global; no node:crypto, so this file also bundles for the browser)
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  return new Uint8Array(hashBuffer);
 }
 
 /**

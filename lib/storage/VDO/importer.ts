@@ -1,15 +1,9 @@
-import { randomUUID } from "node:crypto";
+import { newUuid } from "../uuid";
 import { docSchema } from "@/lib/edit/doc";
 import { projectSchema, type Project } from "@/lib/projects/model";
 import type { IAccountWorkspace, StoredAsset } from "../types";
 import { readZipArchive } from "./container";
 
-function newUuid(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return randomUUID();
-}
 
 /**
  * Imports an .VDO project package into the active Account Workspace.

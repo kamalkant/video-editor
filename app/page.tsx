@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Inter_Tight } from "next/font/google";
+import localFont from "next/font/local";
 import { redirect } from "next/navigation";
 import { MarketingWebsite } from "@/components/website/MarketingWebsite";
 import { listPlans } from "@/lib/db/plans";
@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 
 // the website's own font (the editor keeps the system font)
 // (as --font-sans too: the site's `font-sans` classes then use it)
-const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-sans" });
+// (the files live in app/fonts, Latin, from Google Fonts: the build never needs the internet, which some hosts block)
+const inter = localFont({ src: "./fonts/Inter-latin.woff2", weight: "100 900", display: "swap", variable: "--font-sans", adjustFontFallback: "Arial" });
 // headings (globals.css: .vdo-site h1/h2/h3 use --font-display)
-const interTight = Inter_Tight({ subsets: ["latin"], display: "swap", variable: "--font-display-face", weight: ["500", "600", "700", "800"] });
+const interTight = localFont({ src: "./fonts/InterTight-latin.woff2", weight: "500 800", display: "swap", variable: "--font-display-face", adjustFontFallback: "Arial" });
 
 const TITLE = "ViPlay Studio — AI video editor for Reels, Shorts & YouTube";
 const DESCRIPTION =

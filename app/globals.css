@@ -675,14 +675,15 @@
   }
 }
 
-/* type: Inter for text, Inter Tight for headings (app/page.tsx loads both) */
+/* type: Inter for text, Inter Tight for headings (app/page.tsx loads both, on the page's own wrapper:
+   so read --font-display-face here, not --font-display, which :root resolves before the fonts exist) */
 .vdo-site :is(h1, h2) {
-  font-family: var(--font-display);
+  font-family: var(--font-display-face, var(--font-sans));
   letter-spacing: -0.035em;
   text-wrap: balance;
 }
 .vdo-site h3 {
-  font-family: var(--font-display);
+  font-family: var(--font-display-face, var(--font-sans));
   letter-spacing: -0.02em;
 }
 .vdo-site p {

@@ -1,0 +1,3 @@
+/** The key for the saved theme (lib/editor/theme.ts) and the <head> script that applies it before the first paint. */
+export const THEME_KEY = "VDO:theme";
+export const THEME_SCRIPT = `try{var t=localStorage.getItem(${JSON.stringify(THEME_KEY)});if(t==="light"||t==="system")document.documentElement.dataset.theme=t;var isLight=t==="light"||(t==="system"&&window.matchMedia&&window.matchMedia("(prefers-color-scheme: light)").matches);var c=isLight?"#ffffff":"#111a2e";var m=document.querySelectorAll('meta[name="theme-color"]');if(m.length>0){m.forEach(function(el){el.removeAttribute("media");el.setAttribute("content",c)})}else{var n=document.createElement("meta");n.name="theme-color";n.content=c;document.head.appendChild(n)}}catch(e){}`;

@@ -1,0 +1,70 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+node_modules/
+.next/
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/.next-e2e/
+# (the build check and other side builds: Tailwind skips ignored folders, binary files there break the CSS)
+/.next-build/
+/.next-nokey/
+/e2e/.storage/
+/e2e/.auth/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# VDO local data
+/storage/
+/e2e/.fixtures/
+/test-results/
+/playwright-report/
+
+# built on this Mac by the app (Apple Vision matting tool)
+/scripts/vision-matte/.build/
+
+# website media review (scripts/website-media.mjs --survey)
+/.media-review/
+
+# local data and big originals (never pushed)
+/data/
+/vido.db*
+/assets-source/
+/prototypes/
+/scratch/
+/.claude/settings.local.json

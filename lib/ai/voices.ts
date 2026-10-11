@@ -1,0 +1,36 @@
+/** Gemini's 30 prebuilt voices, each with its character (from Google's voice list). Pure: the dialog uses it too. */
+export const GEMINI_VOICES: { name: string; character: string }[] = [
+  { name: "Kore", character: "Firm" },
+  { name: "Charon", character: "Informative" },
+  { name: "Puck", character: "Upbeat" },
+  { name: "Zephyr", character: "Bright" },
+  { name: "Fenrir", character: "Excitable" },
+  { name: "Leda", character: "Youthful" },
+  { name: "Orus", character: "Firm" },
+  { name: "Aoede", character: "Breezy" },
+  { name: "Callirrhoe", character: "Easy-going" },
+  { name: "Autonoe", character: "Bright" },
+  { name: "Enceladus", character: "Breathy" },
+  { name: "Iapetus", character: "Clear" },
+  { name: "Umbriel", character: "Easy-going" },
+  { name: "Algieba", character: "Smooth" },
+  { name: "Despina", character: "Smooth" },
+  { name: "Erinome", character: "Clear" },
+  { name: "Algenib", character: "Gravelly" },
+  { name: "Rasalgethi", character: "Informative" },
+  { name: "Laomedeia", character: "Upbeat" },
+  { name: "Achernar", character: "Soft" },
+  { name: "Alnilam", character: "Firm" },
+  { name: "Schedar", character: "Even" },
+  { name: "Gacrux", character: "Mature" },
+  { name: "Pulcherrima", character: "Forward" },
+  { name: "Achird", character: "Friendly" },
+  { name: "Zubenelgenubi", character: "Casual" },
+  { name: "Vindemiatrix", character: "Gentle" },
+  { name: "Sadachbia", character: "Lively" },
+  { name: "Sadaltager", character: "Knowledgeable" },
+  { name: "Sulafat", character: "Warm" },
+];
+
+/** Ready-made "how to say it" notes for the dialog. */
+export const VOICE_STYLES = ["like a calm news anchor", "warm and friendly", "excited, for a product launch", "slow and clear, for a tutorial", "serious and formal"];

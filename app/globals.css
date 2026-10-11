@@ -1,0 +1,794 @@
+@import "tailwindcss";
+
+@theme {
+  /* dark "studio" theme, like the mockup (newplan.png) */
+  --color-app: #070b17; /* page behind the panels */
+  --color-ink: #e7ebf3;
+  --color-muted: #a3adc2; /* ≥6:1 on surface */
+  --color-canvas: #0c1222; /* sunken areas, hover */
+  --color-surface: #111a2e; /* panels and cards */
+  --color-raised: #18233b; /* inputs, tiles, secondary buttons */
+  --color-line: #222e48; /* decorative dividers only */
+  --color-control: #5a6b8f; /* control borders, ≥3:1 on surface */
+  --color-primary: #2563eb; /* primary buttons (white text 5.2:1), selected borders */
+  --color-primary-hover: #1d4ed8;
+  --color-primary-soft: #16264a;
+  --color-link: #8db6ff; /* blue text on dark (≥7:1) */
+  --color-on: #22c55e; /* switch ON, like the mockup */
+  --color-key: #12af34; /* only for the key-color swatch */
+  --color-success: #4ade80;
+  --color-success-soft: #0e2a1c;
+  --color-warn-soft: #2d2410;
+  --color-warn-line: #f59e0b;
+  --color-warn-ink: #fcd34d;
+  --color-danger: #f87171;
+  --color-danger-soft: #2e1519;
+  --color-stage: #0a0f1c; /* empty preview */
+  --color-preview: #05080f; /* around the video in the preview */
+  --color-preview-bar: #0b1222; /* the play bar under it */
+  --color-checker-a: #ffffff;
+  --color-checker-b: #c3c8d1;
+  --color-semi: #ff2bd6;
+  --color-track: #2b3856; /* slider track */
+  --color-hover: #213052; /* secondary button hover */
+  --color-disabled: #334155; /* disabled primary button */
+  --color-disabled-ink: #cbd5e1;
+  --color-soon: #24314f; /* "Soon" badge */
+  --color-backdrop: rgb(17 24 39 / 0.55); /* behind dialogs */
+  /* timeline clip fills */
+  --color-tl-video: transparent;
+  --color-tl-image: #2a1a55;
+  --color-tl-text: #3b230d;
+  --color-tl-element: #3d1030;
+  --color-tl-audio: #0b2f2f;
+  --color-scrollbar: rgb(163 173 194 / 0.28); /* thin scrollbars */
+  --color-scrollbar-hover: rgb(163 173 194 / 0.55);
+  --spacing-hit: 2.75rem; /* touch targets on phones; 2.25rem on desktop (below) */
+  --radius-control: 0.5rem;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/*
+ * Theme (top bar ☀ / ☾): dark is the default; "light", or "system" (follows the Mac).
+ * Only the tokens change; the video preview stays dark in both, like pro editors.
+ */
+:root[data-theme="light"] {
+  --color-app: #e9edf4;
+  --color-ink: #0f172a;
+  --color-muted: #475569; /* ≥7:1 on white */
+  --color-canvas: #eef2f7;
+  --color-surface: #ffffff;
+  --color-raised: #f3f6fa;
+  --color-line: #d8dee8;
+  --color-control: #7c889e; /* ≥3:1 on white */
+  --color-primary-soft: #e1eaff;
+  --color-link: #1d4ed8;
+  --color-on: #16a34a;
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-warn-soft: #fef3c7;
+  --color-warn-line: #d97706;
+  --color-warn-ink: #92400e;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fee2e2;
+  --color-track: #cbd3df;
+  --color-hover: #e4eaf3;
+  --color-disabled: #cbd5e1;
+  --color-disabled-ink: #475569;
+  --color-soon: #e2e8f0;
+  --color-backdrop: rgb(15 23 42 / 0.35);
+  --color-tl-video: transparent;
+  --color-tl-image: #eadfff;
+  --color-tl-text: #fdecc8;
+  --color-tl-element: #fbdcec;
+  --color-tl-audio: #d2f2ec;
+  --color-stage: #dfe4ec;
+  --color-preview: #d5dbe5;
+  --color-preview-bar: #ffffff;
+  --color-scrollbar: rgb(71 85 105 / 0.3);
+  --color-scrollbar-hover: rgb(71 85 105 / 0.55);
+  color-scheme: light;
+}
+/* focus ring on the preview area: the dark theme's white ring would vanish on the light grey */
+:root[data-theme="light"] .on-dark :focus-visible {
+  outline-color: var(--color-link);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] .on-dark :focus-visible {
+    outline-color: var(--color-link);
+  }
+  :root[data-theme="system"] {
+    --color-app: #e9edf4;
+    --color-ink: #0f172a;
+    --color-muted: #475569; /* ≥7:1 on white */
+    --color-canvas: #eef2f7;
+    --color-surface: #ffffff;
+    --color-raised: #f3f6fa;
+    --color-line: #d8dee8;
+    --color-control: #7c889e; /* ≥3:1 on white */
+    --color-primary-soft: #e1eaff;
+    --color-link: #1d4ed8;
+    --color-on: #16a34a;
+    --color-success: #15803d;
+    --color-success-soft: #dcfce7;
+    --color-warn-soft: #fef3c7;
+    --color-warn-line: #d97706;
+    --color-warn-ink: #92400e;
+    --color-danger: #dc2626;
+    --color-danger-soft: #fee2e2;
+    --color-track: #cbd3df;
+    --color-hover: #e4eaf3;
+    --color-disabled: #cbd5e1;
+    --color-disabled-ink: #475569;
+    --color-soon: #e2e8f0;
+    --color-backdrop: rgb(15 23 42 / 0.35);
+    --color-tl-video: transparent;
+    --color-tl-image: #eadfff;
+    --color-tl-text: #fdecc8;
+    --color-tl-element: #fbdcec;
+    --color-tl-audio: #d2f2ec;
+    --color-stage: #dfe4ec;
+    --color-preview: #d5dbe5;
+    --color-preview-bar: #ffffff;
+    --color-scrollbar: rgb(71 85 105 / 0.3);
+    --color-scrollbar-hover: rgb(71 85 105 / 0.55);
+    color-scheme: light;
+  }
+}
+
+/* In dark mode, selected project and media cards get a crisp 1px thin white border */
+:root:not([data-theme="light"]) [data-project][data-selected="true"],
+:root:not([data-theme="light"]) [data-asset][data-selected="true"] {
+  border-width: 1px !important;
+  border-color: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* In dark mode, selected timeline clips get an unmistakable crisp 2px white border */
+:root:not([data-theme="light"]) [data-clip][data-selected="true"] {
+  outline: 2px solid #ffffff !important;
+  outline-offset: -2px !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85), 0 0 12px rgba(255, 255, 255, 0.45) !important;
+}
+
+:root:not([data-theme="light"]) [data-clip][data-selected="true"] [data-selection-ring] {
+  box-shadow: inset 0 0 0 2px #ffffff, 0 0 8px rgba(255, 255, 255, 0.4) !important;
+}
+
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] [data-project][data-selected="true"],
+  :root[data-theme="system"] [data-asset][data-selected="true"] {
+    border-width: 1px !important;
+    border-color: var(--color-primary) !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  :root[data-theme="system"] [data-clip][data-selected="true"] {
+    outline: 2px solid var(--color-primary) !important;
+    outline-offset: -2px !important;
+    box-shadow: none !important;
+  }
+}
+
+@utility bg-checker {
+  background-color: var(--color-checker-a);
+  background-image: repeating-conic-gradient(
+    var(--color-checker-b) 0 25%,
+    transparent 0 50%
+  );
+  background-size: 1.5rem 1.5rem;
+}
+
+@utility bg-checker-dark {
+  background-color: #1b2233;
+  background-image: repeating-conic-gradient(#232c40 0 25%, transparent 0 50%);
+  background-size: 1.25rem 1.25rem;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    color-scheme: dark;
+  }
+  @media (min-width: 1024px) {
+    :root {
+      --spacing-hit: 2.25rem;
+    }
+  }
+  body {
+    background: var(--color-app);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-link);
+    outline-offset: 2px;
+  }
+  .on-dark :focus-visible {
+    outline-color: #ffffff;
+    box-shadow: 0 0 0 4px var(--color-primary);
+  }
+  /* while a timeline clip is dragged or trimmed (Timeline.tsx dragLook): one cursor everywhere, and no text gets selected */
+  html[data-drag],
+  html[data-drag] * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  html[data-drag="move"],
+  html[data-drag="move"] * {
+    cursor: grabbing !important;
+  }
+  html[data-drag="trim"],
+  html[data-drag="trim"] * {
+    cursor: ew-resize !important;
+  }
+  /* thin scrollbars everywhere (Chrome, Edge, Safari: 6 px; Firefox: its "thin") */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-scrollbar);
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-scrollbar-hover);
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-scrollbar) transparent;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .range {
+    appearance: none;
+    width: 100%;
+    height: var(--spacing-hit);
+    background: transparent;
+    cursor: pointer;
+    --fill: 0%;
+  }
+  .range::-webkit-slider-runnable-track {
+    height: 0.3rem;
+    border-radius: 9999px;
+    border: 0;
+    background: linear-gradient(
+      to right,
+      var(--color-primary) var(--fill),
+      var(--color-track) var(--fill)
+    );
+  }
+  .range::-webkit-slider-thumb {
+    appearance: none;
+    width: 1rem;
+    height: 1rem;
+    margin-top: -0.35rem;
+    border-radius: 9999px;
+    background: #ffffff;
+    border: 3px solid var(--color-primary);
+    box-shadow: 0 0 0 3px rgb(37 99 235 / 0.25);
+  }
+  .range::-moz-range-track {
+    height: 0.3rem;
+    border-radius: 9999px;
+    border: 0;
+    background: var(--color-track);
+  }
+  .range::-moz-range-progress {
+    height: 0.3rem;
+    border-radius: 9999px;
+    background: var(--color-primary);
+  }
+  .range::-moz-range-thumb {
+    width: 0.8rem;
+    height: 0.8rem;
+    border-radius: 9999px;
+    background: #ffffff;
+    border: 3px solid var(--color-primary);
+  }
+  .range.bipolar::-webkit-slider-runnable-track {
+    background: var(--color-track);
+  }
+  .range:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--spacing-hit);
+    padding: 0 1rem;
+    font-size: 0.875rem;
+    border-radius: var(--radius-control);
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--color-primary);
+    color: #ffffff;
+  }
+  .btn-primary:hover {
+    background: var(--color-primary-hover);
+  }
+  .btn-primary[aria-disabled="true"],
+  .btn-primary:disabled {
+    background: var(--color-disabled);
+    color: var(--color-disabled-ink);
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: var(--color-raised);
+    color: var(--color-ink);
+    border: 1px solid var(--color-control);
+  }
+  .btn-secondary:hover {
+    background: var(--color-hover);
+  }
+  .btn-secondary:disabled,
+  .btn-secondary[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+    padding: 1rem;
+  }
+  .field {
+    min-height: var(--spacing-hit);
+    border: 1px solid var(--color-control);
+    border-radius: var(--radius-control);
+    background: var(--color-raised);
+    color: var(--color-ink);
+    padding: 0 0.625rem;
+    font-size: 0.875rem;
+  }
+  select.field {
+    width: auto;
+    max-width: 100%;
+  }
+  /* a color box (native color input) without the browser's grey frame */
+  .swatch {
+    appearance: none;
+    flex-shrink: 0;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 1px solid var(--color-control);
+    border-radius: 0.375rem;
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .swatch:hover {
+    border-color: var(--color-ink);
+  }
+  .swatch::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+  .swatch::-webkit-color-swatch {
+    border: none;
+    border-radius: 0.3rem;
+  }
+  .swatch::-moz-color-swatch {
+    border: none;
+    border-radius: 0.3rem;
+  }
+  /* a dark panel with a title bar (inspector cards, preview cards…) */
+  .panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: 0.75rem;
+  }
+  .soon {
+    font-size: 0.625rem;
+    line-height: 1;
+    padding: 0.2rem 0.35rem;
+    border-radius: 9999px;
+    background: var(--color-soon);
+    color: var(--color-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+}
+
+@layer components {
+  .btn-danger {
+    background: var(--color-raised);
+    color: var(--color-danger);
+    border: 1px solid var(--color-danger);
+  }
+  .btn-danger:hover {
+    background: var(--color-danger-soft);
+  }
+  dialog.VDO-dialog::backdrop {
+    background: var(--color-backdrop);
+  }
+  kbd {
+    display: inline-block;
+    min-width: 1.75rem;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid var(--color-control);
+    border-bottom-width: 2px;
+    border-radius: 0.35rem;
+    background: var(--color-raised);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+}
+
+/* a working bar with no percent (background tasks) */
+@keyframes task-slide {
+  from {
+    left: -35%;
+  }
+  to {
+    left: 100%;
+  }
+}
+.task-indeterminate {
+  animation: task-slide 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-indeterminate {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+/* Hardware-accelerated CSS keyframe for zero-CPU motion tracking */
+@keyframes trackPath {
+  0% { transform: translate(-50%, -50%) translate3d(0, 0, 0); }
+  35% { transform: translate(-50%, -50%) translate3d(35px, -12px, 0); }
+  70% { transform: translate(-50%, -50%) translate3d(-25px, 15px, 0); }
+  100% { transform: translate(-50%, -50%) translate3d(20px, 8px, 0); }
+}
+
+/* Light theme safety override: guarantees visible high-contrast typography across the website */
+:root[data-theme="light"] h1:not([class*="bg-clip-text"]):not(.dark-preserve),
+:root[data-theme="light"] h2:not([class*="bg-clip-text"]):not(.dark-preserve),
+:root[data-theme="light"] h3:not([class*="bg-clip-text"]):not(.dark-preserve),
+:root[data-theme="light"] h4:not([class*="bg-clip-text"]):not(.dark-preserve),
+:root[data-theme="light"] h5:not([class*="bg-clip-text"]):not(.dark-preserve),
+:root[data-theme="light"] h6:not([class*="bg-clip-text"]):not(.dark-preserve) {
+  color: #0f172a !important;
+}
+
+/* Ensure no text is white or invisible in light theme unless explicitly inside a dark pill or button */
+:root[data-theme="light"] .text-white:not([class*="bg-primary"]):not([class*="bg-purple-6"]):not([class*="bg-purple-7"]):not([class*="bg-purple-8"]):not([class*="bg-blue-6"]):not([class*="bg-blue-7"]):not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-cyan-6"]):not([class*="bg-gradient"]):not(.btn-primary):not([data-preserve-white]),
+:root[data-theme="light"] .text-slate-100:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary),
+:root[data-theme="light"] .text-slate-200:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .text-slate-300:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+  color: #334155 !important;
+}
+
+:root[data-theme="light"] .text-slate-400:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+  color: #475569 !important;
+}
+
+:root[data-theme="light"] .marketing-adaptive-title {
+  color: #0f172a !important;
+}
+
+:root[data-theme="light"] .marketing-adaptive-sub {
+  color: #475569 !important;
+}
+
+/* the same fixes for the website when the theme is "system" and the computer is light */
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] .vdo-site h1:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] .vdo-site h2:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] .vdo-site h3:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] .vdo-site h4:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] .vdo-site h5:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] .vdo-site h6:not([class*="bg-clip-text"]):not(.dark-preserve) {
+    color: #0f172a !important;
+  }
+
+  /* Ensure no text is white or invisible in light theme unless explicitly inside a dark pill or button */
+  :root[data-theme="system"] .vdo-site .text-white:not([class*="bg-primary"]):not([class*="bg-purple-6"]):not([class*="bg-purple-7"]):not([class*="bg-purple-8"]):not([class*="bg-blue-6"]):not([class*="bg-blue-7"]):not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-cyan-6"]):not([class*="bg-gradient"]):not(.btn-primary):not([data-preserve-white]),
+  :root[data-theme="system"] .vdo-site .text-slate-100:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary),
+  :root[data-theme="system"] .vdo-site .text-slate-200:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+    color: #0f172a !important;
+  }
+
+  :root[data-theme="system"] .vdo-site .text-slate-300:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+    color: #334155 !important;
+  }
+
+  :root[data-theme="system"] .vdo-site .text-slate-400:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+    color: #475569 !important;
+  }
+
+  :root[data-theme="system"] .vdo-site .marketing-adaptive-title {
+    color: #0f172a !important;
+  }
+
+  :root[data-theme="system"] .vdo-site .marketing-adaptive-sub {
+    color: #475569 !important;
+  }
+
+}
+
+/* ==================== WEBSITE ("Graphite + Iris") ==================== */
+/* The marketing site (components/website, root .vdo-site). Its own palette: the editor's tokens are untouched.
+   The site's Tailwind palettes are remapped here, so every slate / purple / cyan class takes the new look:
+   slate → graphite neutrals, purple · violet · indigo → iris, fuchsia → orchid, cyan · sky → teal. */
+@theme inline {
+  --color-site-bg: var(--site-bg);
+  --color-site-surface: var(--site-surface);
+  --color-site-raised: var(--site-raised);
+  --color-site-ink: var(--site-ink);
+  --color-site-muted: var(--site-muted);
+  --color-site-line: var(--site-line);
+  --color-site-accent: var(--site-accent);
+  --color-site-accent-fill: var(--site-accent-fill);
+  --color-site-live: var(--site-live);
+  --color-site-warm: var(--site-warm);
+  --font-display: var(--font-display-face, var(--font-sans));
+}
+
+.vdo-site {
+  --site-bg: #07080c;
+  --site-surface: #0e1016;
+  --site-raised: #151821;
+  --site-ink: #f3f4f7;
+  --site-muted: #a1a7b5;
+  --site-line: rgb(255 255 255 / 0.08);
+  --site-accent: #9b8cff;
+  --site-accent-fill: #6355f0;
+  --site-live: #2dd4bf;
+  --site-warm: #ffb86b;
+  --site-radius-sm: 8px;
+  --site-radius-md: 12px;
+  --site-radius-lg: 20px;
+  --site-radius-xl: 28px;
+  --site-shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 20px 60px -20px rgb(0 0 0 / 0.6);
+  --site-shadow-glow: 0 0 0 1px rgb(155 140 255 / 0.35), 0 18px 60px -12px rgb(99 85 240 / 0.45);
+  --site-ease: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* graphite (replaces slate) */
+  --color-slate-50: #f7f7f8;
+  --color-slate-100: #eeeff2;
+  --color-slate-200: #dcdee4;
+  --color-slate-300: #c0c4cd;
+  --color-slate-400: #979dab;
+  --color-slate-500: #6b7181;
+  --color-slate-600: #4f5463;
+  --color-slate-700: #363a45;
+  --color-slate-800: #22252d;
+  --color-slate-900: #14161c;
+  --color-slate-950: #0a0b0f;
+  /* iris (replaces purple, violet, indigo) */
+  --color-purple-50: #f3f1ff;
+  --color-purple-100: #e8e4ff;
+  --color-purple-200: #d3ccff;
+  --color-purple-300: #b5a9ff;
+  --color-purple-400: #9b8cff;
+  --color-purple-500: #7c6cfa;
+  --color-purple-600: #6355f0;
+  --color-purple-700: #5243d6;
+  --color-purple-800: #4336ad;
+  --color-purple-900: #2e2675;
+  --color-purple-950: #1a1547;
+  --color-violet-300: #b5a9ff;
+  --color-violet-400: #9b8cff;
+  --color-violet-500: #7c6cfa;
+  --color-violet-600: #6355f0;
+  --color-indigo-300: #b5a9ff;
+  --color-indigo-400: #9b8cff;
+  --color-indigo-500: #7c6cfa;
+  --color-indigo-600: #6355f0;
+  --color-indigo-700: #5243d6;
+  --color-indigo-900: #2e2675;
+  --color-indigo-950: #1a1547;
+  /* orchid (replaces fuchsia): a softer second accent for gradients */
+  --color-fuchsia-300: #e2b8ff;
+  --color-fuchsia-400: #d39bff;
+  --color-fuchsia-500: #bd7cf7;
+  --color-fuchsia-600: #a35fe6;
+  --color-fuchsia-700: #8746c7;
+  --color-fuchsia-900: #3d1f5c;
+  --color-fuchsia-950: #24113a;
+  /* teal (replaces cyan, sky) */
+  --color-cyan-50: #ecfdf9;
+  --color-cyan-100: #cffaf1;
+  --color-cyan-200: #a0f2e3;
+  --color-cyan-300: #67e6d3;
+  --color-cyan-400: #2dd4bf;
+  --color-cyan-500: #14b8a6;
+  --color-cyan-600: #0d9488;
+  --color-cyan-700: #0f766e;
+  --color-cyan-800: #115e59;
+  --color-cyan-900: #134e4a;
+  --color-cyan-950: #042f2e;
+  --color-sky-300: #67e6d3;
+  --color-sky-400: #2dd4bf;
+  --color-sky-500: #14b8a6;
+  --color-sky-600: #0d9488;
+
+  background-color: var(--site-bg);
+  color: var(--site-ink);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* light: by choice, or "system" on a light computer (pure CSS, so no flash before the page runs) */
+:root[data-theme="light"] .vdo-site {
+  --site-bg: #fafaf9;
+  --site-surface: #ffffff;
+  --site-raised: #f4f4f6;
+  --site-ink: #0b0d12;
+  --site-muted: #4b5263;
+  --site-line: rgb(11 13 18 / 0.1);
+  --site-accent: #5b4be0;
+  --site-accent-fill: #5b4be0;
+  --site-live: #0f8f7f;
+  --site-warm: #b45f10;
+  --site-shadow-card: 0 1px 2px rgb(11 13 18 / 0.05), 0 16px 48px -24px rgb(11 13 18 / 0.25);
+  --site-shadow-glow: 0 0 0 1px rgb(91 75 224 / 0.35), 0 18px 50px -16px rgb(91 75 224 / 0.35);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] .vdo-site {
+    --site-bg: #fafaf9;
+    --site-surface: #ffffff;
+    --site-raised: #f4f4f6;
+    --site-ink: #0b0d12;
+    --site-muted: #4b5263;
+    --site-line: rgb(11 13 18 / 0.1);
+    --site-accent: #5b4be0;
+    --site-accent-fill: #5b4be0;
+    --site-live: #0f8f7f;
+    --site-warm: #b45f10;
+    --site-shadow-card: 0 1px 2px rgb(11 13 18 / 0.05), 0 16px 48px -24px rgb(11 13 18 / 0.25);
+    --site-shadow-glow: 0 0 0 1px rgb(91 75 224 / 0.35), 0 18px 50px -16px rgb(91 75 224 / 0.35);
+  }
+}
+
+/* type: Inter for text, Inter Tight for headings (app/page.tsx loads both) */
+.vdo-site :is(h1, h2) {
+  font-family: var(--font-display);
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.vdo-site h3 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+.vdo-site p {
+  text-wrap: pretty;
+}
+.vdo-site ::selection {
+  background: rgb(124 108 250 / 0.35);
+}
+.vdo-site :focus-visible {
+  outline: 2px solid var(--site-accent);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* scroll reveal: CSS scroll-driven where supported (no JavaScript per frame), else .is-inview from one observer */
+@keyframes site-reveal {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .site-reveal {
+    opacity: 0;
+    transform: translate3d(0, 28px, 0) scale(0.985);
+    transition:
+      opacity 700ms var(--site-ease),
+      transform 900ms var(--site-ease);
+  }
+  .site-reveal.is-inview {
+    opacity: 1;
+    transform: none;
+  }
+  @supports (animation-timeline: view()) {
+    .site-reveal,
+    .site-reveal.is-inview {
+      opacity: 1;
+      transform: none;
+      transition: none;
+      animation: site-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 28%;
+    }
+  }
+}
+
+/* everything on the site stands still for people who ask for less motion */
+@media (prefers-reduced-motion: reduce) {
+  .vdo-site *,
+  .vdo-site *::before,
+  .vdo-site *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* a primary button: iris fill, soft glow on hover */
+.site-btn-primary {
+  background: var(--site-accent-fill);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 10px 30px -10px rgb(99 85 240 / 0.6);
+  transition:
+    transform 200ms var(--site-ease),
+    box-shadow 300ms var(--site-ease),
+    filter 200ms;
+}
+.site-btn-primary:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.22), 0 16px 40px -12px rgb(99 85 240 / 0.75);
+}
+.site-btn-ghost {
+  background: color-mix(in oklab, var(--site-ink) 6%, transparent);
+  color: var(--site-ink);
+  box-shadow: inset 0 0 0 1px var(--site-line);
+  transition: background 200ms, transform 200ms var(--site-ease);
+}
+.site-btn-ghost:hover {
+  background: color-mix(in oklab, var(--site-ink) 10%, transparent);
+  transform: translateY(-1px);
+}
+/* hairline glass card */
+.site-card {
+  background: color-mix(in oklab, var(--site-surface) 88%, transparent);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius-lg);
+  box-shadow: var(--site-shadow-card);
+}
+/* iris → orchid → teal headline gradient */
+.site-gradient-text {
+  background: linear-gradient(100deg, #b5a9ff 0%, #d39bff 45%, #67e6d3 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+:root[data-theme="light"] .vdo-site .site-gradient-text {
+  background-image: linear-gradient(100deg, #5243d6 0%, #8746c7 50%, #0f766e 100%);
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] .vdo-site .site-gradient-text {
+    background-image: linear-gradient(100deg, #5243d6 0%, #8746c7 50%, #0f766e 100%);
+  }
+}

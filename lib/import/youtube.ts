@@ -139,7 +139,8 @@ export function ytDlpFailure(stderr: string): string {
   if (/Sign in|age/i.test(stderr)) return "YouTube asks to sign in for this video, so it can't be imported.";
   if (/unavailable|private/i.test(stderr)) return "This video is private or unavailable.";
   // (anything else: yt-dlp's own last error line, without the server's folders, so it can be fixed)
-  const last = stderr.split("\n").map((l) => l.trim()).filter((l) => /ERROR|error/.test(l)).pop()?.replace(/\/[^\s:'"]+/g, "…").slice(0, 160);
+  const lines = stderr.split("\n").map((l) => l.trim()).filter(Boolean);
+  const last = (lines.filter((l) => /ERROR|error/.test(l)).pop() ?? lines.pop())?.replace(/\/[^\s:'"]+/g, "…").slice(0, 160);
   return last ? `YouTube didn't answer as expected (${last}).` : "YouTube's video couldn't be downloaded. Try another one.";
 }
 

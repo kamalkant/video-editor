@@ -82,8 +82,16 @@ export async function searchOnlineMemesWhy(query: string, limit = 4): Promise<{ 
     return { items: results, error: null };
   } catch (err) {
     console.warn("Online meme search timed out or failed:", err);
-    const e = err as { code?: string; stderr?: string; killed?: boolean };
-    const why = e.code === "ENOENT" ? NO_YTDLP : e.killed ? "YouTube search took too long. Try again." : ytDlpFailure(String(e.stderr ?? ""));
+    const e = err as { code?: string | number; stderr?: string; killed?: boolean; signal?: string };
+    const stderr = String(e.stderr ?? "").trim();
+    const why =
+      e.code === "ENOENT"
+        ? NO_YTDLP
+        : e.killed
+          ? "YouTube search took too long. Try again."
+          : stderr
+            ? ytDlpFailure(stderr)
+            : `The YouTube search tool stopped (${e.signal ?? `exit ${e.code ?? "?"}`}) without saying why.`;
     return { items: [], error: why };
   }
 }

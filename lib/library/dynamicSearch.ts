@@ -143,8 +143,18 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
     return outMp4;
   } catch (err) {
     console.error("Failed to download dynamic video:", cleanId, err);
-    const e = err as { code?: string; stderr?: string };
-    lastFailure.set(cleanId, e.code === "ENOENT" ? NO_YTDLP : ytDlpFailure(String(e.stderr ?? "")));
+    const e = err as { code?: string | number; stderr?: string; killed?: boolean };
+    const stderr = String(e.stderr ?? "").trim();
+    lastFailure.set(
+      cleanId,
+      e.code === "ENOENT"
+        ? NO_YTDLP
+        : e.killed
+          ? "YouTube took too long to send this clip. Try again."
+          : stderr
+            ? ytDlpFailure(stderr)
+            : `The clip couldn't be made: ${String((err as Error)?.message ?? err).replace(/\/[^\s:'"]+/g, "…").slice(0, 160)}`,
+    );
     return null;
   }
 }

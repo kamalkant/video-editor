@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { APPLE_MEDIA, FFMPEG, runFfmpeg } from "./run";
+import { APPLE_MEDIA, FFMPEG, FfmpegError, runFfmpeg } from "./run";
 
 export type Capabilities = {
   ok: boolean;
@@ -93,6 +93,19 @@ async function hevcAlphaWorks(): Promise<boolean> {
   }
 }
 
+/** A real (tiny) job: a frame as JPEG, the way thumbnails are made. "" when it works, else FFmpeg's reason. */
+async function workTest(): Promise<string> {
+  try {
+    const r = await runFfmpeg(["-hide_banner", "-f", "lavfi", "-i", "testsrc2=s=320x180:r=10:d=1", "-frames:v", "1", "-vf", "format=yuvj420p", "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1"], { collectStdout: true, timeoutMs: 20_000 });
+    return r.stdout.length > 100 ? "" : "made no picture";
+  } catch (err) {
+    // FFmpeg's last words (folders left out): e.g. a host that limits threads or memory
+    const tail = err instanceof FfmpegError ? err.stderrTail : String((err as Error)?.message);
+    const line = tail.split("\n").map((l) => l.trim()).filter(Boolean).slice(-2).join(" / ");
+    return (line || (err as Error).message || "failed").replace(/\/[^\s:'"]+/g, "…").slice(0, 300);
+  }
+}
+
 async function detect(): Promise<Capabilities> {
   const checks: Capabilities["checks"] = [];
   let version: string | null = null;
@@ -122,6 +135,8 @@ async function detect(): Promise<Capabilities> {
     const hevcListed = checks.find(
       (c) => c.name === "encoder hevc_videotoolbox",
     )?.ok;
+    const work = await workTest();
+    checks.push({ name: "test job (a JPEG frame)", ok: !work, why: work || "makes thumbnails, previews and exports" });
     checks.push({
       name: "HEVC alpha test encode",
       ok: hevcListed ? await hevcAlphaWorks() : false,

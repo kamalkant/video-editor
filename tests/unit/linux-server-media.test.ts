@@ -41,14 +41,35 @@ describe("on a Linux server", () => {
     await onPlatform("linux");
     const encoders = " V..... libvpx-vp9 x\n V..... libx264 x\n V..... libx265 x\n";
     const filters = ["chromakey", "despill", "alphaextract", "alphamerge", "overlay", "lut", "erosion", "dilation", "gblur", "scale"].map((f) => ` ... ${f} x`).join("\n") + "\n";
-    vi.doMock("@/lib/ffmpeg/run", () => ({
+    const run = (testJob: () => Buffer) => ({
       APPLE_MEDIA: false,
       FFMPEG: "/srv/vendor/ffmpeg/ffmpeg",
-      runFfmpeg: async (args: string[]) => ({ stdout: Buffer.from(args[0] === "-encoders" ? encoders : args[0] === "-filters" ? filters : "ffmpeg version 7.0.2") }),
-    }));
+      FfmpegError: class extends Error {
+        constructor(message: string, readonly code: number | null, readonly stderrTail: string) {
+          super(message);
+        }
+      },
+      runFfmpeg: async (args: string[]) => ({
+        stdout: args.includes("lavfi") ? testJob() : Buffer.from(args[0] === "-encoders" ? encoders : args[0] === "-filters" ? filters : "ffmpeg version 7.0.2"),
+      }),
+    });
+    vi.doMock("@/lib/ffmpeg/run", () => run(() => Buffer.alloc(2000)));
     const { getCapabilities } = await import("@/lib/ffmpeg/capabilities");
-    const caps = await getCapabilities(true);
-    expect(caps).toMatchObject({ ok: true, safariAlpha: false, ffmpegVersion: "7.0.2", message: null });
+    expect(await getCapabilities(true)).toMatchObject({ ok: true, safariAlpha: false, ffmpegVersion: "7.0.2", message: null });
+
+    // ...but a real job that fails (a host limiting threads, say) is reported, with FFmpeg's reason, not its folders
+    vi.resetModules();
+    vi.doMock("@/lib/ffmpeg/run", async () => {
+      const m = run(() => Buffer.alloc(0));
+      return { ...m, runFfmpeg: async (args: string[]) => {
+        if (args.includes("lavfi")) throw new m.FfmpegError("exited", 1, "x\npthread_create failed: Resource temporarily unavailable in /home/u1/app/x\n");
+        return m.runFfmpeg(args);
+      } };
+    });
+    const again = await (await import("@/lib/ffmpeg/capabilities")).getCapabilities(true);
+    expect(again.ok).toBe(false);
+    expect(again.message).toContain("pthread_create failed: Resource temporarily unavailable");
+    expect(again.message).not.toContain("/home/u1");
   });
 
   it("with no FFmpeg at all, the message doesn't tell the server to `brew install`", async () => {

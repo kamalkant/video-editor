@@ -95,6 +95,7 @@ import {
   forgetLocal,
   installUploadGate,
   localItem,
+  localItems,
   localSrc,
   localVersion,
   notOnServer,
@@ -939,6 +940,18 @@ function StudioInner(props: Props) {
     return { ...out, ...ds.media };
   }, [assets.items, metas, ds.media]);
   const projects = useProjects(user?.id, workspace);
+  // My Assets: files of this tab still uploading (or just uploaded, before the list refreshes) come first,
+  // from what the editor already knows about them (lib/media/localMedia)
+  const shownAssets = useMemo(() => {
+    const server = assets.items;
+    const have = new Set((server ?? []).map((a) => a.id));
+    const mine = localItems()
+      .filter((it) => !have.has(it.id) && metas[it.id])
+      .map((it) => ({ ...metas[it.id]!, usedIn: [] }));
+    return server ? [...mine, ...server] : mine.length ? mine : null;
+    // (localVer: an upload started, moved on or finished)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets.items, metas, localVer]);
   const refreshLists = useCallback(() => {
     void assets.refresh();
     void projects.refresh();
@@ -1670,6 +1683,8 @@ function StudioInner(props: Props) {
   };
 
   const deleteAsset = async (a: Asset): Promise<string | null> => {
+    if (notOnServer(a.id) && localItem(a.id)?.state === "uploading")
+      return "This file is still uploading. Delete it once the upload is done.";
     try {
       const res = await fetch(`/api/videos/${a.id}`, { method: "DELETE" });
       if (!res.ok && res.status !== 404) throw await toApiError(res);
@@ -7579,7 +7594,7 @@ function StudioInner(props: Props) {
           />
         ) : sidePanel === "media" ? (
           <MediaPanel
-            assets={assets.items}
+            assets={shownAssets}
             listError={assets.error}
             inTimeline={usedMedia}
             upload={uploadState}

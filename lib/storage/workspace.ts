@@ -52,12 +52,9 @@ export class AccountWorkspace implements IAccountWorkspace {
 
   async listProjects(): Promise<ProjectSummary[]> {
     const stored = await dbListProjects(this.accountCode);
-    const assets = await dbListAssets(this.accountCode);
-    const assetIdSet = new Set(assets.map((a) => a.id));
-
-    return stored.map((p) => {
-      return summaryOf(p, (id) => assetIdSet.has(id));
-    });
+    // (the cover is any upload of the project: on the server, or a file of this browser; only this
+    // workspace's own assets counted before, so a normal project never had a picture)
+    return stored.map((p) => summaryOf(p, () => true));
   }
 
   async getProject(id: string): Promise<Project | null> {

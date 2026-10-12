@@ -44,7 +44,7 @@ import { elementName } from "@/lib/elements/catalog";
 import { filmOpsParam, filmTiles } from "@/lib/editor/film";
 import { getEditingTools } from "@/lib/editor/editingTools";
 import { useTheme } from "@/lib/editor/theme";
-import { localSrc, localThumb, notOnServer } from "@/lib/media/localMedia";
+import { localFilm, localSrc, localThumb, notOnServer } from "@/lib/media/localMedia";
 import type { MemeClipItem } from "@/lib/library/memeCatalog";
 
 export { MEDIA_DRAG, MEME_DRAG } from "@/lib/editor/mediaDrag";
@@ -3313,10 +3313,13 @@ function ClipBlock(p: {
   // a file still uploading (lib/media/localMedia): the server has no filmstrip or waveform for it yet;
   // a frame taken in the browser stands in, then the server's follow
   const uploading = "mediaId" in c && notOnServer(c.mediaId);
+  // a file from this computer: its film is made in the browser at once (with background removal on, the
+  // server's keyed film is needed, once the file is there)
+  const ownFilm = c.type === "video" && m && !opsParam ? localFilm(c.mediaId, m) : null;
   const film =
-    c.type === "video" && m && m.width > 0 && m.duration > 0 && !uploading
+    c.type === "video" && m && m.width > 0 && m.duration > 0 && (ownFilm || !uploading)
       ? {
-          url: `/api/videos/${c.mediaId}/film${opsParam ? `?ops=${opsParam}` : ""}`,
+          url: ownFilm ?? `/api/videos/${c.mediaId}/film${opsParam ? `?ops=${opsParam}` : ""}`,
           tiles: filmTiles({
             width: p.width,
             from: p.view.left - p.left - p.view.width,

@@ -13,6 +13,7 @@ import {
 } from "@/lib/library/memeCatalog";
 import { createDragChip, MEME_DRAG, setMemeDrag } from "@/lib/editor/mediaDrag";
 import type { LibraryItem as AudioLibraryItem } from "@/lib/library";
+import { openAiSettings } from "@/lib/editor/useGemini";
 
 export type LibraryCategory = "all" | "videos" | "memes" | "photos" | "audio" | "youtube";
 
@@ -100,6 +101,8 @@ export function UnifiedLibraryPanel({
   // YouTube Search state
   const [ytVideos, setYtVideos] = useState<YouTubeItem[]>([]);
   const [onlineMemes, setOnlineMemes] = useState<MemeClipItem[]>([]);
+  // why a search source found nothing (no API key on the server, YouTube blocking it…): shown, not swallowed
+  const [searchNotes, setSearchNotes] = useState<{ memes?: string | null; youtube?: string | null }>({});
   const [isSearchingOnlineMemes, setIsSearchingOnlineMemes] = useState(false);
   const [isSearchingYt, setIsSearchingYt] = useState(false);
 
@@ -279,6 +282,7 @@ export function UnifiedLibraryPanel({
           if (!cancelled && Array.isArray(data?.items)) {
             const dynamicItems = data.items.filter((item: MemeClipItem) => item.isDynamic);
             setOnlineMemes(dynamicItems);
+            setSearchNotes((n) => ({ ...n, memes: dynamicItems.length ? null : (data.onlineError ?? null) }));
           }
         }
       } catch {
@@ -314,6 +318,11 @@ export function UnifiedLibraryPanel({
           page: "1",
         });
         const res = await fetch(`/api/import/search?${u}`);
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          setSearchNotes((n) => ({ ...n, youtube: err?.error?.message ?? "YouTube search isn't available right now." }));
+          setYtVideos([]);
+        } else setSearchNotes((n) => ({ ...n, youtube: null }));
         if (res.ok) {
           const data = await res.json();
           if (data?.items) {
@@ -718,6 +727,20 @@ export function UnifiedLibraryPanel({
 
       {/* Main Results Scroll Area */}
       <div className="flex-1 overflow-y-auto p-2.5 space-y-4">
+        {/* why a search source found nothing: a missing API key, YouTube refusing this server… */}
+        {q.trim() && (searchNotes.youtube || searchNotes.memes || (stockNeedsKey && activeCategory !== "memes")) && (
+          <div className="rounded-lg border border-warn-line bg-warn-soft px-2.5 py-2 text-[11px] leading-snug text-ink" role="status" data-testid="library-search-notes">
+            <p className="font-semibold">Some sources can't search yet</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-4">
+              {stockNeedsKey && activeCategory !== "memes" && <li>Stock videos (Pixabay / Pexels): add a free Pixabay or Pexels API key.</li>}
+              {searchNotes.youtube && <li>YouTube: {searchNotes.youtube}</li>}
+              {searchNotes.memes && <li>Online memes: {searchNotes.memes}</li>}
+            </ul>
+            <button type="button" className="mt-1.5 text-[11px] font-semibold text-primary underline" onClick={openAiSettings}>
+              Open API keys
+            </button>
+          </div>
+        )}
         {/* 1. Stock Videos (Pexels / Pixabay) */}
         {(activeCategory === "all" || activeCategory === "videos") && (
           <div className="space-y-1.5">

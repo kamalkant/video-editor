@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Tip } from "@/components/ui/Tip";
 import { formatAgo, formatTime } from "@/lib/format";
 import type { ProjectSummary } from "@/lib/projects/model";
+import { localThumb } from "@/lib/media/localMedia";
 
 /** Projects listed to switch to. */
 export const RECENT_PROJECTS = 8;
@@ -42,7 +43,7 @@ export function ProjectMenu(p: {
   const switchTo: MenuItem[] = recent.map((x) => ({
     label: x.name,
     detail: `${x.id === p.currentId ? "Open now" : `Edited ${formatAgo(x.updatedAt)}`} · ${formatTime(x.duration)}${x.missing ? " · a video is missing" : ""}`,
-    image: x.coverId ? `/api/videos/${x.coverId}/thumb` : null,
+    image: x.coverId ? (localThumb(x.coverId) ?? `/api/videos/${x.coverId}/thumb`) : null,
     checked: x.id === p.currentId,
     disabled: x.id === p.currentId,
     onSelect: () => p.onOpen(x.id),

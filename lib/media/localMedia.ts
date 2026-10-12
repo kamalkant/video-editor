@@ -16,6 +16,7 @@
 import type { MediaLite } from "../edit/doc";
 import type { VideoMeta } from "../api/types";
 import { ApiError } from "../api/types";
+import { filmSlots, FILM_H } from "../editor/film";
 import { LIMITS } from "../settings";
 import { opfsDelete, opfsReadBlob, opfsWriteBlob } from "../storage/opfs";
 
@@ -91,6 +92,9 @@ export function releaseLocal(id: string, force = false) {
   if (!it || (!force && it.state === "uploading")) return;
   URL.revokeObjectURL(it.url);
   if (it.poster) URL.revokeObjectURL(it.poster);
+  const film = films.get(id);
+  if (film?.url) URL.revokeObjectURL(film.url);
+  films.delete(id);
   items.delete(id);
   emit();
 }
@@ -244,6 +248,81 @@ export function addLocal(id: string, file: File, kind: MediaKind, poster: Blob |
   items.set(id, entry);
   emit();
   return entry;
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// The timeline film, made in the browser (no waiting for the upload and the server's FFmpeg)
+
+type Film = { key: string; url: string | null };
+const films = new Map<string, Film>();
+const filmJobs: (() => Promise<void>)[] = [];
+let filmBusy = false;
+
+/**
+ * The timeline film of a local video, made in the browser with the server's layout (lib/editor/film), so
+ * the timeline shows frames at once. null until its first frames are drawn (it fills in from the left).
+ * A new layout (the server's exact frame rate or length arrived) makes it again.
+ */
+export function localFilm(id: string, m: { duration: number; fps: number; width: number; height: number }): string | null {
+  const it = items.get(id);
+  if (!it || it.kind !== "video" || !(m.duration > 0) || !m.width || !m.height || typeof document === "undefined") return null;
+  const slots = filmSlots(m.duration, m.fps || 30, m.width, m.height);
+  const key = `${slots.n}:${slots.fw}`;
+  const had = films.get(id);
+  if (had?.key === key) return had.url;
+  if (had?.url) URL.revokeObjectURL(had.url);
+  films.set(id, { key, url: null });
+  filmJobs.push(() => makeFilm(id, key, slots));
+  if (!filmBusy) void runFilms();
+  return null;
+}
+
+async function runFilms() {
+  filmBusy = true;
+  while (filmJobs.length) await filmJobs.shift()!().catch(() => undefined);
+  filmBusy = false;
+}
+
+async function makeFilm(id: string, key: string, s: ReturnType<typeof filmSlots>) {
+  const it = items.get(id);
+  if (!it || films.get(id)?.key !== key) return;
+  const v = document.createElement("video");
+  v.muted = true;
+  v.preload = "auto";
+  v.playsInline = true;
+  v.src = it.url;
+  try {
+    if (!(await once(v, "loadeddata", 10_000))) return;
+    const c = document.createElement("canvas");
+    c.width = s.canvasW;
+    c.height = s.canvasH;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    let shown = 0;
+    const publish = async () => {
+      const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.72));
+      const now = films.get(id);
+      if (!blob || now?.key !== key) return;
+      if (now.url) URL.revokeObjectURL(now.url);
+      films.set(id, { key, url: URL.createObjectURL(blob) });
+      emit();
+    };
+    for (let i = 0; i < s.n; i++) {
+      if (films.get(id)?.key !== key) return; // released, or a new layout
+      const slot = s.at(i);
+      v.currentTime = Math.min(slot.t, Math.max(0, v.duration - 0.05));
+      if (!(await once(v, "seeked", 5_000))) continue;
+      ctx.drawImage(v, slot.x, slot.y, s.fw, FILM_H);
+      // (shown while it fills: the first frames at once, then about twice a second)
+      if (i === 0 || i === s.n - 1 || performance.now() - shown > 500) {
+        shown = performance.now();
+        await publish();
+      }
+    }
+  } finally {
+    v.removeAttribute("src");
+    v.load();
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------
@@ -541,6 +620,8 @@ export async function restoreLocal(ids: string[], serverHas: (id: string) => Pro
 /** (tests) forget everything */
 export function resetLocalMedia() {
   for (const id of [...items.keys()]) releaseLocal(id, true);
+  films.clear();
+  filmJobs.length = 0;
   queue.length = 0;
   active = 0;
   whenDone.clear();
@@ -552,3 +633,6 @@ export function resetLocalMedia() {
 
 /** Files of this tab still going to the server, or stopped on the way (for the progress task). */
 export const uploadingItems = (): LocalItem[] => [...items.values()].filter((it) => it.state !== "uploaded");
+
+/** Every file of this tab (Media › Assets lists the ones the server's list doesn't have yet). */
+export const localItems = (): LocalItem[] => [...items.values()];

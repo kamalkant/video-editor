@@ -12,6 +12,23 @@ import type { Asset } from "@/lib/media/useLibrary";
 import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
 import { LIMITS, limitSizeLabel } from "@/lib/settings";
 import type { UploadState } from "@/lib/upload/useUpload";
+import { localItem, localThumb } from "@/lib/media/localMedia";
+
+/** A file still uploading shows the frame taken in the browser (lib/media/localMedia). */
+const thumbOf = (id: string) => localThumb(id) ?? `/api/videos/${id}/thumb`;
+
+/** "Uploading 45%" over a file of this tab that isn't on the server yet. */
+function UploadBadge({ id, compact }: { id: string; compact?: boolean }) {
+  const it = localItem(id);
+  if (!it || it.state === "uploaded") return null;
+  if (compact)
+    return <span className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-primary" style={{ width: `${Math.max(8, Math.round(it.progress * 100))}%` }} title="Uploading" data-testid="asset-uploading" />;
+  return (
+    <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white" data-testid="asset-uploading">
+      {it.state === "failed" ? "Upload stopped" : `Uploading ${Math.round(it.progress * 100)}%`}
+    </span>
+  );
+}
 
 /** Media: a small upload box and "My Assets", every video uploaded to this computer. */
 /** The picture under the pointer while a file is dragged: a small card that sits above the pointer. */
@@ -574,7 +591,7 @@ export function MediaPanel(p: {
                         setMediaDrag(mediaLiteOf(a));
                         const chip = dragChip(
                           a.fileName,
-                          `/api/videos/${a.id}/thumb`,
+                          thumbOf(a.id),
                         );
                         e.dataTransfer.setDragImage(chip, 16, 40);
                       }}
@@ -584,12 +601,13 @@ export function MediaPanel(p: {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`/api/videos/${a.id}/thumb`}
+                        src={thumbOf(a.id)}
                         alt=""
                         className="size-full object-contain pointer-events-none"
                         loading="lazy"
                         draggable={false}
                       />
+                      <UploadBadge id={a.id} />
                     </button>
                   </div>
 
@@ -725,7 +743,7 @@ export function MediaPanel(p: {
                         setMediaDrag(mediaLiteOf(a));
                         const chip = dragChip(
                           a.fileName,
-                          `/api/videos/${a.id}/thumb`,
+                          thumbOf(a.id),
                         );
                         e.dataTransfer.setDragImage(chip, 16, 40);
                       }}
@@ -734,12 +752,13 @@ export function MediaPanel(p: {
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`/api/videos/${a.id}/thumb`}
+                        src={thumbOf(a.id)}
                         alt=""
                         className="size-full object-cover pointer-events-none"
                         loading="lazy"
                         draggable={false}
                       />
+                      <UploadBadge id={a.id} compact />
                     </div>
 
                     {/* Name */}

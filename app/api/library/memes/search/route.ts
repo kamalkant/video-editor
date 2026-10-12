@@ -1,5 +1,5 @@
 import { queryMemes, MEME_CATEGORIES, type MemeCategory } from "@/lib/library/memeCatalog";
-import { searchOnlineMemes } from "@/lib/library/dynamicSearch";
+import { searchOnlineMemesWhy } from "@/lib/library/dynamicSearch";
 
 export const runtime = "nodejs";
 
@@ -17,12 +17,12 @@ export async function GET(request: Request) {
 
   // If online search is requested or local items are few and query is specified
   let onlineItems: any[] = [];
+  // why YouTube search found nothing (blocked server, no downloader…): the Library says so instead of nothing
+  let onlineError: string | null = null;
   if (q.length >= 2 && (online || localItems.length === 0)) {
-    try {
-      onlineItems = await searchOnlineMemes(q, 6);
-    } catch {
-      onlineItems = [];
-    }
+    const r = await searchOnlineMemesWhy(q, 6);
+    onlineItems = r.items;
+    onlineError = r.error;
   }
 
   const combined = [...localItems, ...onlineItems];
@@ -32,6 +32,7 @@ export async function GET(request: Request) {
     items: combined,
     localCount: localItems.length,
     onlineCount: onlineItems.length,
+    onlineError,
     total: combined.length,
   });
 }

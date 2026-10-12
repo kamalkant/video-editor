@@ -1,6 +1,5 @@
 import "server-only";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
+import { execFile, type ExecFileOptions } from "node:child_process";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -10,7 +9,17 @@ import { NO_YTDLP, YTDLP_JS, ytDlpBin, ytDlpEnv, ytDlpFailure } from "@/lib/impo
 import type { MemeClipItem } from "./memeCatalog";
 import { dataRoot } from "@/lib/dataRoot";
 
-const execFilePromise = promisify(execFile);
+/**
+ * execFile as a promise of { stdout, stderr }, written out: util.promisify relies on execFile's custom
+ * promisify hook, which the production (webpack) build lost — stdout came back undefined on viplay.in.
+ */
+const execFilePromise = (bin: string, args: string[], opts: ExecFileOptions) =>
+  new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+    execFile(bin, args, { ...opts, encoding: "utf8" }, (err, stdout, stderr) => {
+      if (err) reject(Object.assign(err, { stdout: String(stdout ?? ""), stderr: String(stderr ?? "") }));
+      else resolve({ stdout: String(stdout ?? ""), stderr: String(stderr ?? "") });
+    });
+  });
 
 const CACHE_DIR = join(dataRoot(), "data", "cache", "memes", "search");
 

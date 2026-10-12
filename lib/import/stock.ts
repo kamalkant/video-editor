@@ -35,7 +35,11 @@ const scrubKey = (s: string, key: string | null) => (key ? s.split(key).join("â€
 async function getJson(url: string, init: RequestInit, key: string | null, name: string): Promise<unknown> {
   let res: Response;
   try {
-    res = await fetch(url, { ...init, signal: AbortSignal.timeout(20_000), cache: "no-store" });
+    const headers = {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ViPlay-Studio/1.0",
+      ...((init.headers as Record<string, string>) || {}),
+    };
+    res = await fetch(url, { ...init, headers, signal: AbortSignal.timeout(20_000), cache: "no-store" });
   } catch {
     throw new ImportError(`Couldn't reach ${name}. Check the internet connection.`, 502, "offline");
   }

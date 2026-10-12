@@ -393,34 +393,6 @@ type Landing = {
   drop?: { trackId: string; at: number; index?: number };
 };
 
-function useThrottledClock(clock: Clock, intervalMs = 150): number {
-  const subscribe = useCallback(
-    (onStoreChange: () => void) => {
-      let timer: ReturnType<typeof setTimeout> | null = null;
-      let last = 0;
-      return clock.subscribe(() => {
-        const now = performance.now();
-        if (now - last > intervalMs) {
-          last = now;
-          if (timer) {
-            clearTimeout(timer);
-            timer = null;
-          }
-          onStoreChange();
-        } else if (!timer) {
-          timer = setTimeout(() => {
-            timer = null;
-            last = performance.now();
-            onStoreChange();
-          }, intervalMs);
-        }
-      });
-    },
-    [clock, intervalMs],
-  );
-  return useSyncExternalStore(subscribe, clock.get, () => 0);
-}
-
 function PlayheadNeedle({
   clock,
   total,
@@ -433,6 +405,7 @@ function PlayheadNeedle({
   inner: number;
 }) {
   const t = useSyncExternalStore(clock.subscribe, clock.get, () => 0);
+  const pos = x(Math.min(total, t));
   return (
     <div
       aria-hidden="true"
@@ -440,8 +413,8 @@ function PlayheadNeedle({
       style={{ width: inner }}
     >
       <span
-        className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-red-500 will-change-[left]"
-        style={{ left: x(Math.min(total, t)) }}
+        className="absolute inset-y-0 left-0 w-0.5 -translate-x-1/2 bg-red-500 will-change-transform"
+        style={{ transform: `translate3d(${pos}px, 0, 0)` }}
         data-testid="playhead"
       >
         <span className="absolute -left-[5px] top-0.5 block size-3 rotate-45 rounded-sm bg-red-500" />
@@ -458,7 +431,6 @@ function PlayheadNeedle({
  */
 export function Timeline(p: TimelineProps) {
   const { doc, media } = p;
-  const t = useThrottledClock(p.clock, 150);
   const [dragTotal, setDragTotal] = useState<number | null>(null);
   const dragTotalRef = useRef<number | null>(null);
   const empty = doc.tracks.every((tr) => tr.clips.length === 0);
@@ -871,7 +843,7 @@ export function Timeline(p: TimelineProps) {
 
   /** Times clips and the playhead can snap to, leaving out one clip's own edges. */
   const edges = (except?: string, includePlayhead = true) => {
-    const out = includePlayhead ? [0, t] : [0];
+    const out = includePlayhead ? [0, p.clock.get()] : [0];
     if (doc.markers) {
       for (const m of doc.markers) out.push(m.t);
     }

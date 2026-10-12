@@ -198,11 +198,9 @@ import {
   type InspectorTab,
   type MotionProps,
 } from "./ClipCards";
-import { SmartMixPanel } from "./SmartMixPanel";
 import { applySmartMix, resetSmartMix } from "@/lib/audio/smartMix";
 import { DUCK_DETECT } from "@/lib/audio/ducking";
 import type { SmartMixConfig } from "@/lib/edit/doc";
-import { MotionTrackingPanel } from "./MotionTrackingPanel";
 import {
   DEFAULT_TRACKING_SETTINGS,
   TRACKING_COLORS,
@@ -243,19 +241,13 @@ import {
 import { refitBadge } from "@/lib/elements/geometry";
 import { browserMeasure } from "@/lib/elements/draw";
 import { renderElementParts } from "@/lib/elements/render";
-import { AudioLibraryPanel } from "./AudioLibraryPanel";
 import { LooksStrip } from "./LooksStrip";
-import { EffectsPanel } from "./EffectsPanel";
 import { BrandContext, useBrand } from "@/lib/editor/useBrand";
 import { saveCustomTemplate, TEMPLATES, type Template } from "@/lib/templates";
 import { BROADCAST_TEMPLATES_BY_ID } from "@/lib/templates/newsTemplates";
 import type { BroadcastTemplate } from "@/lib/templates/types";
-import { TemplateHub } from "./templates/TemplateHub";
 import { NEUTRAL } from "@/lib/player/look";
-import { TextPanel } from "./TextPanel";
 import { AiToolsPanel, type AiToolId } from "./AiToolsPanel";
-import { SoonPanel } from "./SoonPanel";
-import { BackgroundPanel } from "./BackgroundPanel";
 import { RatioMenu } from "./RatioMenu";
 import { newPatch } from "@/lib/player/patches";
 import { cropForAspect } from "@/lib/player/look";
@@ -281,11 +273,10 @@ import {
   type MotionClip,
 } from "@/lib/edit/keyframes";
 import { BUBBLE_MASK } from "./LookSections";
-import { TransitionCard, TransitionsPanel } from "./TransitionsPanel";
+import { TransitionCard } from "./TransitionsPanel";
 import type { TransitionType } from "@/lib/player/transitions";
 import { PanelSplitter, usePanelWidth } from "./PanelSplitter";
-import { captionLookStyle, SubtitlesPanel, type CaptionLook } from "./SubtitlesPanel";
-import { ThumbnailDialog } from "./ThumbnailDialog";
+import { captionLookStyle, type CaptionLook } from "./SubtitlesPanel";
 import { mainFrameAt } from "@/lib/edit/frameAt";
 import { emojiBoost } from "@/lib/subtitles/emoji";
 import { languageLabel } from "@/lib/subtitles/segments";
@@ -308,7 +299,6 @@ import { Timeline, type MaskKind, type TimelineApi } from "./Timeline";
 import { TimelineResizer, useTimelineHeight } from "./TimelineResizer";
 import { TopBar } from "./TopBar";
 import { TOOLS } from "./tools/registry";
-import { StorageManagerModal } from "./StorageManagerModal";
 import { RecoveryNotice } from "./RecoveryNotice";
 import {
   localWorkspaceManager,
@@ -478,6 +468,54 @@ const UnifiedLibraryPanel = dynamic(
     ssr: false,
     loading: () => <PanelLoading label="Loading the library…" />,
   },
+);
+const MotionTrackingPanel = dynamic(
+  () => import("./MotionTrackingPanel").then((m) => m.MotionTrackingPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading motion tracking…" /> },
+);
+const SmartMixPanel = dynamic(
+  () => import("./SmartMixPanel").then((m) => m.SmartMixPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading smart audio mix…" /> },
+);
+const AudioLibraryPanel = dynamic(
+  () => import("./AudioLibraryPanel").then((m) => m.AudioLibraryPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading audio library…" /> },
+);
+const EffectsPanel = dynamic(
+  () => import("./EffectsPanel").then((m) => m.EffectsPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading effects…" /> },
+);
+const TemplateHub = dynamic(
+  () => import("./templates/TemplateHub").then((m) => m.TemplateHub),
+  { ssr: false, loading: () => <PanelLoading label="Loading template hub…" /> },
+);
+const TransitionsPanel = dynamic(
+  () => import("./TransitionsPanel").then((m) => m.TransitionsPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading transitions…" /> },
+);
+const SubtitlesPanel = dynamic(
+  () => import("./SubtitlesPanel").then((m) => m.SubtitlesPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading subtitles…" /> },
+);
+const BackgroundPanel = dynamic(
+  () => import("./BackgroundPanel").then((m) => m.BackgroundPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading backgrounds…" /> },
+);
+const SoonPanel = dynamic(
+  () => import("./SoonPanel").then((m) => m.SoonPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading features…" /> },
+);
+const TextPanel = dynamic(
+  () => import("./TextPanel").then((m) => m.TextPanel),
+  { ssr: false, loading: () => <PanelLoading label="Loading text tools…" /> },
+);
+const ThumbnailDialog = dynamic(
+  () => import("./ThumbnailDialog").then((m) => m.ThumbnailDialog),
+  { ssr: false, loading: () => <DialogLoading /> },
+);
+const StorageManagerModal = dynamic(
+  () => import("./StorageManagerModal").then((m) => m.StorageManagerModal),
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 
 type Props = {

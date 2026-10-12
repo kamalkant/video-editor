@@ -2,6 +2,17 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { dataRoot } from "../dataRoot";
+
+const tmpForTools = () => {
+  const dir = join(dataRoot(), "tmp");
+  try {
+    mkdirSync(dir, { recursive: true });
+  } catch {
+    /* the default temp folder then */
+  }
+  return dir;
+};
 
 /** Each fetched tool: its *_PATH variable, where scripts/fetch-ffmpeg.mjs puts it, and how to ask its version. */
 const TOOLS = [
@@ -11,7 +22,9 @@ const TOOLS = [
 ] as const;
 
 const works = (bin: string, flag: string) => {
-  const r = spawnSync(bin, [flag], { stdio: "ignore", timeout: 30_000 });
+  // (yt-dlp unpacks itself into TMPDIR: the site's own data folder, as lib/import/youtube runs it)
+  const env = flag === "--version" && process.platform === "linux" ? { ...process.env, TMPDIR: tmpForTools() } : process.env;
+  const r = spawnSync(bin, [flag], { stdio: "ignore", timeout: 60_000, env });
   return { ok: r.status === 0, why: r.error ? (r.error as NodeJS.ErrnoException).code ?? r.error.message : `exit ${r.status}` };
 };
 

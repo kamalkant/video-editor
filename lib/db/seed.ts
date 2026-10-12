@@ -382,6 +382,8 @@ function adminFromEnv(db: DatabaseSync, now: number) {
   db.prepare(
     "UPDATE users SET password_hash = ?, password_salt = ?, role = 'super_admin', status = 'active', must_change_password = 0, updated_at = ? WHERE id = ?",
   ).run(hash, salt, now, user.id);
+  // (signed-in devices of that account sign in again, with the new password)
+  db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
   audit(user.id, "system.admin_reset_from_env");
   console.warn(`[ViPlay] ${email}: super admin password set from INITIAL_ADMIN_PASSWORD. Remove INITIAL_ADMIN_RESET now, or it's set again at every start.`);
 }
@@ -419,11 +421,13 @@ export function seedDefaultData(db: DatabaseSync, { throwaway = false } = {}) {
   const emailTaken = !!db.prepare("SELECT 1 FROM users WHERE email = ? COLLATE NOCASE").get(defaultEmail);
 
   if (!existingAdmin && !emailTaken) {
-    // never the well-known default in production: a random one, printed once, changed at first sign-in
+    // never the well-known default in production, and never a password in the logs: without
+    // INITIAL_ADMIN_PASSWORD the account gets a random one nobody knows (set the env vars and
+    // INITIAL_ADMIN_RESET=1 to sign in: adminFromEnv below)
     const envPass = process.env.INITIAL_ADMIN_PASSWORD?.trim();
-    const defaultPass = envPass || (process.env.NODE_ENV === "production" ? randomBytes(12).toString("base64url") : SEED_ADMIN_PASSWORD);
+    const defaultPass = envPass || (process.env.NODE_ENV === "production" ? randomBytes(24).toString("base64url") : SEED_ADMIN_PASSWORD);
     if (!envPass && process.env.NODE_ENV === "production" && !throwaway) {
-      console.warn(`[ViPlay] Created super admin ${defaultEmail} with a one-time password: ${defaultPass} (change it at first sign-in, or set INITIAL_ADMIN_PASSWORD)`);
+      console.warn(`[ViPlay] Created super admin ${defaultEmail} without a known password. To sign in, set INITIAL_ADMIN_EMAIL, INITIAL_ADMIN_PASSWORD and INITIAL_ADMIN_RESET=1, restart, sign in, then remove INITIAL_ADMIN_RESET.`);
     }
     const { hash, salt } = hashPassword(defaultPass);
     adminId = randomUUID();

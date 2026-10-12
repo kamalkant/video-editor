@@ -1,5 +1,8 @@
 import "server-only";
 import { spawn } from "node:child_process";
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { dataRoot } from "../dataRoot";
 import { aiKey } from "../ai/keys";
 import { FFMPEG } from "../ffmpeg/run";
 import { ImportError, thumbUrl } from "./stock";
@@ -97,9 +100,28 @@ export async function testYouTubeKey(key: string) {
 
 /** Start yt-dlp (its path goes through a parameter, like FFmpeg's in lib/ffmpeg/run: no shell, and the build doesn't trace it). */
 function runYtDlp(bin: string, args: string[], opts: { stdio: ("ignore" | "pipe")[]; signal?: AbortSignal }) {
-  return spawn(bin, args, { ...opts, shell: false });
+  return spawn(bin, args, { ...opts, shell: false, env: ytDlpEnv() });
 }
-export const ytDlpBin = () => process.env.YTDLP_PATH ?? "yt-dlp";
+/** YTDLP_PATH, else the copy scripts/fetch-ffmpeg.mjs put in vendor/yt-dlp (Linux hosts), else the PATH. */
+export const ytDlpBin = () => {
+  if (process.env.YTDLP_PATH) return process.env.YTDLP_PATH;
+  const vendored = join(/*turbopackIgnore: true*/ process.cwd(), "vendor", "yt-dlp", "yt-dlp");
+  return existsSync(vendored) ? vendored : "yt-dlp";
+};
+/**
+ * The Linux yt-dlp is one file that unpacks itself into the temp folder each time it starts; shared
+ * hosting often doesn't let programs run from /tmp, so it unpacks into the site's own data folder.
+ */
+export function ytDlpEnv(): NodeJS.ProcessEnv {
+  if (process.platform !== "linux") return process.env;
+  const tmp = join(dataRoot(), "tmp");
+  try {
+    mkdirSync(tmp, { recursive: true });
+  } catch {
+    return process.env;
+  }
+  return { ...process.env, TMPDIR: tmp };
+}
 
 export const NO_YTDLP =
   process.platform === "darwin"

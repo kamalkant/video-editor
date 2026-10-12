@@ -10,6 +10,7 @@ import type { VideoMeta } from "@/lib/api/types";
 import { costOf, money } from "@/lib/ai/pricing";
 import { GEMINI_VOICES, VOICE_STYLES } from "@/lib/ai/voices";
 import { useGemini } from "@/lib/editor/useGemini";
+import { useServerCaps } from "@/lib/editor/useServerCaps";
 import { formatTime } from "@/lib/format";
 import { useRecorder } from "@/lib/record/useRecorder";
 import { GeminiBadge, GeminiKeyCard, GeminiNote } from "./GeminiBits";
@@ -187,7 +188,10 @@ export function VoiceoverStudioDialog({
 // -------------------------------------------------------------
 function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
   const gemini = useGemini();
-  const [engine, setEngineState] = useState<Engine>(readEngine);
+  const [chosen, setEngineState] = useState<Engine>(readEngine);
+  // a server without the Mac's voices (Linux hosting) uses Gemini's
+  const { macVoices: macHere } = useServerCaps();
+  const engine: Engine = macHere ? chosen : "gemini";
   const setEngine = (e: Engine) => {
     setEngineState(e);
     try {
@@ -321,7 +325,9 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             role="radio"
             aria-checked={engine === "mac"}
             onClick={() => setEngine("mac")}
-            className={`flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs transition-all ${
+            disabled={!macHere}
+            title={macHere ? undefined : "Mac voices need the ViPlay app on a Mac. Gemini voices work here."}
+            className={`flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
               engine === "mac"
                 ? "border-slate-400 bg-slate-500/20 font-semibold text-white shadow-sm"
                 : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-white"
@@ -329,7 +335,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
           >
             <span>Mac System Voices</span>
             <span className="rounded bg-white/10 px-1.5 py-px text-[0.625rem] text-slate-300">
-              Offline & Free
+              {macHere ? "Offline & Free" : "Needs the Mac app"}
             </span>
           </button>
         </div>

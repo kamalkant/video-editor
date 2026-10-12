@@ -8,6 +8,7 @@ import { Notice } from "@/components/ui/Notice";
 import type { VideoMeta } from "@/lib/api/types";
 import { costOf, money } from "@/lib/ai/pricing";
 import { GEMINI_VOICES, VOICE_STYLES } from "@/lib/ai/voices";
+import { useServerCaps } from "@/lib/editor/useServerCaps";
 import { useGemini } from "@/lib/editor/useGemini";
 import { formatTime } from "@/lib/format";
 import { GeminiBadge, GeminiKeyCard, GeminiNote } from "./GeminiBits";
@@ -36,7 +37,10 @@ const LOCALE: Record<string, string> = {
 
 function TtsBody({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
   const gemini = useGemini();
-  const [engine, setEngineState] = useState<Engine>(readEngine);
+  const [chosen, setEngineState] = useState<Engine>(readEngine);
+  // a server without the Mac's voices (Linux hosting) uses Gemini's
+  const { macVoices } = useServerCaps();
+  const engine: Engine = macVoices ? chosen : "gemini";
   const setEngine = (e: Engine) => {
     setEngineState(e);
     try {
@@ -70,6 +74,8 @@ function TtsBody({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
       .then(async (r) => {
         const j = await r.json();
         if (!alive) return;
+        // (no Mac voices on this server: Gemini's are used, nothing to report)
+        if (j?.error?.code === "tts_unavailable") return;
         if (!r.ok)
           throw new Error(
             j?.error?.message ?? "Text to speech isn't available.",
@@ -89,7 +95,7 @@ function TtsBody({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
     try {
       const body =
         engine === "gemini"
-          ? { engine, text, voice: gVoice, style }
+          ? { engine: "gemini", text, voice: gVoice, style }
           : { text, voice, rate };
       const r = await fetch("/api/tts", {
         method: "POST",
@@ -124,12 +130,14 @@ function TtsBody({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             role="radio"
             aria-checked={engine === id}
             onClick={() => setEngine(id)}
-            className={`flex flex-1 flex-col items-center rounded-md border px-2 py-1.5 text-xs ${engine === id ? "border-primary bg-primary-soft font-semibold" : "border-control text-muted"}`}
+            disabled={id === "mac" && !macVoices}
+            title={id === "mac" && !macVoices ? "Mac voices need the ViPlay app on a Mac. Gemini voices work here." : undefined}
+            className={`flex flex-1 flex-col items-center rounded-md border px-2 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-50 ${engine === id ? "border-primary bg-primary-soft font-semibold" : "border-control text-muted"}`}
           >
             <span className="flex items-center gap-1">
               {label} {id === "gemini" && <GeminiBadge />}
             </span>
-            <span className="text-[0.625rem] font-normal">{note}</span>
+            <span className="text-[0.625rem] font-normal">{id === "mac" && !macVoices ? "needs the Mac app" : note}</span>
           </button>
         ))}
       </div>

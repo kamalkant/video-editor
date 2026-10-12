@@ -91,6 +91,8 @@ export function UnifiedLibraryPanel({
 
   // Remote Stock Search state
   const [stockVideos, setStockVideos] = useState<StockItem[]>([]);
+  // the server has no Pexels / Pixabay key: STOCK VIDEOS shows the built-in loops, and says how to get more
+  const [stockNeedsKey, setStockNeedsKey] = useState(false);
   const [stockPhotos, setStockPhotos] = useState<StockPhotoItem[]>([]);
   const [isSearchingStock, setIsSearchingStock] = useState(false);
   const [isSearchingPhotos, setIsSearchingPhotos] = useState(false);
@@ -199,9 +201,11 @@ export function UnifiedLibraryPanel({
         const res = await fetch(`/api/stock/search?${u}`);
         if (res.ok) {
           const data = await res.json();
+          setStockNeedsKey(!!data?.needsKey);
           if (data?.items) {
             const mapped: StockItem[] = data.items
-              .filter((it: any) => it.provider !== "curated" && it.source !== "curated")
+              // (curated loops come only when the server has no stock key: then they are the stock videos)
+              .filter((it: any) => data.needsKey || (it.provider !== "curated" && it.source !== "curated"))
               .map((it: any) => ({
               id: it.id,
               source: it.provider || "pexels",
@@ -721,6 +725,11 @@ export function UnifiedLibraryPanel({
               <span>STOCK VIDEOS {stockVideos.length > 0 && `(${stockVideos.length})`}</span>
               <span className="text-[10px] text-muted/80">Hover to play</span>
             </div>
+            {stockNeedsKey && (
+              <p className="px-1 text-[10px] leading-snug text-muted/80">
+                Built-in loops. For more stock videos, add a free Pexels or Pixabay API key to the server (PEXELS_API_KEY / PIXABAY_API_KEY).
+              </p>
+            )}
 
             {stockVideos.length === 0 && !isSearchingStock ? (
               activeCategory === "videos" ? (

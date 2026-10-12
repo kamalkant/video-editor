@@ -1,9 +1,14 @@
 "use client";
 
+import { useServerCaps } from "@/lib/editor/useServerCaps";
 import { EXPORT_FORMATS, FORMAT_GROUPS, type ExportFormat } from "@/lib/export/presets";
 
 /** The export file format: MP4 (recommended) first, then every other format in groups. */
 export function FormatPicker({ value, onChange, blockedOf, sizeOf }: { value: ExportFormat; onChange: (f: ExportFormat) => void; blockedOf: (f: ExportFormat) => string | null; /** "~24 MB" (null: not shown) */ sizeOf?: (f: ExportFormat) => string | null }) {
+  // off a Mac the website pack has no Safari .mov (Apple's encoder): say what's in it
+  const { safariAlpha } = useServerCaps();
+  const labelOf = (f: (typeof EXPORT_FORMATS)[number]) => (f.id === "pack" && !safariAlpha ? "Website pack (VP9 alpha)" : f.label);
+  const detailOf = (f: (typeof EXPORT_FORMATS)[number]) => (f.id === "pack" && !safariAlpha ? "WebM see-through video + a poster + embed code, in one zip" : f.detail);
   return (
     <fieldset className="flex flex-col gap-2" data-testid="export-formats">
       <legend className="mb-1 text-sm font-semibold">Format</legend>
@@ -23,11 +28,11 @@ export function FormatPicker({ value, onChange, blockedOf, sizeOf }: { value: Ex
                 <input type="radio" name="export-format" className="mt-0.5 size-4 shrink-0" checked={on} onChange={() => onChange(f.id)} aria-describedby={`fmt-${f.id}`} />
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
-                    {f.label}
+                    {labelOf(f)}
                     {rec && <span className="rounded bg-primary px-1.5 py-px text-[0.625rem] font-semibold uppercase tracking-wide text-white">Recommended</span>}
                   </span>
                   <span id={`fmt-${f.id}`} className="block text-xs text-muted">
-                    {why ?? f.detail}
+                    {why ?? detailOf(f)}
                   </span>
                 </span>
                 {(() => {

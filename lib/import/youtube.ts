@@ -99,7 +99,22 @@ export async function testYouTubeKey(key: string) {
 function runYtDlp(bin: string, args: string[], opts: { stdio: ("ignore" | "pipe")[]; signal?: AbortSignal }) {
   return spawn(bin, args, { ...opts, shell: false });
 }
-const ytDlpBin = () => process.env.YTDLP_PATH ?? "yt-dlp";
+export const ytDlpBin = () => process.env.YTDLP_PATH ?? "yt-dlp";
+
+export const NO_YTDLP =
+  process.platform === "darwin"
+    ? "The YouTube downloader (yt-dlp) isn't installed. Install it with: brew install yt-dlp"
+    : "The YouTube downloader isn't available on this server right now. Download the clip on your computer and upload it.";
+
+/** What to tell people when yt-dlp fails, from its error output. */
+export function ytDlpFailure(stderr: string): string {
+  // YouTube often refuses servers in data centers (hosting): "Sign in to confirm you're not a bot", HTTP 429
+  if (/not a bot|HTTP Error 429|Too Many Requests/i.test(stderr))
+    return "YouTube is blocking downloads from this server right now. Download the clip on your computer and upload it.";
+  if (/Sign in|age/i.test(stderr)) return "YouTube asks to sign in for this video, so it can't be imported.";
+  if (/unavailable|private/i.test(stderr)) return "This video is private or unavailable.";
+  return "YouTube's video couldn't be downloaded. Try another one.";
+}
 
 /** Is the YouTube downloader installed? */
 export function ytDlpVersion(): Promise<string | null> {
@@ -133,7 +148,7 @@ export function ytDownload(id: string, out: string, onProgress: (pct: number) =>
       }
     });
     c.stderr!.on("data", (d: Buffer) => (err = (err + d.toString()).slice(-2000)));
-    c.on("error", (e) => reject((e as NodeJS.ErrnoException).code === "ENOENT" ? new ImportError("The YouTube downloader (yt-dlp) isn't installed. Install it with: brew install yt-dlp", 424, "no_ytdlp") : e));
-    c.on("close", (code) => (code === 0 ? resolve() : reject(new ImportError(/Sign in|age/i.test(err) ? "YouTube asks to sign in for this video, so it can't be imported." : /unavailable|private/i.test(err) ? "This video is private or unavailable." : "YouTube's video couldn't be downloaded. Try another one.", 502, "download_failed"))));
+    c.on("error", (e) => reject((e as NodeJS.ErrnoException).code === "ENOENT" ? new ImportError(NO_YTDLP, 424, "no_ytdlp") : e));
+    c.on("close", (code) => (code === 0 ? resolve() : reject(new ImportError(ytDlpFailure(err), 502, "download_failed"))));
   });
 }

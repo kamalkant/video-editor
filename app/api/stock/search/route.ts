@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { curatedStockProvider, type StockMediaItem } from "@/lib/media/stockProvider";
+import { aiKey } from "@/lib/ai/keys";
 import { searchPexels, searchPixabay } from "@/lib/import/stock";
 import { isImportFake, fakeSearch } from "@/lib/import/fake";
 import type { Shape } from "@/lib/import/types";
@@ -125,8 +126,15 @@ export async function GET(request: Request) {
     }
   }
 
+  // no Pexels / Pixabay key on this server: the library's own broadcast loops, so STOCK VIDEOS isn't empty
+  const needsKey = !isImportFake() && !aiKey("pexels") && !aiKey("pixabay");
+  if (needsKey && provider === "all" && !items.length) {
+    items = (await curatedStockProvider.search({ query: q, category, aspectRatio })).items;
+  }
+
   return NextResponse.json({
     items,
     total: items.length,
+    needsKey,
   });
 }

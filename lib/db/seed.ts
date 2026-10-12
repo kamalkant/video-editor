@@ -361,6 +361,31 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
 /** The first super admin's password when INITIAL_ADMIN_PASSWORD isn't set (development only; must be changed at first sign-in). */
 export const SEED_ADMIN_PASSWORD = "Admin@12345";
 
+function adminFromEnv(db: DatabaseSync, now: number) {
+  const email = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.INITIAL_ADMIN_PASSWORD?.trim();
+  if (!email || !password) return;
+  const audit = (actorId: string, action: string) =>
+    db.prepare("INSERT INTO audit_logs (id, actor_id, action, target, details, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(randomUUID(), actorId, action, "super_admin", JSON.stringify({ email }), now);
+  const user = db.prepare("SELECT id FROM users WHERE email = ? COLLATE NOCASE").get(email) as { id: string } | undefined;
+  if (!user) {
+    const { hash, salt } = hashPassword(password);
+    const id = randomUUID();
+    db.prepare(
+      "INSERT INTO users (id, email, name, password_hash, password_salt, role, status, created_at, updated_at, must_change_password) VALUES (?, ?, ?, ?, ?, 'super_admin', 'active', ?, ?, 0)",
+    ).run(id, email, "Super Administrator", hash, salt, now, now);
+    audit(id, "system.admin_from_env");
+    return;
+  }
+  if (process.env.INITIAL_ADMIN_RESET !== "1") return;
+  const { hash, salt } = hashPassword(password);
+  db.prepare(
+    "UPDATE users SET password_hash = ?, password_salt = ?, role = 'super_admin', status = 'active', must_change_password = 0, updated_at = ? WHERE id = ?",
+  ).run(hash, salt, now, user.id);
+  audit(user.id, "system.admin_reset_from_env");
+  console.warn(`[ViPlay] ${email}: super admin password set from INITIAL_ADMIN_PASSWORD. Remove INITIAL_ADMIN_RESET now, or it's set again at every start.`);
+}
+
 /** `throwaway`: a build worker's in-memory copy (lib/db/index), so its made-up admin password isn't printed. */
 export function seedDefaultData(db: DatabaseSync, { throwaway = false } = {}) {
   const now = Date.now();
@@ -388,8 +413,12 @@ export function seedDefaultData(db: DatabaseSync, { throwaway = false } = {}) {
   const existingAdmin = checkAdmin.get() as { id: string } | undefined;
   let adminId = existingAdmin?.id;
 
-  if (!existingAdmin) {
-    const defaultEmail = process.env.INITIAL_ADMIN_EMAIL || "admin@VDO.local";
+  const defaultEmail = process.env.INITIAL_ADMIN_EMAIL || "admin@VDO.local";
+  // (no super admin, but that email is already an account: inserting it again crashed every start;
+  // adminFromEnv below promotes it when INITIAL_ADMIN_RESET=1)
+  const emailTaken = !!db.prepare("SELECT 1 FROM users WHERE email = ? COLLATE NOCASE").get(defaultEmail);
+
+  if (!existingAdmin && !emailTaken) {
     // never the well-known default in production: a random one, printed once, changed at first sign-in
     const envPass = process.env.INITIAL_ADMIN_PASSWORD?.trim();
     const defaultPass = envPass || (process.env.NODE_ENV === "production" ? randomBytes(12).toString("base64url") : SEED_ADMIN_PASSWORD);
@@ -420,6 +449,10 @@ export function seedDefaultData(db: DatabaseSync, { throwaway = false } = {}) {
       now
     );
   }
+
+  // 2b. The super admin named in the env, on a database that already has one (it outlives deploys now):
+  // created if missing; with INITIAL_ADMIN_RESET=1 its password is set from the env again (a lost password)
+  if (!throwaway) adminFromEnv(db, now);
 
   // 3. Seed Default Plans
   const insertPlan = db.prepare(`

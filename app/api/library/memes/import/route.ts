@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { apiError } from "@/lib/http/errors";
 import { MEME_CATALOG } from "@/lib/library/memeCatalog";
 import { ensureMemeVideo } from "@/lib/library/memeGenerator";
-import { ensureDynamicVideo } from "@/lib/library/dynamicSearch";
+import { dynamicFailure, ensureDynamicVideo } from "@/lib/library/dynamicSearch";
 import { importFile } from "@/lib/videos";
 
 export const runtime = "nodejs";
@@ -75,9 +75,9 @@ export async function POST(request: Request) {
 
     if (!videoPath) {
       return apiError(
-        500,
+        502,
         "server_error",
-        "Failed to retrieve meme video file.",
+        (id.startsWith("dyn_") && dynamicFailure(id.replace("dyn_", ""))) || "Failed to retrieve meme video file.",
       );
     }
 

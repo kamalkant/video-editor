@@ -254,6 +254,8 @@ import { emojiBoost } from "@/lib/subtitles/emoji";
 import { languageLabel } from "@/lib/subtitles/segments";
 import { everyNth } from "@/lib/audio/beats";
 import type { ImportTab } from "./ImportDialog";
+import { NO_AI_REMOVAL } from "@/lib/ops/aiMatte";
+import { useServerCaps } from "@/lib/editor/useServerCaps";
 import { useGemini } from "@/lib/editor/useGemini";
 import { useVeoJob } from "@/lib/editor/useVeoJob";
 import type { Caption } from "@/lib/subtitles/segments";
@@ -809,6 +811,7 @@ function StudioInner(props: Props) {
     return () => window.removeEventListener("VDO:ai-settings", open);
   }, []);
   const gemini = useGemini();
+  const serverCaps = useServerCaps();
   const [silenceMarks, setSilenceMarks] = useState<Range[] | null>(null);
   const [timelineH, setTimelineH] = useTimelineHeight(tall ? 236 : 196);
   // panel widths: drag the lines between the panels (remembered)
@@ -4847,6 +4850,8 @@ function StudioInner(props: Props) {
       ? `Can't make videos yet: ${capability.message}`
       : !hasClips
         ? "Add a video or picture first."
+        : f === "mov-alpha" && !serverCaps.safariAlpha
+          ? "Safari's see-through file (HEVC + alpha) needs Apple's encoder, which this server doesn't have. Use WebM (VP9 + alpha): it works in Chrome, Edge, Firefox and Android."
         : (formatBlocked(f, {
             transparent:
               doc.canvas.background === "transparent" && !doc.canvas.backdrop,
@@ -4988,12 +4993,12 @@ function StudioInner(props: Props) {
           : "a text"
     : null;
   const aiWhyNot: Partial<Record<AiToolId, string | null>> = {
-    "ai-remove": aiVideo ? null : "Add or select a video clip first.",
+    "ai-remove": !serverCaps.aiRemoval ? NO_AI_REMOVAL : aiVideo ? null : "Add or select a video clip first.",
     "green-screen": aiVideo ? null : "Add or select a video clip first.",
-    "blur-bg": aiVideo ? null : "Add or select a video clip first.",
+    "blur-bg": !serverCaps.aiRemoval ? NO_AI_REMOVAL : aiVideo ? null : "Add or select a video clip first.",
     denoise: aiSound ? null : "Select a video or sound clip that has sound.",
     "auto-color": aiPicture ? null : "Add or select a video or picture first.",
-    "replace-bg": aiVideo ? null : "Add or select a video clip first.",
+    "replace-bg": !serverCaps.aiRemoval ? NO_AI_REMOVAL : aiVideo ? null : "Add or select a video clip first.",
     watermark: aiPicture ? null : "Add or select a video or picture first.",
     stabilize: aiVideo
       ? hasAi(aiVideo)

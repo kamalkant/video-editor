@@ -14,7 +14,8 @@ import {
   blackParams,
   removalOn,
 } from "@/lib/editor/studioReducer";
-import { AI_RANGES, aiMatte, type AiMatteParams } from "@/lib/ops/aiMatte";
+import { AI_RANGES, aiMatte, NO_AI_REMOVAL, type AiMatteParams } from "@/lib/ops/aiMatte";
+import { useServerCaps } from "@/lib/editor/useServerCaps";
 import {
   BLACK_RANGES,
   blackKey,
@@ -594,8 +595,11 @@ export function RemoveBackgroundPanel({
 }: ToolPanelProps) {
   const [selectedTab, setSelectedTab] = useState<Mode | null>(null);
   const mode: Mode = selectedTab ?? (state.method === "ai" ? "ai" : "color");
+  // AI Removal / Cutout need Apple's Vision framework: off a Mac the tab explains instead of starting a job
+  const { aiRemoval } = useServerCaps();
   const setMode = (m: Mode) => {
     setSelectedTab(m);
+    if (!aiRemoval && (m === "ai" || m === "cutout")) return;
     if (m === "ai" || m === "cutout" || m === "live") {
       dispatch({ type: "setMethod", method: "ai" });
     } else if (m === "color") {
@@ -720,7 +724,11 @@ export function RemoveBackgroundPanel({
                     : "The key color is removed."}
         </p>
 
-        {mode === "ai" ? (
+        {!aiRemoval && (mode === "ai" || mode === "cutout") ? (
+          <Notice tone="info" title="Not on this server yet">
+            {NO_AI_REMOVAL}
+          </Notice>
+        ) : mode === "ai" ? (
           <AiSettings
             on={on}
             ai={ai}

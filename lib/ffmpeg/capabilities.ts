@@ -7,6 +7,9 @@ export type Capabilities = {
   ok: boolean;
   /** Safari's see-through file (HEVC + alpha) can be made: Apple's encoder, so a Mac server only. */
   safariAlpha: boolean;
+  /** AI Removal (Apple's Vision framework) and the Mac's text-to-speech voices: a Mac server only. */
+  aiRemoval: boolean;
+  macVoices: boolean;
   ffmpegVersion: string | null;
   checks: { name: string; ok: boolean; why: string }[];
   message: string | null;
@@ -148,6 +151,8 @@ async function detect(): Promise<Capabilities> {
     return {
       ok: false,
       safariAlpha: false,
+      aiRemoval: APPLE_MEDIA,
+      macVoices: APPLE_MEDIA,
       ffmpegVersion: null,
       checks,
       message: APPLE_MEDIA
@@ -162,6 +167,8 @@ async function detect(): Promise<Capabilities> {
   return {
     ok: failed.length === 0,
     safariAlpha,
+    aiRemoval: APPLE_MEDIA,
+    macVoices: APPLE_MEDIA,
     ffmpegVersion: version,
     checks,
     message: failed.length

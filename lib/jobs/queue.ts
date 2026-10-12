@@ -1,7 +1,7 @@
-import { spawn } from "node:child_process";
 import { join } from "node:path";
-import { stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import type { CropBox } from "../edit/geometry";
+import { createZipArchive } from "../storage/VDO/container";
 import { ensureMask } from "../ai/masks";
 import { findCropBox } from "../ffmpeg/cropbox";
 import {
@@ -717,7 +717,7 @@ async function runDocJob(job: Job, doc: TimelineDoc, signal: AbortSignal) {
   if (zipStep) {
     zipStep.state = "running";
     await save(job);
-    const zipName = "VDO-website-files.zip";
+    const zipName = "ViPlay-website-files.zip";
     await zipFiles(dir, storagePath("jobs", job.id, zipName), [
       OUTPUT_FILES.webm.name,
       OUTPUT_FILES.mov.name,
@@ -814,17 +814,20 @@ async function verifyAlpha(
   return min < 10 && (!anySolid || max > 200);
 }
 
-function zipFiles(dir: string, out: string, names: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn("/usr/bin/zip", ["-j", "-0", "-q", out, ...names], {
-      cwd: dir,
-      stdio: "ignore",
-    });
-    child.on("error", reject);
-    child.on("close", (code) =>
-      code === 0 ? resolve() : reject(new Error(`zip exited with ${code}`)),
-    );
-  });
+/**
+ * A stored (uncompressed: video doesn't shrink) zip of `names` from `dir`, skipping any not made (off a Mac
+ * there's no Safari .mov). No zip program needed (Linux hosts have none).
+ */
+export async function zipFiles(dir: string, out: string, names: string[]): Promise<void> {
+  const read = async (name: string) => {
+    try {
+      return { path: name, data: new Uint8Array(await readFile(join(dir, name))) };
+    } catch {
+      return null;
+    }
+  };
+  const entries = (await Promise.all(names.map(read))).filter((e) => e !== null);
+  await writeFile(out, await createZipArchive(entries));
 }
 
 async function runJob(job: Job, signal: AbortSignal) {
@@ -928,7 +931,7 @@ async function runJob(job: Job, signal: AbortSignal) {
   const zipStep = job.steps.find((s) => s.kind === "zip")!;
   zipStep.state = "running";
   await save(job);
-  const zipName = "VDO-website-files.zip";
+  const zipName = "ViPlay-website-files.zip";
   await zipFiles(dir, storagePath("jobs", job.id, zipName), [
     OUTPUT_FILES.webm.name,
     OUTPUT_FILES.mov.name,

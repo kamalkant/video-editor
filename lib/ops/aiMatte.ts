@@ -7,6 +7,10 @@ import type { GraphBuilder, Input, OpDefinition } from "./types";
  * The mask arrives as a second FFmpeg input; this op cleans it up and merges it.
  */
 
+/** Shown off a Mac (e.g. viplay.in on Linux hosting): AI Removal uses Apple's Vision framework. */
+export const NO_AI_REMOVAL =
+  "AI background removal isn't available on this server yet. For green-screen video, use Background → Color Key.";
+
 export const AI_RANGES = {
   smooth: { min: 0, max: 2, step: 1 },
   edgeShift: { min: -3, max: 3, step: 1 },

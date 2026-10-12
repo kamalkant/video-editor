@@ -148,6 +148,7 @@ import type { LiveKeyParams } from "@/lib/editor/liveKey";
 import type { Range } from "@/lib/edit/timeline";
 import { useCropBox } from "@/lib/editor/useCropBox";
 import { usePreview } from "@/lib/editor/usePreview";
+import type { SampledKeyColor } from "@/lib/editor/sampleColor";
 import {
   DEFAULT_FORMAT,
   EXPORT_PRESETS,
@@ -814,6 +815,7 @@ function StudioInner(props: Props) {
   );
   // green/blue clips start by picking the color; black-background clips don't need a pick
   const [picking, setPicking] = useState(false);
+  const [pickReturnMode, setPickReturnMode] = useState<"program" | "clip" | null>(null);
   const [pickWarning, setPickWarning] = useState<string | null>(null);
   const [bg, setBg] = useState<Bg>("checker");
   const [custom, setCustom] = useState("#ffffff");
@@ -1592,10 +1594,13 @@ function StudioInner(props: Props) {
     setLeftPanel((l) => l ?? "media");
   };
 
-  /** Leave the open project: a fresh editor at "/" (a real navigation, so reopening that project later loads it again). */
-  const toEmptyEditor = () => {
+  /** Leave the open project: a fresh editor at "/editor" (preserving the active panel if specified). */
+  const toEmptyEditor = (keepPanel?: string | null) => {
     resetEditor();
-    router.push("/");
+    if (keepPanel !== undefined) {
+      setLeftPanel(keepPanel);
+    }
+    router.replace("/editor");
   };
 
   // Account switch: when user account changes, cleanly detach previous project and reset timeline
@@ -1668,7 +1673,7 @@ function StudioInner(props: Props) {
       }
     }
     // (the editor opens again with this project: the overlay stays until then)
-    router.push(`/?p=${id}`);
+    router.push(`/editor?p=${id}`);
   };
 
   const handleExportVDO = async (portable: boolean) => {
@@ -1805,7 +1810,7 @@ function StudioInner(props: Props) {
     }
     if (id === projectId || id === sync.project?.id) {
       await sync.detach(false);
-      toEmptyEditor();
+      toEmptyEditor("projects");
     }
     refreshLists();
   };
@@ -4533,14 +4538,14 @@ function StudioInner(props: Props) {
   const crop = useCropBox(
     video?.id ?? "",
     clipSpecNow,
-    !!video && doc.output.crop.enabled,
+    !!video && doc.output.crop.enabled && !notOnServer(video.id),
   );
   const preview = usePreview(
     video?.id ?? "",
     clipSpecNow,
     pausedT ?? lastT,
     // (the server's exact frame is for background removal: a file kept only here isn't sent just to show it)
-    !!video && clipShown && pausedT !== null && (removalOn(state) || !notOnServer(video.id)),
+    !!video && clipShown && pausedT !== null && removalOn(state) && !notOnServer(video.id),
   );
   const seeThroughPct = preview.result?.stats.seeThroughPct ?? null;
   const seeThrough =
@@ -4808,27 +4813,52 @@ function StudioInner(props: Props) {
       ? aiMask.packed
       : (allPacked[c.id] ?? null);
 
-  const onPick = async (pt: { x: number; y: number }, at: number) => {
+  const onPick = async (
+    pt: { x: number; y: number },
+    at: number,
+    clientSample?: SampledKeyColor | null,
+  ) => {
     if (!video) return;
     setPicking(false);
-    setWorking("Reading the color…");
-    try {
-      const res = await fetch(
-        `/api/videos/${video.id}/pick?x=${pt.x}&y=${pt.y}&t=${at.toFixed(3)}`,
-      );
-      const r = (await res.json()) as { hex: string; looksLikeKey: boolean };
-      if (!res.ok) throw new Error();
-      dispatch({ type: "setKey", hex: r.hex, source: "picked" });
+    const returnMode = pickReturnMode;
+    if (returnMode === "program") {
+      setMode("program");
+    }
+    setPickReturnMode(null);
+
+    if (clientSample) {
+      dispatch({ type: "setKey", hex: clientSample.hex, source: "picked" });
       setView((v) => (v === "original" ? "removed" : v));
       setPickWarning(
-        r.looksLikeKey
+        clientSample.looksLikeKey
           ? null
-          : `The color you clicked (${r.hex}) doesn't look like a green or blue background. Parts of the person may disappear.`,
+          : `The color you clicked (${clientSample.hex}) doesn't look like a green or blue background. Parts of the person may disappear.`,
       );
-    } catch {
+      return;
+    }
+
+    if (!notOnServer(video.id)) {
+      setWorking("Reading the color…");
+      try {
+        const res = await fetch(
+          `/api/videos/${video.id}/pick?x=${pt.x}&y=${pt.y}&t=${at.toFixed(3)}`,
+        );
+        const r = (await res.json()) as { hex: string; looksLikeKey: boolean };
+        if (!res.ok) throw new Error();
+        dispatch({ type: "setKey", hex: r.hex, source: "picked" });
+        setView((v) => (v === "original" ? "removed" : v));
+        setPickWarning(
+          r.looksLikeKey
+            ? null
+            : `The color you clicked (${r.hex}) doesn't look like a green or blue background. Parts of the person may disappear.`,
+        );
+      } catch {
+        setPickWarning("Couldn't read the color there. Try again.");
+      } finally {
+        setWorking(null);
+      }
+    } else {
       setPickWarning("Couldn't read the color there. Try again.");
-    } finally {
-      setWorking(null);
     }
   };
 
@@ -5218,7 +5248,7 @@ function StudioInner(props: Props) {
               bg === "white"
                 ? { background: "#fff" }
                 : bg === "black"
-                  ? { background: "#1f1f1f" }
+                  ? { background: "#000000" }
                   : bg === "custom"
                     ? { background: custom }
                     : undefined
@@ -7948,8 +7978,14 @@ function StudioInner(props: Props) {
             : null
         }
         picking={pickingOn}
+        detectedKey={state.detectedKey}
         onPick={onPick}
-        onCancelPick={() => setPicking(false)}
+        onCancelPick={() => {
+          setPicking(false);
+          if (pickReturnMode === "program") setMode("program");
+          setPickReturnMode(null);
+          if (on) setView("removed");
+        }}
         onPausedTimeChange={(pt) => {
           setPausedT(pt);
           if (pt !== null) setLastT(pt);
@@ -8237,12 +8273,17 @@ function StudioInner(props: Props) {
         picking: pickingOn,
         pickWarning,
         onStartPick: () => {
+          setPickReturnMode(mode);
           setMode("clip");
           setPicking(true);
-          // removal is off: pick on the original picture
-          if (!on) setView("original");
+          setView("original");
         },
-        onCancelPick: () => setPicking(false),
+        onCancelPick: () => {
+          setPicking(false);
+          if (pickReturnMode === "program") setMode("program");
+          setPickReturnMode(null);
+          if (on) setView("removed");
+        },
         onHexCommit: (hex) => {
           dispatch({ type: "setKey", hex, source: "typed" });
           setPickWarning(null);

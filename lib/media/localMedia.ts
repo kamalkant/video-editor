@@ -546,7 +546,7 @@ async function send(id: string, attempt: number): Promise<void> {
 
 const VIDEO_PATH = /^\/api\/videos\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/([^/]*))?/;
 /** Paths that only show what the server already has (pictures, the file itself): they never send a local file. */
-const DISPLAY_ONLY = new Set(["thumb", "thumbnail", "film", "strip", "wave", "source", "play", "proxy"]);
+const DISPLAY_ONLY = new Set(["thumb", "thumbnail", "film", "strip", "wave", "source", "play", "proxy", "pick"]);
 
 /**
  * While the editor is open: a request for server work on a file the server doesn't have yet (a frame, a

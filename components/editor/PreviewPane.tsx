@@ -11,6 +11,7 @@ import type { Clock } from "@/lib/editor/clock";
 import { nextKept, timelineDuration, toSource, toTimeline, wholeClip, type Segment } from "@/lib/edit/timeline";
 import { LiveKeyRenderer, type LiveKeyParams } from "@/lib/editor/liveKey";
 import { clientToSource } from "@/lib/editor/pointerToSource";
+import { sampleColorFromSource, type SampledKeyColor } from "@/lib/editor/sampleColor";
 import type { PreviewResult } from "@/lib/editor/usePreview";
 import { formatTime } from "@/lib/format";
 import { Magnifier } from "./Magnifier";
@@ -36,7 +37,7 @@ export type PlayerApi = {
 };
 
 const noop = () => () => {};
-const BG_CLASS: Record<Exclude<Bg, "custom">, string> = { checker: "bg-checker", white: "bg-white", black: "bg-[#1f1f1f]", image: "bg-checker", video: "bg-checker" };
+const BG_CLASS: Record<Exclude<Bg, "custom">, string> = { checker: "bg-checker", white: "bg-white", black: "bg-black", image: "bg-checker", video: "bg-checker" };
 
 type Exact = { result: PreviewResult | null; pending: boolean; busy: boolean; error: string | null; typicalMs: number; retry: () => void };
 
@@ -55,7 +56,8 @@ export function PreviewPane(p: {
   view: View;
   onViewChange: (v: View) => void;
   picking: boolean;
-  onPick: (pt: { x: number; y: number }, t: number) => void;
+  detectedKey?: string | null;
+  onPick: (pt: { x: number; y: number }, t: number, clientSample?: SampledKeyColor | null) => void;
   onCancelPick: () => void;
   /** Reports the paused time (for the exact frame), or null while playing. */
   onPausedTimeChange: (t: number | null) => void;
@@ -347,7 +349,9 @@ export function PreviewPane(p: {
     const pt = clientToSource(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect(), p.size);
     if (!pt) return;
     setHover(null);
-    p.onPick(pt, fallback ? time : videoRef.current?.currentTime ?? time);
+    const source = fallback ? fallbackImgRef.current : videoRef.current;
+    const clientSample = sampleColorFromSource(source, pt, p.size, p.detectedKey);
+    p.onPick(pt, fallback ? time : videoRef.current?.currentTime ?? time, clientSample);
   };
 
   const isFinal = view === "final" && !!p.final;

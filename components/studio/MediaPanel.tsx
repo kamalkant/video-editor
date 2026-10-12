@@ -14,7 +14,7 @@ import type { Asset } from "@/lib/media/useLibrary";
 import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
 import { LIMITS, limitSizeLabel } from "@/lib/settings";
 import type { UploadState } from "@/lib/upload/useUpload";
-import { localItem, localSrc, localThumb } from "@/lib/media/localMedia";
+import { keptHereOnly, localItem, localSrc, localThumb } from "@/lib/media/localMedia";
 
 /** A file still uploading shows the frame taken in the browser (lib/media/localMedia). */
 const thumbOf = (id: string) => localThumb(id) ?? `/api/videos/${id}/thumb`;
@@ -44,6 +44,17 @@ function Thumb({ src, className }: { src: string; className: string }) {
 /** "Uploading 45%" over a file of this tab that isn't on the server yet. */
 function UploadBadge({ id, compact }: { id: string; compact?: boolean }) {
   const it = localItem(id);
+  // kept on this computer only: sent when a server feature needs it
+  if (keptHereOnly(id))
+    return compact ? (
+      <span className="pointer-events-none absolute left-0.5 top-0.5 flex size-3.5 items-center justify-center rounded bg-black/70 text-white" title="On this computer" data-testid="asset-local">
+        <Icon name="laptop" className="size-2.5" />
+      </span>
+    ) : (
+      <span className="pointer-events-none absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white" title="Kept on this computer: sent to the server only when the export or an AI tool needs it" data-testid="asset-local">
+        <Icon name="laptop" className="size-3" /> On this computer
+      </span>
+    );
   if (!it || it.state === "uploaded") return null;
   if (compact)
     return <span className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-primary" style={{ width: `${Math.max(8, Math.round(it.progress * 100))}%` }} title="Uploading" data-testid="asset-uploading" />;

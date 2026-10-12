@@ -2,9 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { join } from "node:path";
 
 /**
- * Local-first playback (lib/media/localMedia): an imported file plays from this computer at once. Its first
- * frame shows without waiting for the upload, nothing is downloaded back from the server, dragging it on
- * the timeline plays at once, and after a reload it plays from the copy kept in the browser.
+ * Local-first media (lib/media/localMedia): an imported file plays from this computer at once and stays
+ * there. Its first frame shows at once, nothing is sent to or downloaded from the server, dragging it on the
+ * timeline plays at once, after a reload it plays from the copy kept in the browser, and only the export
+ * (a server feature) sends it.
  */
 
 const FIX = join(__dirname, ".fixtures");
@@ -19,6 +20,13 @@ function watchDownloads(page: Page) {
   });
   return got;
 }
+
+/** The id of the file just imported (its copy's entry in the browser's index). */
+const importedId = (page: Page) =>
+  page.evaluate(() => {
+    const e = Object.entries(localStorage).find(([k]) => k.startsWith("viplay:local-media:"));
+    return Object.keys(JSON.parse(e?.[1] ?? "{}"))[0] ?? null;
+  });
 
 /** The program preview's middle pixel. */
 const middle = (page: Page) =>
@@ -36,7 +44,8 @@ test("local-first: an imported clip shows its first frame at once and plays from
   const downloads = watchDownloads(page);
   await page.goto("/editor");
   await expect(page.getByTestId("file-input")).toBeAttached();
-  const put = page.waitForRequest((r) => r.method() === "PUT" && /\/api\/videos\/[0-9a-f-]{36}$/.test(r.url()));
+  const puts: string[] = [];
+  page.on("request", (r) => r.method() === "PUT" && /\/api\/videos\/[0-9a-f-]{36}$/.test(r.url()) && puts.push(r.url()));
 
   // 1. import: the first frame is on the stage without waiting for the upload
   const t0 = Date.now();
@@ -44,7 +53,8 @@ test("local-first: an imported clip shows its first frame at once and plays from
   await expect(page.getByTestId("lane-main").getByTestId("timeline-clip")).toHaveCount(1);
   await expect.poll(async () => isRed(await middle(page)), { timeout: 10_000, intervals: [50] }).toBe(true);
   const firstFrameMs = Date.now() - t0;
-  const id = /\/api\/videos\/([0-9a-f-]{36})$/.exec((await put).url())![1]!;
+  await expect.poll(() => importedId(page)).not.toBeNull();
+  const id = (await importedId(page))!;
   test.info().annotations.push({ type: "first frame after import (ms)", description: String(firstFrameMs) });
   expect(firstFrameMs).toBeLessThan(5_000);
   // it plays from the file itself (an object URL), not a server copy
@@ -77,27 +87,36 @@ test("local-first: an imported clip shows its first frame at once and plays from
   expect((await poolVideos(page)).filter((v) => v.src).every((v) => v.src.startsWith("blob:"))).toBe(true);
   await page.getByRole("button", { name: "Pause", exact: true }).first().click();
 
-  // nothing was downloaded back from the server
+  // nothing was downloaded back from the server, and nothing was sent to it: the file stays here
   expect(downloads.filter((d) => d.id === id)).toEqual([]);
+  expect(puts).toEqual([]);
+  await expect(page.getByTestId("assets").getByTestId("asset-local").first()).toBeVisible();
 
-  // 3. after a reload (the upload done), it plays from the copy kept in the browser, not the server's
+  // 3. after a reload, it plays from the copy kept in the browser (still not sent)
   await expect(page.getByTestId("save-state")).toHaveText("✓ Saved", { timeout: 30_000 });
-  await expect.poll(() => page.evaluate((i) => !!Object.keys(JSON.parse(Object.entries(localStorage).find(([k]) => k.startsWith("viplay:local-media:"))?.[1] ?? "{}")).includes(i), id)).toBe(true);
   await page.reload();
   await expect(page.getByTestId("lane-main").getByTestId("timeline-clip")).toHaveCount(1, { timeout: 30_000 });
   await expect.poll(async () => (await poolVideos(page)).some((v) => v.src.startsWith("blob:")), { timeout: 15_000 }).toBe(true);
   await expect.poll(async () => isRed(await middle(page)), { timeout: 10_000 }).toBe(true);
   expect(downloads.filter((d) => d.id === id)).toEqual([]);
+  expect(puts).toEqual([]);
+
+  // 4. the export runs on the server: starting it sends the file first, then the video is made
+  await page.getByTestId("export-button").click();
+  const dialog = page.getByRole("dialog", { name: "Export & Share" });
+  await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
+  await expect.poll(() => puts.some((u) => u.endsWith(id)), { timeout: 30_000 }).toBe(true);
+  await expect(page.getByTestId("export-button")).toContainText("Export ✓", { timeout: 120_000 });
 });
 
 test("local-first: the clip view (and split view) plays the imported file from this computer", async ({ page }) => {
   const downloads = watchDownloads(page);
   await page.goto("/editor");
-  const put = page.waitForRequest((r) => r.method() === "PUT" && /\/api\/videos\/[0-9a-f-]{36}$/.test(r.url()));
   await page.getByTestId("file-input").setInputFiles(join(FIX, "red.mp4"));
   const clip = page.getByTestId("lane-main").getByTestId("timeline-clip");
   await expect(clip).toHaveCount(1);
-  const id = /\/api\/videos\/([0-9a-f-]{36})$/.exec((await put).url())![1]!;
+  await expect.poll(() => importedId(page)).not.toBeNull();
+  const id = (await importedId(page))!;
   await expect(async () => {
     await clip.first().click();
     await expect(page.getByRole("button", { name: "Split view: Program and This clip" })).toBeEnabled({ timeout: 2_000 });

@@ -9,6 +9,7 @@ import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
 import { toApiError } from "@/lib/api/types";
 import { formatAgo, formatTime } from "@/lib/format";
 import type { ProjectSummary } from "@/lib/projects/model";
+import { newUuid } from "@/lib/storage/uuid";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { exportVDO, importVDO } from "@/lib/storage/VDO";
 import { saveFileWithPicker } from "@/lib/storage/filePicker";
@@ -140,6 +141,15 @@ export function ProjectsPanel(p: {
   const duplicate = async (x: ProjectSummary) => {
     setBusy(`Duplicating “${x.name}”…`);
     try {
+      // a project kept on this computer: copied here (the server would leave out files it doesn't have)
+      const local = workspace ? await workspace.getProject(x.id) : null;
+      if (workspace && local) {
+        const id = newUuid();
+        const now = Date.now();
+        await workspace.saveProject({ ...local, id, name: `${x.name} (Copy)`, createdAt: now, updatedAt: now, jobId: null });
+        p.onRenamed(id, `${x.name} (Copy)`);
+        return;
+      }
       const res = await fetch(`/api/projects/${x.id}`);
       if (!res.ok) throw await toApiError(res);
       const data = (await res.json()) as { doc: unknown; name: string };

@@ -9,6 +9,7 @@ import { costOf, money } from "@/lib/ai/pricing";
 import { GEMINI_VOICES } from "@/lib/ai/voices";
 import { geminiPost, type GeminiUi } from "@/lib/editor/useGemini";
 import { runTask } from "@/lib/editor/tasks";
+import { ensureOnServer, notOnServer } from "@/lib/media/localMedia";
 import { languageLabel, segmentsToCaptions, SUB_LANGUAGES, type Caption, type Segment, type SubLanguage } from "@/lib/subtitles/segments";
 import type { VideoMeta } from "@/lib/videos";
 import { GeminiBadge, GeminiKeyCard } from "./GeminiBits";
@@ -56,6 +57,12 @@ export function DubbingDialog(p: {
     setError(null);
     try {
       const result = await runTask({ id: "dub", kind: "ai", label: `Dubbing into ${languageLabel(to)}` }, p.onShow, async (task) => {
+        // (a file kept only on this computer goes to the server first: the listening happens there)
+        if (notOnServer(clip.mediaId)) {
+          setBusy("Sending the clip…");
+          task.update({ detail: "Sending the clip…", percent: 2 });
+          if (!(await ensureOnServer([clip.mediaId])).ok) throw new Error("The clip couldn't be sent to the server. Check the connection and try again.");
+        }
         setBusy("Listening…");
         task.update({ detail: "Listening…", percent: 5 });
         const subs = await geminiPost<{ language: string; segments: Segment[] }>("/api/ai/subtitles", { mediaId: clip.mediaId, in: clip.in, out: clip.out, language: from });

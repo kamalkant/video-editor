@@ -1,10 +1,11 @@
 /**
- * Local-first media: a file you import plays straight from your computer.
+ * Local-first media: a file you import plays straight from your computer, and stays there.
  *
- * Picking a file puts it on the timeline at once, playing from an object URL of the file itself: nothing
- * waits for the upload. The upload to the server still happens, in the background, because exports, AI tools
- * and background removal run there (PUT /api/videos/<id>: the server keeps the id the browser chose, so the
- * timeline and the project never change ids). Meanwhile:
+ * Picking a file puts it on the timeline at once, playing from an object URL of the file itself. It is not
+ * sent anywhere ("local"): it goes to the server only when a server feature needs it — the export, AI tools,
+ * background removal, a stabilized copy… (ensureOnServer, and the upload gate below, which sends it the
+ * moment such a request is made). The upload is PUT /api/videos/<id>: the server keeps the id the browser
+ * chose, so the timeline and the project never change ids. Meanwhile:
  *  - the preview, scrubbing and sound use your own file (Studio's sourceOf → ProgramPlayer)
  *  - thumbnails show a frame taken in the browser; the server's filmstrip and waveform follow the upload
  *  - requests for server work on that file wait for its upload (installUploadGate)
@@ -24,7 +25,8 @@ import { LIMITS } from "../settings";
 import { opfsDelete, opfsReadBlob, opfsWriteBlob } from "../storage/opfs";
 
 export type MediaKind = "video" | "image" | "audio";
-export type LocalState = "uploading" | "uploaded" | "failed";
+/** "local": kept on this computer only (nothing sent yet); then "uploading" → "uploaded", or "failed". */
+export type LocalState = "local" | "uploading" | "uploaded" | "failed";
 
 export type LocalItem = {
   id: string;
@@ -41,7 +43,7 @@ export type LocalItem = {
   size: number;
 };
 
-type Entry = LocalItem & { file: Blob; type: string; posterBlob: Blob | null; addedAt: number };
+type Entry = LocalItem & { file: Blob; type: string; posterBlob: Blob | null; addedAt: number; persisted: boolean };
 
 const items = new Map<string, Entry>();
 let version = 0;
@@ -90,10 +92,10 @@ export function localInfo(id: string): { name: string; kind: MediaKind; type: st
 }
 /** The frame taken in the browser (a video's cover), if there is one. */
 export const localPosterOf = (id: string): Blob | null => items.get(id)?.posterBlob ?? null;
-/** Media still on its way to the server (or failed to get there). */
+/** Media the server doesn't have: kept here only, on its way, or failed to get there. */
 export const notOnServer = (id: string): boolean => {
   const s = items.get(id)?.state;
-  return s === "uploading" || s === "failed";
+  return s === "local" || s === "uploading" || s === "failed";
 };
 /** The not-yet-uploaded files among `ids`, for "Export waits for…" */
 export function pendingAmong(ids: Iterable<string>): LocalItem[] {
@@ -112,10 +114,13 @@ function update(id: string, patch: Partial<Entry>) {
   emit();
 }
 
-/** Stop keeping a file in this tab (its object URLs are revoked). Not while it's uploading. */
+/**
+ * Stop keeping a file in this tab (its object URLs are revoked). Not while it's uploading, and never a
+ * file kept only here whose copy couldn't be saved in the browser (it would be gone).
+ */
 export function releaseLocal(id: string, force = false) {
   const it = items.get(id);
-  if (!it || (!force && it.state === "uploading")) return;
+  if (!it || (!force && (it.state === "uploading" || (it.state === "local" && !it.persisted)))) return;
   URL.revokeObjectURL(it.url);
   if (it.poster) URL.revokeObjectURL(it.poster);
   const film = films.get(id);
@@ -228,12 +233,12 @@ export async function probeLocal(file: File, url: string, timeoutMs = 10_000): P
 }
 
 /** What the timeline needs to place the file before the server has seen it (the server's details replace it). */
-export function provisionalMeta(id: string, file: File, p: LocalProbe): VideoMeta {
+export function provisionalMeta(id: string, file: File, p: LocalProbe, size = file.size, createdAt = Date.now()): VideoMeta {
   return {
     id,
     kind: p.kind,
     fileName: file.name.replace(/[^\w.\- ()]/g, "_").slice(0, 120) || "video",
-    createdAt: Date.now(),
+    createdAt,
     info: {
       container: file.name.toLowerCase().split(".").pop() ?? "",
       videoCodec: "",
@@ -247,7 +252,7 @@ export function provisionalMeta(id: string, file: File, p: LocalProbe): VideoMet
       audioCodec: null,
       soundDetected: p.kind !== "image",
       colorTransfer: null,
-      size: file.size,
+      size,
     },
     suggestedKey: null,
     keyKind: null,
@@ -272,6 +277,7 @@ export function addLocal(id: string, file: File, kind: MediaKind, poster: Blob |
     file,
     type: file.type,
     addedAt: Date.now(),
+    persisted: false,
   };
   items.set(id, entry);
   emit();
@@ -444,12 +450,28 @@ function doneSignal(id: string) {
   return s;
 }
 
-/** Resolves when the file is on the server (true) or its upload failed (false). Not local: true at once. */
+/** Resolves when the file is on the server (true) or its upload failed / never started (false). Not here: true. */
 export function whenOnServer(id: string): Promise<boolean> {
   const it = items.get(id);
   if (!it || it.state === "uploaded") return Promise.resolve(true);
-  if (it.state === "failed") return Promise.resolve(false);
+  if (it.state === "failed" || it.state === "local") return Promise.resolve(false);
   return doneSignal(id).promise;
+}
+
+/**
+ * A server feature needs these files (the export, an AI tool…): those kept only here (or whose upload
+ * failed) are sent now, and this resolves once every one is on the server. Files that aren't local count
+ * as there. `failed`: the ones that couldn't be sent.
+ */
+export async function ensureOnServer(ids: Iterable<string>): Promise<{ ok: boolean; failed: string[] }> {
+  const want = [...new Set(ids)].filter((id) => notOnServer(id));
+  for (const id of want) {
+    const s = items.get(id)?.state;
+    if (s === "local" || s === "failed") uploadLocal(id);
+  }
+  const done = await Promise.all(want.map((id) => whenOnServer(id)));
+  const failed = want.filter((_, k) => !done[k]);
+  return { ok: !failed.length, failed };
 }
 
 /** Send a local file to the server in the background (once; a failed one can be sent again). */
@@ -516,12 +538,15 @@ async function send(id: string, attempt: number): Promise<void> {
 // ---------------------------------------------------------------------------------------------------------
 // Server requests for a file still uploading wait for it
 
-const VIDEO_PATH = /^\/api\/videos\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\/|$)/;
+const VIDEO_PATH = /^\/api\/videos\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/([^/]*))?/;
+/** Paths that only show what the server already has (pictures, the file itself): they never send a local file. */
+const DISPLAY_ONLY = new Set(["thumb", "thumbnail", "film", "strip", "wave", "source", "play", "proxy"]);
 
 /**
- * While the editor is open: a request for server work on a file that is still uploading (a frame, a
- * stabilized copy, a mask…) waits until the file is there, instead of failing with "no longer here".
- * Returns the uninstall function.
+ * While the editor is open: a request for server work on a file the server doesn't have yet (a frame, a
+ * stabilized copy, a mask…) sends it first if it's kept only here, and waits until it's there, instead of
+ * failing with "no longer here". Asking for its details, pictures, deleting it and the upload itself go
+ * straight through. Returns the uninstall function.
  */
 export function installUploadGate(): () => void {
   if (typeof window === "undefined") return () => undefined;
@@ -534,9 +559,14 @@ export function installUploadGate(): () => void {
       const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url, window.location.href);
       const m = url.origin === window.location.origin ? VIDEO_PATH.exec(url.pathname) : null;
       const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
-      // (the upload itself and deleting a file go straight through)
-      if (m && notOnServer(m[1]!) && !(m[2] === "" && (method === "PUT" || method === "DELETE"))) {
-        const ok = await whenOnServer(m[1]!);
+      const id = m?.[1];
+      const sub = m?.[2] ?? "";
+      const state = id ? items.get(id)?.state : undefined;
+      // (the upload itself and deleting a file go straight through; so do its details and pictures while
+      // it's only here: they don't need it on the server)
+      const passes = !sub ? method === "PUT" || method === "DELETE" || (method === "GET" && state === "local") : DISPLAY_ONLY.has(sub) && state === "local";
+      if (id && notOnServer(id) && !passes) {
+        const ok = (await ensureOnServer([id])).ok;
         if (!ok)
           return Response.json(
             { error: { code: "not_uploaded", message: "This file didn't reach the server, so this can't be done yet. Try the upload again." } },
@@ -602,6 +632,7 @@ export async function persistLocal(id: string, file: Blob, p: LocalProbe & { nam
     const idx = readIndex(acct);
     idx[id] = { name: p.name, kind: p.kind, type: file.type, size: file.size, width: p.width, height: p.height, duration: p.duration, uploaded: items.get(id)?.state === "uploaded", savedAt: Date.now() };
     writeIndex(acct, idx);
+    if (items.has(id)) items.set(id, { ...items.get(id)!, persisted: true });
     await enforceBudget(acct);
     return true;
   } catch {
@@ -672,7 +703,8 @@ export async function restoreLocal(ids: string[], serverHas: (id: string) => Pro
   const acct = account;
   if (!acct) return [];
   const idx = readIndex(acct);
-  const todo = [...new Set(ids)].filter((id) => idx[id] && !items.has(id));
+  // (one read per file: one already being read back is left to that)
+  const todo = [...new Set(ids)].filter((id) => idx[id] && !items.has(id) && !restoring.has(id));
   const since = Date.now();
   for (const id of todo) restoring.set(id, since);
   let read: { id: string; blob: Blob | null; poster: Blob | null }[];
@@ -698,7 +730,9 @@ export async function restoreLocal(ids: string[], serverHas: (id: string) => Pro
     }
     if (items.has(id)) continue; // (imported again meanwhile)
     const file = blob instanceof File ? blob : new File([blob], e.name, { type: e.type });
-    addLocal(id, file, e.kind, poster, e.uploaded ? "uploaded" : "uploading");
+    // (never sent: it stays here until a server feature needs it)
+    addLocal(id, file, e.kind, poster, e.uploaded ? "uploaded" : "local");
+    items.set(id, { ...items.get(id)!, persisted: true });
     added.push(id);
   }
   if (forgot) writeIndex(acct, idx);
@@ -711,9 +745,8 @@ export async function restoreLocal(ids: string[], serverHas: (id: string) => Pro
   added.forEach((id, k) => {
     if (onServer[k] || !items.has(id)) return;
     const e = idx[id]!;
-    // (it says "uploaded", but the server lost it: send it again)
-    if (items.get(id)!.state === "uploaded") update(id, { state: "uploading" });
-    uploadLocal(id);
+    // (it says "uploaded", but the server lost it: kept here again, sent when needed)
+    if (items.get(id)!.state === "uploaded") update(id, { state: "local" });
     unknown.push({ id, kind: e.kind, fileName: e.name, width: e.width, height: e.height, fps: e.kind === "video" ? 30 : 0, duration: e.duration, hasAudio: e.kind !== "image", suggestedKey: null, keyKind: null });
   });
   return unknown;
@@ -746,7 +779,33 @@ export function resetLocalMedia() {
 }
 
 /** Files of this tab still going to the server, or stopped on the way (for the progress task). */
-export const uploadingItems = (): LocalItem[] => [...items.values()].filter((it) => it.state !== "uploaded");
+export const uploadingItems = (): LocalItem[] => [...items.values()].filter((it) => it.state === "uploading" || it.state === "failed");
+
+/** Kept only on this computer (in this tab, or its copy in the browser), never sent to the server. */
+export function keptHereOnly(id: string): boolean {
+  const it = items.get(id);
+  if (it) return it.state === "local";
+  const acct = account;
+  const e = acct ? readIndex(acct)[id] : undefined;
+  return !!e && !e.uploaded;
+}
+
+/**
+ * Every file kept only on this computer (its copy in the browser), in this tab or not: My Assets lists them
+ * next to the server's. The details are the browser's (the server's arrive if it's ever sent).
+ */
+export function listLocalFiles(): VideoMeta[] {
+  const acct = account;
+  if (!acct) return [];
+  const idx = readIndex(acct);
+  const out: VideoMeta[] = [];
+  for (const [id, e] of Object.entries(idx)) {
+    const it = items.get(id);
+    if ((it && it.state === "uploaded") || (!it && e.uploaded)) continue;
+    out.push(provisionalMeta(id, new File([], e.name, { type: e.type }), { kind: e.kind, width: e.width, height: e.height, duration: e.duration, poster: null }, e.size, e.savedAt));
+  }
+  return out.sort((a, b) => b.createdAt - a.createdAt);
+}
 
 /** Every file of this tab (Media › Assets lists the ones the server's list doesn't have yet). */
 export const localItems = (): LocalItem[] => [...items.values()];

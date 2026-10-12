@@ -8,6 +8,7 @@ import { costOf, money } from "@/lib/ai/pricing";
 import type { TimelineDoc } from "@/lib/edit/doc";
 import { geminiPost, type GeminiUi } from "@/lib/editor/useGemini";
 import { runTask } from "@/lib/editor/tasks";
+import { ensureOnServer, notOnServer } from "@/lib/media/localMedia";
 import { formatTime } from "@/lib/format";
 import { languageLabel, segmentsToCaptions, SUB_LANGUAGES, type Caption, type Segment, type SubLanguage } from "@/lib/subtitles/segments";
 import { sourceSeconds, subtitleSources, subtitleTracks } from "@/lib/subtitles/sources";
@@ -111,6 +112,12 @@ export function SubtitlesPanel(p: {
       await runTask({ id: "subtitles", kind: "ai", label: offline ? "Making subtitles (offline)" : "Making subtitles" }, p.onShow, async (task) => {
         for (let i = 0; i < sources.length; i++) {
           const s = sources[i];
+          // (a file kept only on this computer goes to the server first: the listening happens there)
+          if (notOnServer(s.mediaId)) {
+            setBusy("Sending the clip…");
+            task.update({ detail: "Sending the clip…" });
+            if (!(await ensureOnServer([s.mediaId])).ok) throw new Error("The clip couldn't be sent to the server. Check the connection and try again.");
+          }
           const step = sources.length > 1 ? `Listening to clip ${i + 1} of ${sources.length}…` : "Listening…";
           setBusy(step);
           task.update({ detail: step, percent: sources.length > 1 ? (i / sources.length) * 100 : null });

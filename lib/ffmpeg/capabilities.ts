@@ -127,7 +127,9 @@ async function detect(): Promise<Capabilities> {
       ok: hevcListed ? await hevcAlphaWorks() : false,
       why: "proves the Safari file keeps its transparency",
     });
-  } catch {
+  } catch (err) {
+    // the reason only (EACCES, ENOENT, "exited with code 126"...), not the server's folders
+    const why = /\b(E[A-Z]{3,})\b|exited with code -?\d+/.exec(String((err as Error)?.message))?.[0] ?? "unknown error";
     return {
       ok: false,
       safariAlpha: false,
@@ -135,7 +137,7 @@ async function detect(): Promise<Capabilities> {
       checks,
       message: APPLE_MEDIA
         ? "FFmpeg was not found. Install it with: brew install ffmpeg"
-        : `FFmpeg was not found on the server (looked for ${FFMPEG}). Run npm install again (it fetches FFmpeg: scripts/fetch-ffmpeg.mjs), or set FFMPEG_PATH.`,
+        : `FFmpeg can't run on the server (${FFMPEG.includes("vendor") ? "vendor/ffmpeg" : FFMPEG}: ${why}). Run npm install again (it fetches FFmpeg: scripts/fetch-ffmpeg.mjs), or set FFMPEG_PATH.`,
     };
   }
   const safariAlpha = checks.find((c) => c.name === "HEVC alpha test encode")?.ok ?? false;

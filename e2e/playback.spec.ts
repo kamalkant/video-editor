@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -126,3 +128,18 @@ test("local-first: the clip view (and split view) plays the imported file from t
   await expect.poll(() => original.evaluate((v) => (v as HTMLVideoElement).currentSrc)).toMatch(/^blob:/);
   expect(downloads.filter((d) => d.id === id)).toEqual([]);
 });
+
+test("a big .mov the browser can't play (ProRes) uploads in chunks and lands on the timeline", async ({ page }) => {
+  // (an editor's export: ProRes 422 HQ, about 40 MB; browsers can't decode it, so it goes to the server)
+  const mov = join(FIX, "big-prores.mov");
+  if (!existsSync(mov))
+    execFileSync("ffmpeg", ["-v", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=1920x1080:r=25:d=6", "-c:v", "prores_ks", "-profile:v", "3", mov]);
+  const chunks: string[] = [];
+  page.on("request", (r) => r.method() === "PUT" && /\/api\/uploads\/[0-9a-f-]{36}\?offset=\d+$/.test(r.url()) && chunks.push(r.url()));
+  await page.goto("/editor");
+  await page.getByTestId("file-input").setInputFiles(mov);
+  await expect(page.getByTestId("lane-main").getByTestId("timeline-clip")).toHaveCount(1, { timeout: 120_000 });
+  expect(chunks.length).toBeGreaterThan(2);
+  console.log(`big .mov: ${chunks.length} chunks`);
+});
+

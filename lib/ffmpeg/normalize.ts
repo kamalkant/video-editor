@@ -1,5 +1,5 @@
 import { rename, rm } from "node:fs/promises";
-import { runFfmpeg, runFfprobe, SAFE_INPUT } from "./run";
+import { FAST_H264, runFfmpeg, runFfprobe, SAFE_INPUT } from "./run";
 
 /**
  * Recordings from the browser (MediaRecorder) are awkward files: the frame
@@ -15,7 +15,7 @@ import { runFfmpeg, runFfprobe, SAFE_INPUT } from "./run";
 export type NormalizePlan = { video: { width: number; height: number } | null; audio: boolean };
 
 /** FFmpeg arguments for one recording. `encoder` falls back to libx264 if the hardware one fails. */
-export function normalizeArgs(src: string, out: string, plan: NormalizePlan, encoder: "h264_videotoolbox" | "libx264" = "h264_videotoolbox"): string[] {
+export function normalizeArgs(src: string, out: string, plan: NormalizePlan, encoder: "h264_videotoolbox" | "libx264" = FAST_H264): string[] {
   const args: string[] = [...SAFE_INPUT, "-fflags", "+genpts", "-i", src];
   if (plan.video) {
     // about 0.12 bits per pixel per frame: sharp enough for screen text, small for a camera

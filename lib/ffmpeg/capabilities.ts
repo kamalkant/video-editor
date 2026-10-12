@@ -1,10 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runFfmpeg } from "./run";
+import { APPLE_MEDIA, FFMPEG, runFfmpeg } from "./run";
 
 export type Capabilities = {
   ok: boolean;
+  /** Safari's see-through file (HEVC + alpha) can be made: Apple's encoder, so a Mac server only. */
+  safariAlpha: boolean;
   ffmpegVersion: string | null;
   checks: { name: string; ok: boolean; why: string }[];
   message: string | null;
@@ -15,6 +17,7 @@ const NEEDED_ENCODERS = [
     name: "libvpx-vp9",
     why: "makes the Chrome/Firefox/Android file (WebM + alpha)",
   },
+  { name: "libx264", why: "makes MP4 videos" },
   {
     name: "hevc_videotoolbox",
     why: "makes the Safari/iPhone file (HEVC + alpha); needs macOS",
@@ -127,14 +130,21 @@ async function detect(): Promise<Capabilities> {
   } catch {
     return {
       ok: false,
+      safariAlpha: false,
       ffmpegVersion: null,
       checks,
-      message: "FFmpeg was not found. Install it with: brew install ffmpeg",
+      message: APPLE_MEDIA
+        ? "FFmpeg was not found. Install it with: brew install ffmpeg"
+        : `FFmpeg was not found on the server (looked for ${FFMPEG}). Run npm install again (it fetches FFmpeg: scripts/fetch-ffmpeg.mjs), or set FFMPEG_PATH.`,
     };
   }
-  const failed = checks.filter((c) => !c.ok && c.name !== "encoder prores_ks");
+  const safariAlpha = checks.find((c) => c.name === "HEVC alpha test encode")?.ok ?? false;
+  // (off a Mac the Safari file can't be made at all: exports make the WebM only, so it isn't a failure)
+  const optional = new Set(["encoder prores_ks", ...(APPLE_MEDIA ? [] : ["encoder hevc_videotoolbox", "HEVC alpha test encode"])]);
+  const failed = checks.filter((c) => !c.ok && !optional.has(c.name));
   return {
     ok: failed.length === 0,
+    safariAlpha,
     ffmpegVersion: version,
     checks,
     message: failed.length

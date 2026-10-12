@@ -1,6 +1,6 @@
 import { mkdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { runFfmpeg, SAFE_INPUT } from "../ffmpeg/run";
+import { fastH264Args, runFfmpeg, SAFE_INPUT } from "../ffmpeg/run";
 import { storagePath } from "../storage";
 import { sourcePath, type VideoMeta } from "../videos";
 
@@ -110,12 +110,7 @@ export function ensureReversed(
             "0:v:0",
             "-vf",
             "reverse,format=yuv420p",
-            "-c:v",
-            "h264_videotoolbox",
-            "-b:v",
-            `${kbps}k`,
-            "-allow_sw",
-            "1",
+            ...fastH264Args(kbps),
             ...(video.info.hasAudio
               ? [
                   "-map",

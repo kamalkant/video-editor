@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { activeAiOp, type EditSpec } from "../edit/spec";
 import { maskParamsOf, type AiMaskParams } from "../ops/aiMatte";
-import { runFfmpeg, runFfprobe, SAFE_INPUT } from "../ffmpeg/run";
+import { FFMPEG, runFfmpeg, runFfprobe, SAFE_INPUT } from "../ffmpeg/run";
 import { storagePath } from "../storage";
 import { sourcePath, type VideoMeta } from "../videos";
 import {
@@ -157,7 +157,7 @@ export function ensureMask(
         stdio: ["ignore", "pipe", "pipe"],
       });
       const enc = spawn(
-        "ffmpeg",
+        FFMPEG,
         [
           "-hide_banner",
           "-loglevel",

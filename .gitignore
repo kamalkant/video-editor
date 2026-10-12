@@ -68,3 +68,6 @@ next-env.d.ts
 /prototypes/
 /scratch/
 /.claude/settings.local.json
+
+# FFmpeg fetched on Linux hosts by scripts/fetch-ffmpeg.mjs
+/vendor/ffmpeg/

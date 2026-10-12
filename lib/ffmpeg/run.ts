@@ -1,7 +1,22 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 
-export const FFMPEG = process.env.FFMPEG_PATH ?? "ffmpeg";
-export const FFPROBE = process.env.FFPROBE_PATH ?? "ffprobe";
+// FFMPEG_PATH, else the copy scripts/fetch-ffmpeg.mjs put in vendor/ffmpeg (Linux hosts without FFmpeg), else the PATH
+const vendored = (name: string) => {
+  const p = join(/*turbopackIgnore: true*/ process.cwd(), "vendor", "ffmpeg", name);
+  return existsSync(p) ? p : null;
+};
+export const FFMPEG = process.env.FFMPEG_PATH ?? vendored("ffmpeg") ?? "ffmpeg";
+export const FFPROBE = process.env.FFPROBE_PATH ?? vendored("ffprobe") ?? "ffprobe";
+
+/** Apple's hardware encoders (VideoToolbox: fast H.264, HEVC with transparency) exist only on a Mac. */
+export const APPLE_MEDIA = process.platform === "darwin";
+/** The fast H.264 encoder for working copies: Apple's hardware one on a Mac, else libx264. */
+export const FAST_H264: "h264_videotoolbox" | "libx264" = APPLE_MEDIA ? "h264_videotoolbox" : "libx264";
+/** Codec arguments for a fast H.264 working copy at about `kbps`. */
+export const fastH264Args = (kbps: number): string[] =>
+  APPLE_MEDIA ? ["-c:v", "h264_videotoolbox", "-b:v", `${kbps}k`, "-allow_sw", "1"] : ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20"];
 
 /** Only local files and pipes: an uploaded "video" can't make FFmpeg open URLs or other protocols. */
 export const SAFE_INPUT = ["-protocol_whitelist", "file,pipe"] as const;

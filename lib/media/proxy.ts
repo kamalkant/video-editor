@@ -1,5 +1,5 @@
 import { rename, rm, stat } from "node:fs/promises";
-import { runFfmpeg, SAFE_INPUT } from "../ffmpeg/run";
+import { FAST_H264, runFfmpeg, SAFE_INPUT } from "../ffmpeg/run";
 import { probeMedia, type VideoInfo } from "../ffmpeg/probe";
 import { storagePath, writeJson } from "../storage";
 import { getVideo, sourcePath, type VideoMeta } from "../videos";
@@ -51,7 +51,7 @@ export function buildProxyArgs(
   src: string,
   out: string,
   info: Pick<VideoInfo, "width" | "height" | "fps" | "hasAudio" | "alpha">,
-  encoder: "h264_videotoolbox" | "libx264" = "h264_videotoolbox",
+  encoder: "h264_videotoolbox" | "libx264" = FAST_H264,
 ): string[] {
   const isAlpha = !!info.alpha;
   const scaleFilter = buildProxyScaleFilter();
@@ -206,7 +206,7 @@ export function ensureProxy(
     try {
       try {
         await runFfmpeg(
-          buildProxyArgs(src, tmpOut, video.info, "h264_videotoolbox"),
+          buildProxyArgs(src, tmpOut, video.info, FAST_H264),
           {
             timeoutMs: 30 * 60 * 1000,
             onProgress: (t) => {

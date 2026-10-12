@@ -20,7 +20,7 @@ import { AUDIO_KBPS, AV1_CRF, GIF_FPS, GIF_MAX_W, MP3_KBPS, MP4_CRF, VP9_CRF } f
 import { colorMatrix, cropOf, hasCrop, IDENTITY, isIdentity, maskDistanceExpr, mixerFilter, rotationOf, vignetteExpr, vignetteOf } from "../player/look";
 import { OPS, type AnyOp } from "../ops/registry";
 import { GraphBuilder } from "../ops/types";
-import { SAFE_INPUT } from "../ffmpeg/run";
+import { APPLE_MEDIA, SAFE_INPUT } from "../ffmpeg/run";
 import { QUALITY } from "../settings";
 
 /**
@@ -484,7 +484,10 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
   };
   switch (kind) {
     case "hevc":
-      args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-q:v", String(QUALITY[q].hevcQ), "-tag:v", "hvc1", "-pix_fmt", "yuv420p", ...BT709, "-movflags", "+faststart");
+      // (Apple's hardware encoder on a Mac; elsewhere libx265, a little smaller than H.264 at the same CRF)
+      if (APPLE_MEDIA) args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-q:v", String(QUALITY[q].hevcQ));
+      else args.push("-c:v", "libx265", "-preset", "medium", "-crf", String(MP4_CRF[q] + 4), "-x265-params", "log-level=error");
+      args.push("-tag:v", "hvc1", "-pix_fmt", "yuv420p", ...BT709, "-movflags", "+faststart");
       withSound(["-c:a", "aac", "-b:a", kb(AUDIO_KBPS.hevc)]);
       break;
     case "av1":

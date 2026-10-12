@@ -1,5 +1,5 @@
 import { rename, rm, stat } from "node:fs/promises";
-import { runFfmpeg, SAFE_INPUT } from "../ffmpeg/run";
+import { fastH264Args, runFfmpeg, SAFE_INPUT } from "../ffmpeg/run";
 import { storagePath } from "../storage";
 import { sourcePath, type VideoMeta } from "../videos";
 
@@ -63,12 +63,7 @@ export function derivedArgs(
     // deshake: search ±32 px, fill the moved-in edges by mirroring (no black borders)
     "-vf",
     "deshake=rx=32:ry=32:edge=mirror,format=yuv420p",
-    "-c:v",
-    "h264_videotoolbox",
-    "-b:v",
-    `${kbps}k`,
-    "-allow_sw",
-    "1",
+    ...fastH264Args(kbps),
     "-movflags",
     "+faststart",
     "-progress",

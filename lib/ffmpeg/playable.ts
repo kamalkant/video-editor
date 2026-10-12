@@ -1,6 +1,6 @@
 import { rm, stat } from "node:fs/promises";
 import type { VideoInfo } from "./probe";
-import { runFfmpeg, SAFE_INPUT } from "./run";
+import { FAST_H264, runFfmpeg, SAFE_INPUT } from "./run";
 
 /**
  * Some videos FFmpeg reads fine but a browser can't play (ProRes or HEVC .mov, AVI, MKV with
@@ -39,7 +39,7 @@ export function playableMode(kind: "video" | "image" | "audio", info: Pick<Video
 export const playableFile = (mode: PlayableMode) => (mode === "webm-alpha" ? "playable.webm" : mode === "none" ? null : "playable.mp4");
 
 /** FFmpeg arguments for the copy. `encoder` falls back to libx264 if Apple's hardware one fails. */
-export function playableArgs(src: string, out: string, mode: Exclude<PlayableMode, "none">, info: Pick<VideoInfo, "width" | "height" | "hasAudio">, encoder: "h264_videotoolbox" | "libx264" = "h264_videotoolbox"): string[] {
+export function playableArgs(src: string, out: string, mode: Exclude<PlayableMode, "none">, info: Pick<VideoInfo, "width" | "height" | "hasAudio">, encoder: "h264_videotoolbox" | "libx264" = FAST_H264): string[] {
   const args = [...SAFE_INPUT, "-i", src, "-map", "0:v:0", ...(info.hasAudio ? ["-map", "0:a:0?"] : []), "-map_metadata", "-1"];
   if (mode === "remux") {
     args.push("-c:v", "copy");

@@ -42,9 +42,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 btn btn-primary">
           Skip to main content
         </a>
-        <Suspense fallback={null}>
-          <CapabilityBanner />
-        </Suspense>
+        {/* (a server setup problem: for the people who run the site, not every visitor) */}
+        {(user?.role === "admin" || user?.role === "super_admin") && (
+          <Suspense fallback={null}>
+            <CapabilityBanner />
+          </Suspense>
+        )}
         <AuthProvider initialUser={user} initialFeatures={features}>
           {children}
         </AuthProvider>

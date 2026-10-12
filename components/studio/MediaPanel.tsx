@@ -1,13 +1,13 @@
 				"use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
 import { Spinner } from "@/components/ui/Spinner";
 import { Skeleton, SkeletonGrid, SkeletonRows } from "@/components/ui/Skeleton";
 import { Tip } from "@/components/ui/Tip";
 import { mediaLiteOf } from "@/lib/edit/doc";
-import { setMediaDrag } from "@/lib/editor/mediaDrag";
+import { setMediaDrag, MEME_DRAG, type MemeDragItem } from "@/lib/editor/mediaDrag";
 import { MEDIA_DRAG } from "./Timeline";
 import { formatBytes, formatTime } from "@/lib/format";
 import type { Asset } from "@/lib/media/useLibrary";
@@ -119,7 +119,9 @@ export function MediaPanel(p: {
   /** Open the recorder (camera, screen, both, or voice). */
   onRecord: (mode: "camera" | "screen" | "screenCamera" | "voice") => void;
   onCancelUpload: () => void;
-  onDropFile: (f: File) => void;
+  onDropFile?: (f: File) => void;
+  onDropFiles?: (files: File[]) => void;
+  onDropMeme?: (meme: MemeDragItem) => void;
   /** Add an upload to the timeline. */
   onAdd: (a: Asset) => void;
   onDelete: (a: Asset) => Promise<string | null>;
@@ -128,6 +130,8 @@ export function MediaPanel(p: {
   onOpenLibrary?: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
+  const [panelDragging, setPanelDragging] = useState(false);
+  const dragDepthRef = useRef(0);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   // the asset chosen with one click (adding needs a double-click, + or a drag)
@@ -261,6 +265,35 @@ export function MediaPanel(p: {
     setDeletingBatch(false);
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedAssets.size > 0) {
+          e.preventDefault();
+          void deleteBatch();
+        } else if (picked) {
+          const asset = sortedAssets?.find((a) => a.id === picked);
+          if (asset) {
+            e.preventDefault();
+            void del(asset);
+          }
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedAssets, picked, sortedAssets]);
+
   const add = (a: (typeof p.assets & object)[number]) => {
     setPicked(null);
     p.onAdd(a);
@@ -270,10 +303,29 @@ export function MediaPanel(p: {
   const allAssetsSelected =
     totalAssets > 0 && selectedAssets.size === totalAssets;
 
+  const handleFilesOrMemeDrop = (dataTransfer: DataTransfer) => {
+    const files = Array.from(dataTransfer.files || []);
+    if (files.length > 0) {
+      if (p.onDropFiles) p.onDropFiles(files);
+      else if (p.onDropFile) p.onDropFile(files[0]);
+      return;
+    }
+    const memeJson = dataTransfer.getData(MEME_DRAG);
+    if (memeJson && p.onDropMeme) {
+      try {
+        const meme = JSON.parse(memeJson);
+        p.onDropMeme(meme);
+      } catch {
+        // ignore parse failure
+      }
+    }
+  };
+
   return (
     // a click outside the files (or Esc) unselects the picked one
     <div
-      className="flex flex-col gap-3"
+      className="relative flex flex-col gap-3 min-h-full"
+      data-testid="media-panel"
       onClick={(e) =>
         picked &&
         !(e.target as HTMLElement).closest("[data-asset]") &&
@@ -285,7 +337,54 @@ export function MediaPanel(p: {
           setPicked(null);
         }
       }}
+      onDragEnter={(e) => {
+        const types = Array.from(e.dataTransfer?.types || []);
+        if (types.includes("Files") || types.includes(MEME_DRAG)) {
+          e.preventDefault();
+          dragDepthRef.current++;
+          setPanelDragging(true);
+        }
+      }}
+      onDragOver={(e) => {
+        const types = Array.from(e.dataTransfer?.types || []);
+        if (types.includes("Files") || types.includes(MEME_DRAG)) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDragLeave={(e) => {
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        if (dragDepthRef.current === 0) {
+          setPanelDragging(false);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragDepthRef.current = 0;
+        setPanelDragging(false);
+        setDragging(false);
+        if (!busy) {
+          handleFilesOrMemeDrop(e.dataTransfer);
+        }
+      }}
     >
+      {panelDragging && (
+        <div
+          data-testid="media-drop-overlay"
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary bg-surface/92 backdrop-blur-md p-6 text-center shadow-xl animate-in fade-in duration-150 pointer-events-none"
+        >
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
+            <Icon name="upload" className="size-7 animate-bounce" />
+          </div>
+          <p className="text-sm font-semibold text-ink">
+            Drop files or clips to import
+          </p>
+          <p className="text-xs text-muted max-w-[200px]">
+            Add video, audio, photos or library clips to My Assets
+          </p>
+        </div>
+      )}
       <div
         className={`flex flex-col items-center gap-1.5 rounded-lg border-2 border-dashed p-3 text-center ${dragging ? "border-primary bg-primary-soft" : "border-primary/60 bg-canvas"}`}
         onDragEnter={(e) => {
@@ -298,9 +397,10 @@ export function MediaPanel(p: {
           e.preventDefault();
           e.stopPropagation();
           setDragging(false);
-          const f = e.dataTransfer.files;
-          if (f.length === 1 && !busy) p.onDropFile(f[0]);
-				        }}
+          setPanelDragging(false);
+          dragDepthRef.current = 0;
+          if (!busy) handleFilesOrMemeDrop(e.dataTransfer);
+        }}
         aria-live="polite"
       >
         {p.upload.kind === "uploading" ? (
@@ -606,8 +706,49 @@ export function MediaPanel(p: {
                         : "border-line hover:border-line-hover"
                   }`}
                 >
-                  {/* Clean Thumbnail - 100% free of buttons or overlay badges */}
+                  {/* Thumbnail Container */}
                   <div className="relative">
+                    {/* Checkbox (visible on hover, or when checked) */}
+                    <div
+                      className={`absolute top-1 left-1 z-10 transition-opacity ${
+                        isChecked
+                          ? "opacity-100"
+                          : "opacity-0 group-hover/asset:opacity-100 focus-within:opacity-100"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelectAsset(a.id);
+                        }}
+                        className="size-4 rounded border-line text-primary focus:ring-primary cursor-pointer drop-shadow-sm"
+                        aria-label={`Select ${a.fileName}`}
+                      />
+                    </div>
+
+                    {/* Options 3-dots button (visible on hover or focus) */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const rect = (
+                          e.currentTarget as HTMLElement
+                        ).getBoundingClientRect();
+                        setMenu({
+                          asset: a,
+                          x: rect.left,
+                          y: rect.bottom + 4,
+                        });
+                      }}
+                      title="More options"
+                      aria-label={`Options for ${a.fileName}`}
+                      className="absolute top-1 right-1 z-10 flex size-6 items-center justify-center rounded bg-black/60 text-white/90 hover:bg-black/80 hover:text-white opacity-0 group-hover/asset:opacity-100 focus:opacity-100 transition-opacity backdrop-blur-sm cursor-pointer"
+                    >
+                      <Icon name="more" className="size-3.5" />
+                    </button>
+
                     <button
                       type="button"
                       className="relative block aspect-video w-full overflow-hidden bg-stage cursor-pointer focus:outline-none"

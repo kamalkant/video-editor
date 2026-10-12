@@ -109,6 +109,7 @@ import {
   persistLocal,
   probeLocal,
   provisionalMeta,
+  releaseLocal,
   releaseLocalExcept,
   restoreLocal,
   restorePending,
@@ -1532,6 +1533,36 @@ function StudioInner(props: Props) {
     }
   };
 
+  /** Import a meme or library stock clip directly into My Assets without inserting onto timeline. */
+  const importMemeToAssets = async (item: MemeClipItem) => {
+    setWorking("Importing clip to My Assets…");
+    try {
+      const res = await fetch("/api/library/memes/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: item.id,
+          title: item.title,
+          duration: item.duration,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(
+          apiErrorMessage(await res.json().catch(() => null)) ??
+            "Could not import clip.",
+        );
+      }
+      const videoMeta: VideoMeta = await res.json();
+      setMetas((prev) => ({ ...prev, [videoMeta.id]: videoMeta }));
+      await assets.refresh();
+      setNotice(`Imported “${item.title}” to My Assets.`);
+    } catch (e) {
+      setNotice((e as Error).message || "Failed to import clip.");
+    } finally {
+      setWorking(null);
+    }
+  };
+
   // several files at once: they upload one after another
   const queue = useRef<File[]>([]);
   const nextUpload = useRef<() => void>(() => {});
@@ -1816,17 +1847,42 @@ function StudioInner(props: Props) {
   };
 
   const deleteAsset = async (a: Asset): Promise<string | null> => {
-    if (localItem(a.id)?.state === "uploading")
-      return "This file is being sent to the server. Delete it once that's done.";
+    // 1. Force release local uploading or active item state
+    releaseLocal(a.id, true);
+
+    // 2. Delete from device OPFS / IndexedDB workspace if present
+    const ws = workspace ?? localWorkspaceManager.getActiveWorkspace();
+    if (ws) {
+      try {
+        await ws.deleteAsset(a.id);
+      } catch (err) {
+        console.warn("Failed to delete asset from workspace:", err);
+      }
+    }
+
+    // 3. Forget local OPFS / index copy
+    await forgetLocal(a.id);
+
+    // 4. Remove from in-memory metas immediately so shownAssets won't resurrect it
+    setMetas((prev) => {
+      if (!prev[a.id]) return prev;
+      const next = { ...prev };
+      delete next[a.id];
+      return next;
+    });
+
+    // 5. Delete on server (ignore 404/401/403 so local deletion is never blocked)
     try {
       const res = await fetch(`/api/videos/${a.id}`, { method: "DELETE" });
-      if (!res.ok && res.status !== 404) throw await toApiError(res);
-      void forgetLocal(a.id);
-      refreshLists();
-      return null;
+      if (!res.ok && res.status !== 404 && res.status !== 401 && res.status !== 403) {
+        throw await toApiError(res);
+      }
     } catch (e) {
-      return (e as Error).message;
+      console.warn("Server delete warning:", e);
     }
+
+    refreshLists();
+    return null;
   };
 
   /** Uploaded first, then on the timeline (files this browser can't play: the server makes a playable copy). */
@@ -1883,6 +1939,115 @@ function StudioInner(props: Props) {
     })();
   };
   const uploadFile = (f: File) => uploadFiles([f]);
+
+  /** Create a new project from dropped files and add them to the timeline. */
+  const createProjectFromFiles = async (files: File[]) => {
+    if (!files.length) return;
+    if (
+      running &&
+      !window.confirm(
+        "An export is still running. Start a new project anyway? The export will be canceled.",
+      )
+    )
+      return;
+    showStageBusy("Creating project from files…");
+    try {
+      await sync.flush();
+      await sync.detach();
+      removeLocal(LAST_SPEC_KEY);
+      removeLocal(LAST_SETTINGS_KEY);
+      toEmptyEditor();
+      uploadFiles(files);
+      const projName = files[0].name.replace(/\.[^/.]+$/, "");
+      if (sync.project) {
+        sync.project.name = projName;
+      }
+      refreshLists();
+      setNotice(`Created new project “${projName}”.`);
+    } catch (e) {
+      setNotice((e as Error).message || "Failed to create project.");
+    } finally {
+      showStageBusy(null);
+    }
+  };
+
+  /** Create a new project from a dropped library/meme clip and add it to the timeline. */
+  const createProjectFromMeme = async (item: MemeClipItem) => {
+    if (
+      running &&
+      !window.confirm(
+        "An export is still running. Start a new project anyway? The export will be canceled.",
+      )
+    )
+      return;
+    showStageBusy("Creating project from clip…");
+    try {
+      await sync.flush();
+      await sync.detach();
+      removeLocal(LAST_SPEC_KEY);
+      removeLocal(LAST_SETTINGS_KEY);
+      toEmptyEditor();
+      await addMemeToTimeline(item);
+      if (sync.project) {
+        sync.project.name = item.title;
+      }
+      refreshLists();
+      setNotice(`Created new project “${item.title}”.`);
+    } catch (e) {
+      setNotice((e as Error).message || "Failed to create project.");
+    } finally {
+      showStageBusy(null);
+    }
+  };
+
+  /** Handle direct drop on a rail navigation tab (Media / Projects). */
+  const handleRailDrop = async (panelId: PanelId, e: React.DragEvent) => {
+    if (panelId === "media") {
+      const files = Array.from(e.dataTransfer.files || []);
+      if (files.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadFiles(files);
+        showPanel("media");
+        return;
+      }
+      const memeJson = e.dataTransfer.getData(MEME_DRAG);
+      if (memeJson) {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          const meme = JSON.parse(memeJson);
+          await importMemeToAssets(meme);
+          showPanel("media");
+        } catch {}
+      }
+    } else if (panelId === "projects") {
+      const files = Array.from(e.dataTransfer.files || []);
+      if (files.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        const vdoFile = files.find((f) => /\.vdo$/i.test(f.name));
+        const ws = localWorkspaceManager.getActiveWorkspace();
+        if (vdoFile && ws) {
+          await loadVDOFile(vdoFile, ws);
+        } else {
+          await createProjectFromFiles(files);
+        }
+        showPanel("projects");
+        return;
+      }
+      const memeJson = e.dataTransfer.getData(MEME_DRAG);
+      if (memeJson) {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          const meme = JSON.parse(memeJson);
+          await createProjectFromMeme(meme);
+          showPanel("projects");
+        } catch {}
+      }
+    }
+  };
 
   /** A finished recording: camera / screen at the end of Video 1, voice at the playhead; screen + camera = two clips. */
   const addRecording = (r: Recorded) => {
@@ -7798,6 +7963,8 @@ function StudioInner(props: Props) {
             onRecord={setRecordMode}
             onCancelUpload={cancelUpload}
             onDropFile={uploadFile}
+            onDropFiles={uploadFiles}
+            onDropMeme={importMemeToAssets}
             onAdd={(a) => addToTimeline(a)}
             onDelete={deleteAsset}
             onImport={(tab) => setImportTab(tab)}
@@ -7816,6 +7983,12 @@ function StudioInner(props: Props) {
             }}
             onDeleted={onProjectDeleted}
             onOpenStorage={() => setStorageModalOpen(true)}
+            onDropFiles={(files) => void createProjectFromFiles(files)}
+            onDropMeme={(meme) => void createProjectFromMeme(meme)}
+            onImportVDOFile={async (file) => {
+              const ws = localWorkspaceManager.getActiveWorkspace();
+              if (ws) await loadVDOFile(file, ws);
+            }}
           />
         )}
       </div>
@@ -9438,7 +9611,12 @@ function StudioInner(props: Props) {
         {topBar}
         {fileInput}
         <div className="relative flex min-h-0 flex-1 gap-2 p-2">
-          <Rail wide={wide} active="templates" onSelect={onRail} />
+          <Rail
+            wide={wide}
+            active="templates"
+            onSelect={onRail}
+            onDropOnTab={handleRailDrop}
+          />
           <div className="flex-1 overflow-hidden panel">
             <TemplateHub
               onUseTemplate={async (template, custom) => {
@@ -9466,7 +9644,12 @@ function StudioInner(props: Props) {
         >
           {previewArea}
         </main>
-        <Rail wide={false} active={phoneTab} onSelect={onRail} />
+        <Rail
+          wide={false}
+          active={phoneTab}
+          onSelect={onRail}
+          onDropOnTab={handleRailDrop}
+        />
         <div className="flex flex-col gap-2 p-2">
           {side}
           {phoneTab === "edit" && (
@@ -9500,7 +9683,12 @@ function StudioInner(props: Props) {
           }
         }}
       >
-        <Rail wide active={focus ? null : railActive} onSelect={onRail} />
+        <Rail
+          wide
+          active={focus ? null : railActive}
+          onSelect={onRail}
+          onDropOnTab={handleRailDrop}
+        />
         {!focus && side}
         {!focus && side && (
           <PanelSplitter

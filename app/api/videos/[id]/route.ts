@@ -27,7 +27,7 @@ export async function DELETE(_request: Request, ctx: RouteContext<"/api/videos/[
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
 
   const user = await getCurrentUser();
-  if (video.userId) {
+  if (video.userId && video.userId !== "local") {
     if (!user) return apiError(401, "unauthorized", "Sign in to delete assets.");
     const isAdmin = user.role === "admin" || user.role === "super_admin";
     if (video.userId !== user.id && !isAdmin) {

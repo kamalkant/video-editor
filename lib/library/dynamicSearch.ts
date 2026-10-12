@@ -6,7 +6,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { FFMPEG, runFfmpeg } from "@/lib/ffmpeg/run";
-import { NO_YTDLP, ytDlpBin, ytDlpEnv, ytDlpFailure } from "@/lib/import/youtube";
+import { NO_YTDLP, YTDLP_JS, ytDlpBin, ytDlpEnv, ytDlpFailure } from "@/lib/import/youtube";
 import type { MemeClipItem } from "./memeCatalog";
 import { dataRoot } from "@/lib/dataRoot";
 
@@ -43,7 +43,7 @@ export async function searchOnlineMemesWhy(query: string, limit = 4): Promise<{ 
     // (no shell: the query is one argument; the downloader fetched on Linux hosts, lib/import/youtube)
     const { stdout } = await execFilePromise(
       ytDlpBin(),
-      ["--flat-playlist", "--dump-json", "--playlist-items", `1-${limit}`, `ytsearch${limit}:${cleanQ} meme short`],
+      [...YTDLP_JS, "--flat-playlist", "--dump-json", "--playlist-items", `1-${limit}`, `ytsearch${limit}:${cleanQ} meme short`],
       { timeout: 20000, maxBuffer: 8 * 1024 * 1024, env: ytDlpEnv() },
     );
 
@@ -113,7 +113,7 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
     const formattedDuration = String(Math.floor(maxDuration)).padStart(2, "0");
     await execFilePromise(
       ytDlpBin(),
-      ["--download-sections", `*00:00:00-00:00:${formattedDuration}`, "-f", "b[ext=mp4]/bv*[ext=mp4]+ba[ext=m4a]/b", "--ffmpeg-location", FFMPEG, "--force-overwrites", "-o", tempRaw, "--", videoUrl],
+      [...YTDLP_JS, "--download-sections", `*00:00:00-00:00:${formattedDuration}`, "-f", "b[ext=mp4]/bv*[ext=mp4]+ba[ext=m4a]/b", "--ffmpeg-location", FFMPEG, "--force-overwrites", "-o", tempRaw, "--", videoUrl],
       { timeout: 60000, env: ytDlpEnv() },
     );
 

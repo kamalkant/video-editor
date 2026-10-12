@@ -2870,19 +2870,14 @@ test("copy, cut and paste clips on the timeline (keys and the clip menu)", async
   await expect(main).toHaveCount(2);
 });
 
-test("Import (pretend libraries): Pexels to the timeline, Pixabay to My Assets, YouTube needs your OK", async ({
+test("Import (pretend libraries): Pexels to the timeline, Pixabay to My Assets", async ({
   page,
 }) => {
   const outside: string[] = [];
   page.on("request", (r) => {
     const u = r.url();
-    // (the YouTube preview player loads its own things inside its frame; the editor itself stays local)
     if (r.frame() !== page.mainFrame()) return;
-    if (
-      !/^(https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/|data:|blob:)/.test(u) &&
-      !u.includes("youtube-nocookie.com")
-    )
-      outside.push(u);
+    if (!/^(https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?\/|data:|blob:)/.test(u)) outside.push(u);
   });
   await page.goto("/");
   await upload(page);
@@ -2920,20 +2915,6 @@ test("Import (pretend libraries): Pexels to the timeline, Pixabay to My Assets, 
       .last(),
   ).toBeVisible({ timeout: 30_000 });
   await expect(main).toHaveCount(2);
-  // YouTube: a preview, and importing waits for the rights box
-  await dlg.getByRole("tab", { name: "YouTube" }).click();
-  await dlg
-    .getByRole("textbox", { name: "Search YouTube" })
-    .fill("my channel intro");
-  await dlg.getByRole("button", { name: "Search" }).click();
-  await dlg.getByTestId("import-results").getByRole("button").nth(1).click();
-  await expect(dlg.getByTitle(/^Preview:/)).toBeVisible();
-  await expect(
-    dlg.getByRole("button", { name: "Add to timeline" }),
-  ).toBeDisabled();
-  await dlg.getByTestId("import-rights").check();
-  await dlg.getByRole("button", { name: "Add to timeline" }).click();
-  await expect(main).toHaveCount(3, { timeout: 30_000 });
   await page.keyboard.press("Escape");
   // the imports are in My Assets, with their credit
   const assets = await (await page.request.get("/api/videos")).json();
@@ -2943,18 +2924,8 @@ test("Import (pretend libraries): Pexels to the timeline, Pixabay to My Assets, 
       .filter((v) => v.credit)
       .map((v) => v.credit!.source)
       .sort(),
-  ).toEqual(["pexels", "pixabay", "youtube"]);
+  ).toEqual(["pexels", "pixabay"]);
   expect(outside).toEqual([]);
-});
-
-test("Import: YouTube refuses a download without your OK (server check)", async ({
-  page,
-}) => {
-  const r = await page.request.post("/api/import", {
-    data: { source: "youtube", id: "fakeVid0002" },
-  });
-  expect(r.status()).toBe(400);
-  expect((await r.json()).error.message).toMatch(/own video|Creative Commons/);
 });
 
 test("fixes: clip volume reaches the preview (0 is silent, 150% is louder), sticky clip header, My Assets marks follow the timeline", async ({

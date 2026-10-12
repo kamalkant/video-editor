@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { FFMPEG, runFfmpeg } from "@/lib/ffmpeg/run";
-import { NO_YTDLP, YTDLP_JS, ytDlpBin, ytDlpEnv, ytDlpFailure } from "@/lib/import/youtube";
+import { NO_YTDLP, YTDLP_JS, ytDlpBin, ytDlpEnv, ytDlpFailure } from "@/lib/import/ytdlp";
 import type { MemeClipItem } from "./memeCatalog";
 import { dataRoot } from "@/lib/dataRoot";
 
@@ -49,7 +49,7 @@ export async function searchOnlineMemesWhy(query: string, limit = 4): Promise<{ 
 
   try {
     // Fast flat-playlist metadata search
-    // (no shell: the query is one argument; the downloader fetched on Linux hosts, lib/import/youtube)
+    // (no shell: the query is one argument; the downloader fetched on Linux hosts, lib/import/ytdlp)
     const { stdout } = await execFilePromise(
       ytDlpBin(),
       [...YTDLP_JS, "--flat-playlist", "--dump-json", "--playlist-items", `1-${limit}`, `ytsearch${limit}:${cleanQ} meme short`],

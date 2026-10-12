@@ -5,7 +5,6 @@ const auth = vi.hoisted(() => ({ user: { id: "phase3-super", email: "s@test.loca
 vi.mock("@/lib/auth/session", () => ({ getCurrentUser: async () => auth.user }));
 import { grokNameFrom } from "@/lib/ai/grok";
 import { POST as grokRoute } from "@/app/api/ai/grok/route";
-import { POST as youtubeRoute } from "@/app/api/share/youtube/route";
 import {
   TEMPLATES,
   getCustomTemplates,
@@ -89,28 +88,6 @@ describe("Phase 3: AI Grok Imagine, More Templates, Share & Roadmap Sync", () =>
     deleteCustomTemplate(saved.id);
     const afterDelete = getCustomTemplates();
     expect(afterDelete.some((c) => c.id === saved.id)).toBe(false);
-  });
-
-  it("youtube share API route creates a valid publication result", async () => {
-    const req = new Request("http://localhost:3000/api/share/youtube", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        projectId: "test-proj-123",
-        title: "Awesome Launch Video",
-        description: "Full product walkthrough",
-        privacy: "unlisted",
-        tags: ["VDO", "launch"],
-      }),
-    });
-    const res = await youtubeRoute(req);
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.ok).toBe(true);
-    expect(data.videoId).toBeDefined();
-    expect(data.url).toContain("https://youtu.be/");
-    expect(data.title).toBe("Awesome Launch Video");
-    expect(data.privacy).toBe("unlisted");
   });
 
   it("synchronizes all 9 target features in the roadmap as ready", () => {

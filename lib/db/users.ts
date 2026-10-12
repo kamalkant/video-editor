@@ -284,6 +284,42 @@ export function softDeleteUser(id: string): boolean {
   }
 }
 
+export type BulkDeleteSkip = { id: string; reason: "self" | "not_found" | "last_super_admin" | "failed" };
+
+/**
+ * Soft-delete several accounts (Admin › Users, Super Admin only), each like softDeleteUser. Never the
+ * acting admin, never an unknown or already deleted account, and never the last active Super Admin
+ * (counted again after each delete, so a selection of every Super Admin keeps one).
+ */
+export function softDeleteUsers(ids: string[], actorId: string): { deleted: User[]; skipped: BulkDeleteSkip[] } {
+  const deleted: User[] = [];
+  const skipped: BulkDeleteSkip[] = [];
+  for (const id of [...new Set(ids)]) {
+    if (id === actorId) {
+      skipped.push({ id, reason: "self" });
+      continue;
+    }
+    const target = getUserById(id);
+    if (!target || target.status === "deleted") {
+      skipped.push({ id, reason: "not_found" });
+      continue;
+    }
+    if (target.role === "super_admin" && countOtherActiveSuperAdmins(target.id) === 0) {
+      skipped.push({ id, reason: "last_super_admin" });
+      continue;
+    }
+    let ok = false;
+    try {
+      ok = softDeleteUser(id);
+    } catch (err) {
+      console.error("Failed to delete user:", err);
+    }
+    if (ok) deleted.push(target);
+    else skipped.push({ id, reason: "failed" });
+  }
+  return { deleted, skipped };
+}
+
 export function deleteUser(id: string): boolean {
   const db = getDb();
   const stmt = db.prepare("DELETE FROM users WHERE id = ?");

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useImperativeHandle, useRef, useState, useSyncE
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { isWebKitUA } from "@/lib/embed/snippet";
 import { Icon } from "@/components/ui/Icon";
+import { Spinner } from "@/components/ui/Spinner";
 import { Tip } from "@/components/ui/Tip";
 import { makeAlphaView } from "@/lib/editor/alphaViews";
 import type { Clock } from "@/lib/editor/clock";
@@ -71,6 +72,11 @@ export function PreviewPane(p: {
   fit?: boolean;
   /** Use lightweight 720p proxy for preview playback. */
   proxyMode?: boolean;
+  /**
+   * The file itself, from this computer (lib/media/localMedia): it plays from here, no server download.
+   * With proxies on, the server's light copy is used once the file is there.
+   */
+  localSrc?: string | null;
   /** Playhead time, for the timeline. */
   clock?: Clock;
   /** Lets the timeline and shortcuts control playback. */
@@ -512,7 +518,7 @@ export function PreviewPane(p: {
           <div className="absolute inset-0 overflow-hidden" style={{ clipPath: originalClip, opacity: fallback ? 0 : originalVisible ? 1 : 0, filter: blurLive ? `blur(${Math.max(1, ((p.blurBehind ?? 0) * (stageWidth || p.size.width)) / p.size.width).toFixed(1)}px)` : undefined }}>
           <video
             ref={videoRef}
-            src={p.packedSrc ?? (p.proxyMode ? `/api/videos/${p.videoId}/proxy` : `/api/videos/${p.videoId}/play`)}
+            src={p.packedSrc ?? p.localSrc ?? (p.proxyMode ? `/api/videos/${p.videoId}/proxy` : `/api/videos/${p.videoId}/play`)}
             className="absolute left-0 top-0 w-full"
             style={{ height: packed ? "200%" : "100%", imageRendering: pixelated }}
             loop={loop && !cut}
@@ -619,6 +625,13 @@ export function PreviewPane(p: {
           )}
           {p.picking && <Magnifier getSource={getMagnifierSource} point={hover} box={p.size} stageWidth={stageWidth} />}
           {p.exact.busy && !playing && showRemoved && <span className="pointer-events-none absolute right-2 top-2 z-20 rounded-full bg-black/80 px-3 py-1 text-sm text-white">Updating…</span>}
+          {videoState === "loading" && (
+            <span role="status" className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center" data-testid="clip-loading">
+              <span className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white">
+                <Spinner size="sm" /> Loading the clip…
+              </span>
+            </span>
+          )}
         </div>
       </div>
         {!isFinal && <VideoControls

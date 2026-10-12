@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DeleteNowButton } from "@/components/results/DeleteNowButton";
 import { EmbedCodeBox } from "@/components/results/EmbedCodeBox";
 import { Notice } from "@/components/ui/Notice";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { outputGeometry } from "@/lib/edit/geometry";
 import type { EditSpec } from "@/lib/edit/spec";
 import type { CropInfo } from "@/lib/editor/useCropBox";
@@ -27,12 +28,14 @@ export function fileUrl(job: Job, f: JobFile, download = false) {
 
 function PhoneTest({ jobId }: { jobId: string }) {
   const [share, setShare] = useState<{ phoneUrl: string | null; qrSvg: string | null; testPath: string } | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     let alive = true;
     fetch(`/api/jobs/${jobId}/share`)
       .then((r) => r.json())
       .then((j) => alive && setShare(j))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
@@ -53,6 +56,14 @@ function PhoneTest({ jobId }: { jobId: string }) {
             <p className="break-all font-mono text-xs">{share.phoneUrl}</p>
             <p className="mt-1 text-muted">Same Wi-Fi, and start the editor with <code>npm run dev:lan</code>.</p>
           </div>
+        </div>
+      ) : loading ? (
+        <div className="flex items-center gap-3" aria-busy="true">
+          <Skeleton className="size-24 shrink-0 rounded" />
+          <span className="flex flex-1 flex-col gap-1.5">
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-2.5 w-56" />
+          </span>
         </div>
       ) : (
         <p className="text-muted">Connect to Wi-Fi to test on a phone.</p>

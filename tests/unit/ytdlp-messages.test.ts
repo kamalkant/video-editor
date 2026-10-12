@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ytDlpFailure } from "@/lib/import/youtube";
+import { ytDlpFailure } from "@/lib/import/ytdlp";
 
 // YouTube often refuses servers in data centers (Hostinger): people get told what to do instead
 describe("yt-dlp failure messages", () => {

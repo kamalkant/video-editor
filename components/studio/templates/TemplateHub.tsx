@@ -17,6 +17,7 @@ import { TemplateCard } from "./TemplateCard";
 import { TemplateDetailPane } from "./TemplateDetailPane";
 import { TemplateCustomizerModal } from "./TemplateCustomizerModal";
 import { Icon } from "@/components/ui/Icon";
+import { Spinner } from "@/components/ui/Spinner";
 import { VoiceSearchMic } from "@/components/ui/VoiceSearchMic";
 
 export function TemplateHub({
@@ -33,6 +34,7 @@ export function TemplateHub({
 
   // your own templates (kept on the server) and the starter templates, next to the broadcast ones
   const [mine, setMine] = useState<CustomTemplateStatus[]>([]);
+  const [mineLoading, setMineLoading] = useState(true);
   const [creating, setCreating] = useState<{ baseId?: string | null; video?: VideoMeta | null; audio?: VideoMeta | null } | null>(null);
   const [hubError, setHubError] = useState<string | null>(null);
   const loadMine = useCallback(async () => {
@@ -48,7 +50,8 @@ export function TemplateHub({
     fetch("/api/templates/custom")
       .then((r) => (r.ok ? (r.json() as Promise<{ templates: CustomTemplateStatus[] }>) : null))
       .then((j) => on && j && setMine(j.templates))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => on && setMineLoading(false));
     return () => {
       on = false;
     };
@@ -317,6 +320,11 @@ export function TemplateHub({
             setSelectedTemplateId(customHubId(t.id));
           }}
         />
+      )}
+      {mineLoading && (
+        <div role="status" className="pointer-events-none absolute bottom-4 left-4 z-40 flex items-center gap-2 rounded-full border border-line bg-surface/95 px-3 py-1.5 text-xs text-muted shadow-lg" data-testid="templates-mine-loading">
+          <Spinner size="xs" className="text-primary" /> Loading your templates…
+        </div>
       )}
       {hubError && (
         <div role="alert" className="absolute bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-danger/40 bg-surface px-3 py-2 text-xs text-danger shadow-xl">

@@ -19,7 +19,7 @@ export class ImportError extends Error {
 }
 
 /** Where pictures and files may come from (nothing else is fetched). */
-const HOSTS = [/(^|\.)pexels\.com$/, /^player\.vimeo\.com$/, /(^|\.)vimeocdn\.com$/, /(^|\.)akamaized\.net$/, /^cdn\.pixabay\.com$/, /^pixabay\.com$/, /^i\.ytimg\.com$/, /^i[0-9]\.ytimg\.com$/];
+const HOSTS = [/(^|\.)pexels\.com$/, /^player\.vimeo\.com$/, /(^|\.)vimeocdn\.com$/, /(^|\.)akamaized\.net$/, /^cdn\.pixabay\.com$/, /^pixabay\.com$/];
 export function allowedUrl(u: string): URL | null {
   try {
     const url = new URL(u);

@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 /**
  * Library thumbnails through our own server (?u=…): the browser never talks to
- * Pexels / Pixabay / YouTube for pictures, and only their picture hosts are fetched.
+ * Pexels / Pixabay for pictures, and only their picture hosts are fetched.
  */
 export async function GET(request: Request) {
   const sp = new URL(request.url).searchParams;

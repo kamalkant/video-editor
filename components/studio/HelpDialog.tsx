@@ -48,7 +48,7 @@ export function HelpDialog({ open, onClose }: { open: boolean; onClose: () => vo
           </h3>
           <ol className="list-decimal space-y-1 pl-5 text-sm">
             <li>
-              <strong>Add media</strong>: videos, pictures and music from this computer, or <strong>Import</strong> free stock videos from Pexels and Pixabay (and your own or Creative Commons YouTube videos). Videos line up on Video 1; pictures and sound go at the playhead.
+              <strong>Add media</strong>: videos, pictures and music from this computer, or <strong>Import</strong> free stock videos from Pexels and Pixabay. Videos line up on Video 1; pictures and sound go at the playhead.
             </li>
             <li>
               <strong>Record</strong>: your camera, your screen, both at once, or a voiceover (Record button, or Media).

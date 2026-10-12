@@ -6,6 +6,7 @@ import {
   type TemplateVideoClip,
   type TemplateAudioTrack,
 } from "@/lib/templates/templateMediaAssets";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 /** Capture an instant JPEG thumbnail frame from a local video File using HTML5 Video + Canvas */
 function captureVideoFrame(file: File): Promise<string> {
@@ -98,6 +99,8 @@ export function TemplateCustomizerModal({
     null,
   );
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  // your own clips and sounds are still on their way from the server
+  const [mediaLoading, setMediaLoading] = useState(true);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
 
@@ -121,7 +124,8 @@ export function TemplateCustomizerModal({
           if (customTracks.length > 0) setCustomAudios(customTracks);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => active && setMediaLoading(false));
     return () => {
       active = false;
     };
@@ -512,6 +516,16 @@ export function TemplateCustomizerModal({
                   Select Video Loop (MP4)
                 </label>
                 <div className="grid grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                  {mediaLoading &&
+                    Array.from({ length: 2 }, (_, i) => (
+                      <div key={`sk-${i}`} aria-hidden className="flex items-center gap-2.5 rounded-xl border border-line p-2" data-testid="template-media-loading">
+                        <Skeleton className="h-12 w-16 shrink-0 rounded-lg" />
+                        <span className="flex flex-1 flex-col gap-1.5">
+                          <Skeleton className="h-3 w-3/4" />
+                          <Skeleton className="h-2.5 w-1/3" />
+                        </span>
+                      </div>
+                    ))}
                   {allVideoClips.map((clip) => {
                     const isSelected =
                       bgType === "video" && selectedVideoClip.id === clip.id;

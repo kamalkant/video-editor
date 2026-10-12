@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 import type { Device, ParsedFeatureFlag, SafeUser, UserRole, UserStatus } from "@/lib/db/schema";
 import { apiMessage, useAdminViewer } from "../admin-client";
 import { UserDrawer } from "./UserDrawer";
@@ -37,6 +39,10 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  // bulk delete (Super Admin): the users ticked on this page
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const selectable = (u: SafeUser) => viewer.isSuperAdmin && u.id !== viewer.id && u.status !== "deleted";
 
   // Add User Modal State
   const [showAddModal, setShowAddModal] = useState(false);
@@ -110,6 +116,48 @@ export default function AdminUsersPage() {
   useEffect(() => {
     void fetchUsers();
   }, [fetchUsers]);
+
+  // (only users listed now count: another page, filter or search leaves the others out)
+  const pageSelectable = users.filter(selectable);
+  const picked = pageSelectable.filter((u) => selected.has(u.id));
+  const allOnPage = pageSelectable.length > 0 && pageSelectable.every((u) => selected.has(u.id));
+  const someOnPage = pageSelectable.some((u) => selected.has(u.id));
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const toggleAllOnPage = () => setSelected(allOnPage ? new Set() : new Set(pageSelectable.map((u) => u.id)));
+
+  const handleBulkDelete = async () => {
+    const ids = picked.map((u) => u.id);
+    if (!ids.length) return;
+    const names = picked.map((u) => u.name);
+    const list = names.slice(0, 5).join(", ") + (names.length > 5 ? ` and ${names.length - 5} more` : "");
+    if (!confirm(`Delete ${ids.length} user${ids.length === 1 ? "" : "s"} (${list})? They can no longer sign in and their personal details are erased. Payments and audit history are kept.`)) return;
+    setBulkDeleting(true);
+    try {
+      const res = await fetch("/api/admin/users/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok) {
+        setSelected(new Set());
+        alert(data?.message ?? "Users deleted.");
+        void fetchUsers();
+      } else {
+        alert(apiMessage(data, "Failed to delete the selected users"));
+      }
+    } catch {
+      alert("Network error");
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
 
   const getPageNumbers = () => {
     if (totalPages <= 7) {
@@ -525,12 +573,50 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      {/* Bulk actions for the ticked users (Super Admin) */}
+      {viewer.isSuperAdmin && picked.length > 0 && (
+        <div className="sticky top-2 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-2.5 shadow-sm backdrop-blur-sm" data-testid="users-bulk-bar">
+          <span className="text-sm font-semibold text-ink">
+            {picked.length} user{picked.length === 1 ? "" : "s"} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setSelected(new Set())} disabled={bulkDeleting} className="rounded-md px-3 py-1.5 text-xs font-semibold text-muted hover:bg-raised hover:text-ink transition-colors">
+              Clear selection
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkDelete()}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1.5 rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
+            >
+              {bulkDeleting ? <Spinner size="xs" /> : <Icon name="trash" className="size-3.5" />}
+              {bulkDeleting ? "Deleting…" : `Delete selected (${picked.length})`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Users Table */}
       <div className="overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-line bg-raised/40 text-muted uppercase tracking-wider font-semibold">
               <tr>
+                {viewer.isSuperAdmin && (
+                  <th className="w-10 py-3.5 pl-6 pr-0">
+                    <input
+                      type="checkbox"
+                      className="size-4 cursor-pointer accent-primary align-middle"
+                      aria-label="Select all users on this page"
+                      checked={allOnPage}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someOnPage && !allOnPage;
+                      }}
+                      disabled={loading || pageSelectable.length === 0}
+                      onChange={toggleAllOnPage}
+                    />
+                  </th>
+                )}
                 <th className="px-6 py-3.5">User</th>
                 <th className="px-6 py-3.5">Role</th>
                 <th className="px-6 py-3.5">Status</th>
@@ -539,15 +625,40 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line/60">
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted">
-                    Loading users...
-                  </td>
-                </tr>
+              {loading && users.length === 0 ? (
+                Array.from({ length: Math.min(pageSize, 6) }, (_, i) => (
+                  <tr key={`sk-${i}`} aria-hidden data-testid="users-skeleton">
+                    {viewer.isSuperAdmin && (
+                      <td className="py-4 pl-6 pr-0">
+                        <Skeleton className="size-4 rounded" />
+                      </td>
+                    )}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="size-8 shrink-0 rounded-full" />
+                        <div className="flex flex-1 flex-col gap-1.5">
+                          <Skeleton className="h-3 w-32" />
+                          <Skeleton className="h-2.5 w-44" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Skeleton className="h-6 w-24" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <Skeleton className="h-3 w-20" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <Skeleton className="ml-auto h-6 w-40" />
+                    </td>
+                  </tr>
+                ))
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-muted">
+                  <td colSpan={viewer.isSuperAdmin ? 6 : 5} className="p-8 text-center text-muted">
                     No users found matching your filters.
                   </td>
                 </tr>
@@ -557,7 +668,20 @@ export default function AdminUsersPage() {
                   const date = new Date(u.created_at).toLocaleDateString();
 
                   return (
-                    <tr key={u.id} className="hover:bg-raised/20 transition-colors">
+                    <tr key={u.id} className={`transition-colors ${selected.has(u.id) ? "bg-primary/5" : "hover:bg-raised/20"} ${loading ? "opacity-60" : ""}`}>
+                      {viewer.isSuperAdmin && (
+                        <td className="py-4 pl-6 pr-0">
+                          <input
+                            type="checkbox"
+                            className="size-4 cursor-pointer accent-primary align-middle disabled:cursor-not-allowed disabled:opacity-40"
+                            aria-label={`Select ${u.name}`}
+                            checked={selected.has(u.id)}
+                            disabled={!selectable(u) || bulkDeleting}
+                            title={u.id === viewer.id ? "You cannot delete your own account" : u.status === "deleted" ? "Already deleted" : undefined}
+                            onChange={() => toggleSelected(u.id)}
+                          />
+                        </td>
+                      )}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 font-bold text-primary text-xs">
@@ -644,10 +768,11 @@ export default function AdminUsersPage() {
                           <button
                             type="button"
                             onClick={() => handleDeleteUser(u)}
+                            disabled={isBusy || u.status === "deleted"}
                             title="Delete User"
-                            className="rounded p-1 text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                            className="rounded p-1 text-muted hover:bg-red-500/10 hover:text-red-500 transition-colors disabled:opacity-40"
                           >
-                            <Icon name="trash" className="size-4" />
+                            {isBusy ? <Spinner size="sm" /> : <Icon name="trash" className="size-4" />}
                           </button>
                           )}
                         </div>

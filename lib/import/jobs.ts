@@ -17,7 +17,6 @@ import {
   type ImportItem,
   type ImportSource,
 } from "./types";
-import { youTubeItem, ytDownload } from "./youtube";
 
 /**
  * Importing from a library: a small job (download → My Assets) the dialog polls.
@@ -39,23 +38,6 @@ export type ImportJob = {
 
 const g = globalThis as unknown as { __VDOImports?: Map<string, ImportJob> };
 const jobs = (g.__VDOImports ??= new Map());
-
-/** Rights for a YouTube import: "mine" (the user says it's their own video) or "cc" (Creative Commons, checked). */
-export type Rights = "mine" | "cc";
-
-/** Pure: may this YouTube video be imported with these rights? (tested) */
-export function youTubeAllowed(
-  item: Pick<ImportItem, "license" | "duration">,
-  rights: Rights | null,
-): string | null {
-  if (!rights)
-    return "Confirm that it's your own video, or pick a Creative Commons one.";
-  if (rights === "cc" && item.license !== "cc")
-    return "This video isn't Creative Commons. Import only your own videos or Creative Commons ones.";
-  if (item.duration > LIMITS.maxDurationSec)
-    return `This video is ${Math.round(item.duration / 60)} minutes long. The editor takes videos up to ${LIMITS.maxDurationSec / 60} minutes.`;
-  return null;
-}
 
 async function download(
   url: string,
@@ -116,39 +98,29 @@ async function download(
   );
 }
 
-async function run(job: ImportJob, rights: Rights | null) {
+async function run(job: ImportJob) {
   const dir = await mkdtemp(join(tmpdir(), "VDO-import-"));
   const set = (p: Partial<ImportJob>) =>
     jobs.set(job.id, Object.assign(job, p));
   try {
     const out = join(dir, "import.mp4");
     let item: ImportItem;
-    if (job.source === "youtube") {
-      item = isImportFake()
-        ? fakeItem("youtube", job.itemId)
-        : await youTubeItem(job.itemId);
-      const why = youTubeAllowed(item, rights);
-      if (why) throw new ImportError(why, 403, "not_allowed");
-      if (isImportFake()) await fakeClip(out, Math.min(item.duration, 6));
-      else await ytDownload(job.itemId, out, (percent) => set({ percent }));
+    if (isImportFake()) {
+      item = fakeItem(job.source, job.itemId);
+      await fakeClip(out, Math.min(item.duration, 6));
     } else {
-      if (isImportFake()) {
-        item = fakeItem(job.source, job.itemId);
-        await fakeClip(out, Math.min(item.duration, 6));
-      } else {
-        const r =
-          job.source === "pexels"
-            ? await pexelsFile(job.itemId)
-            : await pixabayFile(job.itemId);
-        item = r.item;
-        if (item.duration > LIMITS.maxDurationSec)
-          throw new ImportError(
-            `This clip is longer than ${LIMITS.maxDurationSec / 60} minutes.`,
-            400,
-            "too_long",
-          );
-        await download(r.file, out, (percent) => set({ percent }));
-      }
+      const r =
+        job.source === "pexels"
+          ? await pexelsFile(job.itemId)
+          : await pixabayFile(job.itemId);
+      item = r.item;
+      if (item.duration > LIMITS.maxDurationSec)
+        throw new ImportError(
+          `This clip is longer than ${LIMITS.maxDurationSec / 60} minutes.`,
+          400,
+          "too_long",
+        );
+      await download(r.file, out, (percent) => set({ percent }));
     }
     set({ title: item.title });
     const name = `${SOURCE_NAME[job.source]} - ${item.title}`
@@ -183,11 +155,7 @@ async function run(job: ImportJob, rights: Rights | null) {
   }
 }
 
-export function startImport(
-  source: ImportSource,
-  itemId: string,
-  rights: Rights | null,
-): ImportJob {
+export function startImport(source: ImportSource, itemId: string): ImportJob {
   const job: ImportJob = {
     id: newId(),
     source,
@@ -197,7 +165,7 @@ export function startImport(
     percent: 0,
   };
   jobs.set(job.id, job);
-  void run(job, rights);
+  void run(job);
   return job;
 }
 

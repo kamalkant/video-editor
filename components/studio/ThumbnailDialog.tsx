@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
+import { Spinner } from "@/components/ui/Spinner";
 
 /** A YouTube thumbnail (1280 × 720) or a Shorts cover (1080 × 1920). */
 const SIZES = {
@@ -141,7 +142,16 @@ export function ThumbnailDialog({
   return (
     <Dialog open={open} onClose={onClose} title="Thumbnail maker">
       <div className="flex flex-col gap-3 text-xs">
-        <canvas ref={canvas} className="w-full rounded-md border border-line bg-black" style={{ aspectRatio: `${SIZES[size].w} / ${SIZES[size].h}`, maxHeight: "50vh", objectFit: "contain" }} aria-label="Thumbnail preview" />
+        <div className="relative">
+          <canvas ref={canvas} className="w-full rounded-md border border-line bg-black" style={{ aspectRatio: `${SIZES[size].w} / ${SIZES[size].h}`, maxHeight: "50vh", objectFit: "contain" }} aria-label="Thumbnail preview" />
+          {frameUrl && !frame && !error && (
+            <span role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <span className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-white">
+                <Spinner size="sm" /> Getting the frame…
+              </span>
+            </span>
+          )}
+        </div>
         {!frameUrl && <p className="text-muted">Tip: put the playhead on a video frame first to use it as the background.</p>}
         {error && <p className="text-red-500" role="alert">{error}</p>}
         <div className="grid grid-cols-2 gap-2">

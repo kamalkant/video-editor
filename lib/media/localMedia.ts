@@ -9,7 +9,10 @@
  *  - thumbnails show a frame taken in the browser; the server's filmstrip and waveform follow the upload
  *  - requests for server work on that file wait for its upload (installUploadGate)
  *  - a copy goes to the browser's private storage (OPFS, lib/storage/opfs): after a reload the preview still
- *    plays from it, and an upload that didn't finish starts again (restoreLocal)
+ *    plays from it, and an upload that didn't finish starts again (restoreLocal). While a copy is being read
+ *    back (restorePending) the player waits for it instead of downloading the server's copy meanwhile
+ *  - the timeline film is made in the browser, after a short pause and never while the preview plays
+ *    (setFilmPaused): its second decoder would compete with playback
  * A file this browser can't decode (ProRes, some AVI / MKV, HEVC where unsupported) isn't local: it's
  * uploaded first and the server makes a playable copy, as before.
  */
@@ -29,7 +32,7 @@ export type LocalItem = {
   kind: MediaKind;
   /** object URL of the file (this tab only) */
   url: string;
-  /** object URL of a frame taken in the browser (videos), until the server's thumbnail exists */
+  /** object URL of a frame taken in the browser (videos): the thumbnail, no server request needed */
   poster: string | null;
   state: LocalState;
   /** 0..1 while uploading */
@@ -38,7 +41,7 @@ export type LocalItem = {
   size: number;
 };
 
-type Entry = LocalItem & { file: Blob; type: string };
+type Entry = LocalItem & { file: Blob; type: string; posterBlob: Blob | null; addedAt: number };
 
 const items = new Map<string, Entry>();
 let version = 0;
@@ -58,12 +61,35 @@ export const localVersion = () => version;
 export const localItem = (id: string): LocalItem | undefined => items.get(id);
 /** The file itself, to play (null: not imported in this tab, use the server's copy). */
 export const localSrc = (id: string): string | null => items.get(id)?.url ?? null;
-/** A thumbnail while the server has none yet (null: use /api/videos/<id>/thumb). */
+/**
+ * A thumbnail from this computer (null: use /api/videos/<id>/thumb). A video's frame taken in the browser
+ * stays the thumbnail after the upload (no need to download the server's); a picture is its own thumbnail
+ * only until the server's smaller one exists.
+ */
 export function localThumb(id: string): string | null {
   const it = items.get(id);
-  if (!it || it.state === "uploaded") return null;
-  return it.kind === "image" ? it.url : it.poster;
+  if (!it) return null;
+  if (it.kind === "image") return it.state === "uploaded" ? null : it.url;
+  return it.poster;
 }
+/** The file itself (this tab, else the copy kept in the browser), e.g. for a portable .vdo. null: not here. */
+export async function localFileOf(id: string): Promise<Blob | null> {
+  const it = items.get(id);
+  if (it) return it.file;
+  const acct = account;
+  if (!acct || !readIndex(acct)[id]) return null;
+  return opfsReadBlob(acct, pathOf(id)).catch(() => null);
+}
+/** What is known here about a file from this computer (this tab, else its copy's index entry). null: not here. */
+export function localInfo(id: string): { name: string; kind: MediaKind; type: string; size: number; width: number; height: number; duration: number } | null {
+  const it = items.get(id);
+  const e = account ? readIndex(account)[id] : undefined;
+  if (e) return { name: e.name, kind: e.kind, type: e.type, size: e.size, width: e.width, height: e.height, duration: e.duration };
+  if (it) return { name: it.name, kind: it.kind, type: it.type, size: it.size, width: 0, height: 0, duration: 0 };
+  return null;
+}
+/** The frame taken in the browser (a video's cover), if there is one. */
+export const localPosterOf = (id: string): Blob | null => items.get(id)?.posterBlob ?? null;
 /** Media still on its way to the server (or failed to get there). */
 export const notOnServer = (id: string): boolean => {
   const s = items.get(id)?.state;
@@ -238,12 +264,14 @@ export function addLocal(id: string, file: File, kind: MediaKind, poster: Blob |
     kind,
     url: URL.createObjectURL(file),
     poster: poster ? URL.createObjectURL(poster) : null,
+    posterBlob: poster,
     state,
     progress: 0,
     error: null,
     size: file.size,
     file,
     type: file.type,
+    addedAt: Date.now(),
   };
   items.set(id, entry);
   emit();
@@ -257,6 +285,24 @@ type Film = { key: string; url: string | null };
 const films = new Map<string, Film>();
 const filmJobs: (() => Promise<void>)[] = [];
 let filmBusy = false;
+/** A new file's film starts after this long: its first frames (preview, dragging it on) come first. */
+export const FILM_DELAY_MS = 600;
+let filmPaused = false;
+let filmResume: (() => void) | null = null;
+/**
+ * While the preview plays, the film waits (ProgramPlayer): decoding the same file twice at once makes
+ * playback stutter on slower computers. It goes on where it stopped.
+ */
+export function setFilmPaused(paused: boolean) {
+  if (filmPaused === paused) return;
+  filmPaused = paused;
+  if (!paused) {
+    filmResume?.();
+    filmResume = null;
+  }
+}
+const filmGo = (): Promise<void> => (filmPaused ? new Promise((r) => (filmResume = r)) : Promise.resolve());
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * The timeline film of a local video, made in the browser with the server's layout (lib/editor/film), so
@@ -284,6 +330,11 @@ async function runFilms() {
 }
 
 async function makeFilm(id: string, key: string, s: ReturnType<typeof filmSlots>) {
+  const fresh = items.get(id);
+  if (!fresh || films.get(id)?.key !== key) return;
+  const wait = fresh.addedAt + FILM_DELAY_MS - Date.now();
+  if (wait > 0) await sleep(wait);
+  await filmGo();
   const it = items.get(id);
   if (!it || films.get(id)?.key !== key) return;
   const v = document.createElement("video");
@@ -308,6 +359,7 @@ async function makeFilm(id: string, key: string, s: ReturnType<typeof filmSlots>
       emit();
     };
     for (let i = 0; i < s.n; i++) {
+      if (filmPaused) await filmGo();
       if (films.get(id)?.key !== key) return; // released, or a new layout
       const slot = s.at(i);
       v.currentTime = Math.min(slot.t, Math.max(0, v.duration - 0.05));
@@ -420,14 +472,25 @@ function pump() {
   }
 }
 
+/** Progress redraws the editor: at most every 5 percent, or a whole percent after a quarter second. */
+export function progressWorthShowing(prev: number, next: number, sinceMs: number): boolean {
+  const a = Math.floor(prev * 100);
+  const b = Math.floor(next * 100);
+  return b !== a && (Math.abs(b - a) >= 5 || sinceMs >= 250);
+}
+
 async function send(id: string, attempt: number): Promise<void> {
   const it = items.get(id);
   if (!it) return;
   try {
+    let shownAt = 0;
     const meta = await transport(id, it.file, it.name, (sent, total) => {
-      // (progress updates are many: only whole percents redraw)
       const p = total ? sent / total : 0;
-      if (Math.floor(p * 100) !== Math.floor((items.get(id)?.progress ?? 0) * 100)) update(id, { progress: p });
+      const now = Date.now();
+      if (progressWorthShowing(items.get(id)?.progress ?? 0, p, now - shownAt)) {
+        shownAt = now;
+        update(id, { progress: p });
+      }
     });
     update(id, { state: "uploaded", progress: 1, error: null });
     void markUploaded(id);
@@ -498,6 +561,7 @@ type IndexEntry = { name: string; kind: MediaKind; type: string; size: number; w
 type Index = Record<string, IndexEntry>;
 const indexKey = (acct: string) => `viplay:local-media:${acct}`;
 const pathOf = (id: string) => `media/${id}`;
+const posterPathOf = (id: string) => `media/${id}.poster`;
 /** At most this much is kept for files already on the server (oldest go first); never-uploaded ones stay. */
 export const LOCAL_BUDGET_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -532,6 +596,9 @@ export async function persistLocal(id: string, file: Blob, p: LocalProbe & { nam
     // (ask the browser not to clear it under storage pressure; it may say no)
     void navigator.storage?.persist?.().catch(() => false);
     await opfsWriteBlob(acct, pathOf(id), file);
+    // the frame taken in the browser: after a reload the thumbnails still need no server request
+    const poster = items.get(id)?.posterBlob ?? p.poster;
+    if (poster) await opfsWriteBlob(acct, posterPathOf(id), poster).catch(() => undefined);
     const idx = readIndex(acct);
     idx[id] = { name: p.name, kind: p.kind, type: file.type, size: file.size, width: p.width, height: p.height, duration: p.duration, uploaded: items.get(id)?.state === "uploaded", savedAt: Date.now() };
     writeIndex(acct, idx);
@@ -562,6 +629,7 @@ export async function forgetLocal(id: string) {
   delete idx[id];
   writeIndex(acct, idx);
   await opfsDelete(acct, pathOf(id)).catch(() => false);
+  await opfsDelete(acct, posterPathOf(id)).catch(() => false);
 }
 
 /** Keep the copies of uploaded files under the budget (the oldest go first). */
@@ -575,46 +643,89 @@ export async function enforceBudget(acct: string, budget = LOCAL_BUDGET_BYTES) {
   for (const [id, e] of old) {
     if (total <= budget) break;
     await opfsDelete(acct, pathOf(id)).catch(() => false);
+    await opfsDelete(acct, posterPathOf(id)).catch(() => false);
     delete idx[id];
     total -= e.size;
   }
   writeIndex(acct, idx);
 }
 
+/** Files whose copy is being read back (id → since when): the player waits for it a moment. */
+const restoring = new Map<string, number>();
+/** After this long the player stops waiting for a copy and plays the server's. */
+export const RESTORE_WAIT_MS = 2_500;
+/** Is this file's copy in this browser about to play (so the server's copy shouldn't be fetched meanwhile)? */
+export function restorePending(id: string): boolean {
+  const since = restoring.get(id);
+  return since !== undefined && Date.now() - since < RESTORE_WAIT_MS;
+}
+
 /**
  * After a reload or when a project opens: files of `ids` that have a copy here play from it again; one
  * whose upload didn't finish (or that the server lost) is sent again. Returns what the timeline needs
  * for files the server doesn't know (never uploaded): the editor adds those to its media list.
+ *
+ * The copies are read all at once and play as soon as they are read: asking the server whether it still
+ * has each file comes after (it only decides whether to send the file again).
  */
 export async function restoreLocal(ids: string[], serverHas: (id: string) => Promise<boolean>): Promise<MediaLite[]> {
   const acct = account;
   if (!acct) return [];
   const idx = readIndex(acct);
-  const unknown: MediaLite[] = [];
-  for (const id of ids) {
-    const e = idx[id];
-    if (!e || items.has(id)) continue;
-    let blob: Blob | null = null;
-    try {
-      blob = await opfsReadBlob(acct, pathOf(id));
-    } catch {
-      blob = null;
-    }
+  const todo = [...new Set(ids)].filter((id) => idx[id] && !items.has(id));
+  const since = Date.now();
+  for (const id of todo) restoring.set(id, since);
+  let read: { id: string; blob: Blob | null; poster: Blob | null }[];
+  try {
+    read = await Promise.all(
+      todo.map(async (id) => {
+        const [blob, poster] = await Promise.all([opfsReadBlob(acct, pathOf(id)).catch(() => null), idx[id]!.kind === "video" ? opfsReadBlob(acct, posterPathOf(id)).catch(() => null) : null]);
+        return { id, blob, poster };
+      }),
+    );
+  } finally {
+    for (const id of todo) restoring.delete(id);
+  }
+  let forgot = false;
+  const added: string[] = [];
+  for (const { id, blob, poster } of read) {
+    const e = idx[id]!;
     if (!blob) {
       // the copy is gone (cleared by the browser): forget it
       delete idx[id];
-      writeIndex(acct, idx);
+      forgot = true;
       continue;
     }
+    if (items.has(id)) continue; // (imported again meanwhile)
     const file = blob instanceof File ? blob : new File([blob], e.name, { type: e.type });
-    const onServer = e.uploaded && (await serverHas(id).catch(() => true));
-    addLocal(id, file, e.kind, null, onServer ? "uploaded" : "uploading");
-    if (!onServer) {
-      uploadLocal(id);
-      unknown.push({ id, kind: e.kind, fileName: e.name, width: e.width, height: e.height, fps: e.kind === "video" ? 30 : 0, duration: e.duration, hasAudio: e.kind !== "image", suggestedKey: null, keyKind: null });
-    }
+    addLocal(id, file, e.kind, poster, e.uploaded ? "uploaded" : "uploading");
+    added.push(id);
   }
+  if (forgot) writeIndex(acct, idx);
+  if (!added.length) {
+    emit(); // (restorePending changed)
+    return [];
+  }
+  const onServer = await Promise.all(added.map((id) => (idx[id]!.uploaded ? serverHas(id).catch(() => true) : Promise.resolve(false))));
+  const unknown: MediaLite[] = [];
+  added.forEach((id, k) => {
+    if (onServer[k] || !items.has(id)) return;
+    const e = idx[id]!;
+    // (it says "uploaded", but the server lost it: send it again)
+    if (items.get(id)!.state === "uploaded") update(id, { state: "uploading" });
+    uploadLocal(id);
+    unknown.push({ id, kind: e.kind, fileName: e.name, width: e.width, height: e.height, fps: e.kind === "video" ? 30 : 0, duration: e.duration, hasAudio: e.kind !== "image", suggestedKey: null, keyKind: null });
+  });
   return unknown;
+}
+
+/**
+ * A file kept in the account's storage another way (an imported .vdo package, lib/storage/workspace) plays
+ * from it too. It isn't uploaded from here: the package import already sent it to the server.
+ */
+export function adoptLocal(id: string, blob: Blob, name: string, kind: MediaKind) {
+  if (items.has(id)) return;
+  addLocal(id, blob instanceof File ? blob : new File([blob], name, { type: blob.type }), kind, null, "uploaded");
 }
 
 /** (tests) forget everything */
@@ -622,6 +733,9 @@ export function resetLocalMedia() {
   for (const id of [...items.keys()]) releaseLocal(id, true);
   films.clear();
   filmJobs.length = 0;
+  filmPaused = false;
+  filmResume = null;
+  restoring.clear();
   queue.length = 0;
   active = 0;
   whenDone.clear();

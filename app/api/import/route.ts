@@ -6,13 +6,11 @@ import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
-/** Import a library item into My Assets: { source, id, rights? } ("mine" | "cc" for YouTube). Poll /api/import/jobs/[jobId]. */
+/** Import a library item into My Assets: { source, id }. Poll /api/import/jobs/[jobId]. */
 export async function POST(request: Request) {
   const user = await requireUser();
   if (user instanceof Response) return user;
   const b = await jsonBody(request);
   if (!b || !isImportSource(b.source) || typeof b.id !== "string" || !/^[\w-]{1,40}$/.test(b.id)) return apiError(400, "bad_request", "Pick something to import.");
-  const rights = b.rights === "mine" || b.rights === "cc" ? b.rights : null;
-  if (b.source === "youtube" && !rights) return apiError(400, "rights", "Confirm that it's your own video, or pick a Creative Commons one.");
-  return Response.json(startImport(b.source, b.id, rights), { status: 201 });
+  return Response.json(startImport(b.source, b.id), { status: 201 });
 }

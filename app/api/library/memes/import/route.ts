@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       const source = id.startsWith("pixabay-") ? "pixabay" : "pexels";
       const rawId = id.replace(/^(pexels|pixabay)-/, "");
       const { startImport, getImport } = await import("@/lib/import/jobs");
-      const job = startImport(source, rawId, null);
+      const job = startImport(source, rawId);
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 600));
         const res = await getImport(job.id);

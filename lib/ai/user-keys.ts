@@ -12,7 +12,6 @@ const ENV_MAP: Record<ProviderId, string> = {
   openai: "OPENAI_API_KEY",
   pexels: "PEXELS_API_KEY",
   pixabay: "PIXABAY_API_KEY",
-  youtube: "YOUTUBE_API_KEY",
 };
 
 /**

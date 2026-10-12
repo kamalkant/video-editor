@@ -2,6 +2,38 @@ import { coverMediaId, type Project } from "@/lib/projects/model";
 import { mediaIdsOf } from "@/lib/edit/doc";
 import type { IAccountWorkspace, StoredAsset } from "../types";
 import { createZipArchive, type ZipEntry } from "./container";
+import { localFileOf, localInfo, localPosterOf } from "@/lib/media/localMedia";
+
+/**
+ * A file imported from this computer (lib/media/localMedia keeps it, and a copy in the browser): packed
+ * from here, never downloaded back from the server.
+ */
+async function localAsset(id: string, project: Project, workspace: IAccountWorkspace): Promise<{ asset: StoredAsset; blob: Blob } | null> {
+  const info = localInfo(id);
+  if (!info) return null;
+  const blob = await localFileOf(id);
+  if (!blob) return null;
+  const type = info.kind;
+  return {
+    blob,
+    asset: {
+      id,
+      accountCode: workspace.accountCode,
+      projectId: project.id,
+      type,
+      name: info.name,
+      mimeType: info.type || blob.type || (type === "image" ? "image/png" : type === "audio" ? "audio/mpeg" : "video/mp4"),
+      size: blob.size,
+      hash: "",
+      storagePath: `assets/${type}s/${id}`,
+      duration: info.duration || undefined,
+      width: info.width || undefined,
+      height: info.height || undefined,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  };
+}
 
 export type VDOExportOptions = {
   portable?: boolean;
@@ -42,8 +74,12 @@ export async function estimateVDOSize(
   if (options?.portable) {
     for (const id of mediaIds) {
       const asset = await workspace.getAsset(id);
+      const local = asset ? null : localInfo(id);
       if (asset) {
         totalBytes += asset.size;
+        assetCount++;
+      } else if (local) {
+        totalBytes += local.size;
         assetCount++;
       } else if (typeof window !== "undefined" && typeof fetch !== "undefined") {
         try {
@@ -132,7 +168,7 @@ export async function exportVDO(
   // 4. Thumbnails
   const coverId = coverMediaId(project.doc);
   if (coverId) {
-    let thumbBlob = await workspace.getThumbnailBlob(coverId);
+    let thumbBlob = (await workspace.getThumbnailBlob(coverId)) ?? localPosterOf(coverId);
     if (!thumbBlob && typeof window !== "undefined" && typeof fetch !== "undefined") {
       try {
         const res = await fetch(`/api/videos/${coverId}/thumb`);
@@ -158,6 +194,15 @@ export async function exportVDO(
     for (const id of mediaIds) {
       let asset = await workspace.getAsset(id);
       let blob = await workspace.getAssetBlob(id);
+
+      // a file from this computer: packed from here
+      if (!blob) {
+        const local = await localAsset(id, project, workspace).catch(() => null);
+        if (local) {
+          blob = local.blob;
+          asset ??= local.asset;
+        }
+      }
 
       // Fallback: If not in local workspace, try fetching from server
       if (!blob && typeof window !== "undefined" && typeof fetch !== "undefined") {

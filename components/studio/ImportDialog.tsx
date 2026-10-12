@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
+import { SkeletonGrid } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 import type { VideoMeta } from "@/lib/api/types";
 import { runTask } from "@/lib/editor/tasks";
 import { openAiSettings } from "@/lib/editor/useGemini";
@@ -29,12 +31,6 @@ const TABS: { id: ImportTab; label: string; icon: IconName; hint: string }[] = [
     label: "Pixabay",
     icon: "video",
     hint: "Free stock videos (free to use)",
-  },
-  {
-    id: "youtube",
-    label: "YouTube",
-    icon: "play",
-    hint: "Search YouTube; import your own or Creative Commons videos",
   },
 ];
 
@@ -78,7 +74,6 @@ function LibraryTab({
 }) {
   const [q, setQ] = useState("");
   const [shape, setShape] = useState<Shape>(projectShape);
-  const [cc, setCc] = useState(false);
   const [items, setItems] = useState<ImportItem[] | null>(null);
   const [next, setNext] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
@@ -86,7 +81,6 @@ function LibraryTab({
     null,
   );
   const [picked, setPicked] = useState<ImportItem | null>(null);
-  const [rights, setRights] = useState(false);
   const [busy, setBusy] = useState<number | null>(null);
   const [done, setDone] = useState<Record<string, boolean>>({});
   const lastQ = useRef("");
@@ -103,7 +97,6 @@ function LibraryTab({
         q: query,
         page: more && next ? next : "1",
         shape,
-        ...(cc ? { cc: "1" } : {}),
       });
       const r = await fetch(`/api/import/search?${u}`, { cache: "no-store" });
       const j = await r.json().catch(() => null);
@@ -140,9 +133,6 @@ function LibraryTab({
         body: JSON.stringify({
           source,
           id: picked.id,
-          ...(source === "youtube"
-            ? { rights: picked.license === "cc" ? "cc" : "mine" }
-            : {}),
         }),
       });
       const j = await r.json().catch(() => null);
@@ -164,7 +154,6 @@ function LibraryTab({
     }
   };
 
-  const yt = source === "youtube";
   return (
     <div
       className="flex min-h-0 flex-col gap-3"
@@ -178,21 +167,17 @@ function LibraryTab({
         }}
       >
         <label className="flex min-w-56 flex-1 items-center gap-2 rounded-lg border border-control bg-raised px-2.5 focus-within:border-primary">
-          <Icon name="search" className="size-4 text-muted" />
+          {searching ? <Spinner size="sm" className="text-primary" /> : <Icon name="search" className="size-4 text-muted" />}
           <input
+            aria-busy={searching}
             className="min-h-hit min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder={
-              yt
-                ? "Search YouTube…"
-                : `Search ${SOURCE_NAME[source]} videos, e.g. “city at night”`
-            }
+            placeholder={`Search ${SOURCE_NAME[source]} videos, e.g. “city at night”`}
             aria-label={`Search ${SOURCE_NAME[source]}`}
           />
         </label>
-        {!yt && (
-          <div
+        <div
             className="flex gap-0.5 rounded-lg border border-line p-0.5"
             role="radiogroup"
             aria-label="Shape"
@@ -215,25 +200,19 @@ function LibraryTab({
                 {label}
               </button>
             ))}
-          </div>
-        )}
-        {yt && (
-          <label className="flex items-center gap-1.5 text-xs text-muted">
-            <input
-              type="checkbox"
-              className="size-4"
-              checked={cc}
-              onChange={(e) => setCc(e.target.checked)}
-            />
-            Only Creative Commons
-          </label>
-        )}
+        </div>
         <button
           type="submit"
           className="btn btn-primary px-4"
           disabled={searching || !q.trim()}
         >
-          {searching ? "Searching…" : "Search"}
+          {searching ? (
+            <>
+              <Spinner size="xs" /> Searching…
+            </>
+          ) : (
+            "Search"
+          )}
         </button>
       </form>
 
@@ -256,7 +235,8 @@ function LibraryTab({
         </Notice>
       )}
 
-      {items && !items.length && (
+      {searching && !items?.length && <SkeletonGrid n={8} className="grid-cols-2 sm:grid-cols-3 lg:grid-cols-4" />}
+      {items && !items.length && !searching && (
         <p className="py-6 text-center text-sm text-muted">
           Nothing found. Try other words.
         </p>
@@ -274,10 +254,8 @@ function LibraryTab({
                 <button
                   type="button"
                   aria-pressed={on}
-                  onClick={() => (setPicked(on ? null : it), setRights(false))}
-                  onDoubleClick={() =>
-                    source !== "youtube" && (setPicked(it), void doImport(true))
-                  }
+                  onClick={() => setPicked(on ? null : it)}
+                  onDoubleClick={() => (setPicked(it), void doImport(true))}
                   className={`flex w-full flex-col overflow-hidden rounded-lg border text-left ${on ? "border-link ring-2 ring-link" : "border-line hover:border-control"}`}
                   title={`${it.title} · by ${it.author}`}
                 >
@@ -294,11 +272,6 @@ function LibraryTab({
                     <span className="absolute bottom-1 right-1 rounded bg-black/75 px-1 text-[0.625rem] text-white">
                       {formatTime(it.duration)}
                     </span>
-                    {yt && it.license === "cc" && (
-                      <span className="absolute left-1 top-1 rounded bg-emerald-600/90 px-1 text-[0.5625rem] font-semibold text-white">
-                        CC
-                      </span>
-                    )}
                     {done[it.id] && (
                       <span className="absolute right-1 top-1 flex size-4.5 items-center justify-center rounded bg-primary text-white">
                         <Icon name="check" className="size-3" strokeWidth={3} />
@@ -325,6 +298,7 @@ function LibraryTab({
                 onClick={() => void search(true)}
                 disabled={searching}
               >
+                {searching && <Spinner size="xs" />}
                 Load more
               </button>
             </li>
@@ -334,19 +308,9 @@ function LibraryTab({
 
       {picked && (
         <div
-          className={`gap-3 rounded-lg border border-line bg-canvas p-3 ${yt ? "grid sm:grid-cols-[minmax(0,17rem)_1fr]" : "flex flex-col"}`}
+          className="flex flex-col gap-3 rounded-lg border border-line bg-canvas p-3"
           data-testid="import-picked"
         >
-          {yt && (
-            <iframe
-              title={`Preview: ${picked.title}`}
-              src={`https://www.youtube-nocookie.com/embed/${picked.id}?rel=0`}
-              className="aspect-video w-full rounded-md"
-              allow="encrypted-media; picture-in-picture"
-              allowFullScreen
-              referrerPolicy="strict-origin-when-cross-origin"
-            />
-          )}
           <div className="flex min-w-0 flex-col gap-2">
             <p className="text-xs">
               <strong>{picked.title}</strong> · {formatTime(picked.duration)} ·
@@ -372,50 +336,22 @@ function LibraryTab({
               >
                 {SOURCE_NAME[source]}
               </a>
-              {!yt && " · free to use"}
+              {" · free to use"}
             </p>
-            {yt && (
-              <label className="flex items-start gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 size-4"
-                  checked={rights}
-                  onChange={(e) => setRights(e.target.checked)}
-                  data-testid="import-rights"
-                />
-                <span>
-                  {picked.license === "cc" ? (
-                    <>
-                      This video is Creative Commons (CC BY). I&apos;ll credit{" "}
-                      {picked.author} in my video.
-                    </>
-                  ) : (
-                    "This is my own video (my channel), and I have the right to use it."
-                  )}
-                </span>
-              </label>
-            )}
-            {yt && (
-              <p className="text-[0.6875rem] text-muted">
-                YouTube&apos;s rules don&apos;t allow downloading other
-                people&apos;s videos. Import only your own videos or Creative
-                Commons ones.
-              </p>
-            )}
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 className="btn btn-primary"
-                disabled={busy !== null || (yt && !rights)}
+                disabled={busy !== null}
                 onClick={() => void doImport(true)}
               >
-                <Icon name="plus" className="size-4" />
+                {busy !== null ? <Spinner size="sm" /> : <Icon name="plus" className="size-4" />}
                 {busy !== null ? `Importing… ${busy}%` : "Add to timeline"}
               </button>
               <button
                 type="button"
                 className="btn btn-secondary"
-                disabled={busy !== null || (yt && !rights)}
+                disabled={busy !== null}
                 onClick={() => void doImport(false)}
               >
                 Save to My Assets
@@ -425,9 +361,7 @@ function LibraryTab({
         </div>
       )}
       <p className="text-[0.6875rem] text-muted h-[400px]">
-        {yt
-          ? "Search uses your YouTube Data API key (about 100 free searches a day)."
-          : `Uses your free ${SOURCE_NAME[source]} key.`}{" "}
+        {`Uses your free ${SOURCE_NAME[source]} key.`}{" "}
         <button
           type="button"
           className="text-link underline"
@@ -440,7 +374,7 @@ function LibraryTab({
   );
 }
 
-/** Import (Add media): from this computer, or search Pexels, Pixabay and YouTube and bring a clip in. */
+/** Import (Add media): from this computer, or search Pexels and Pixabay and bring a clip in. */
 export function ImportDialog(p: {
   open: boolean;
   onClose: () => void;

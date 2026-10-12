@@ -464,7 +464,10 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                 className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-400"
                 value={macVoice}
                 onChange={(e) => setMacVoice(e.target.value)}
+                disabled={macVoices === null}
+                aria-busy={macVoices === null}
               >
+                {macVoices === null && <option value="">Loading voices…</option>}
                 {macVoices?.map((v) => (
                   <option key={v.name} value={v.name}>
                     {v.name} ({LOCALE[v.locale] ?? v.locale})

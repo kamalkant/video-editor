@@ -10,6 +10,7 @@ import { drawText } from "@/lib/text/render";
 import { drawBackdrop } from "@/lib/backdrops";
 import { mainStarts } from "@/lib/edit/doc";
 import { formatTime } from "@/lib/format";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 export function TemplateCard({
   template,
@@ -216,6 +217,8 @@ export function TemplateCard({
           className="max-h-full max-w-full rounded object-contain shadow-sm transition-transform duration-300 group-hover:scale-105"
           style={{ aspectRatio: aspectStyle }}
         />
+        {/* your template's frame is on its way */}
+        {template.previewImageUrl && !picture && <Skeleton className="absolute inset-1 rounded opacity-70" />}
 
         {/* Top Badges */}
         <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">

@@ -37,6 +37,12 @@ export function ytDlpEnv(): NodeJS.ProcessEnv {
   return { ...process.env, TMPDIR: tmp };
 }
 
+/**
+ * Where yt-dlp finds FFmpeg (it joins and cuts the clip with it). A bare command name ("ffmpeg": FFmpeg on
+ * the PATH) isn't a location to yt-dlp, which then says FFmpeg isn't installed: it finds it on the PATH itself.
+ */
+export const ytDlpFfmpegArgs = (ffmpeg: string): string[] => (/[\\/]/.test(ffmpeg) ? ["--ffmpeg-location", ffmpeg] : []);
+
 export const NO_YTDLP =
   process.platform === "darwin"
     ? "The YouTube downloader (yt-dlp) isn't installed. Install it with: brew install yt-dlp"

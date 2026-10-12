@@ -19,6 +19,19 @@ import { openAiSettings } from "@/lib/editor/useGemini";
 
 export type LibraryCategory = "all" | "videos" | "memes" | "photos" | "audio";
 
+/** How many tiles side by side (1 to 3, remembered). Full class names, so Tailwind keeps them. */
+type GridCols = 1 | 2 | 3;
+const GRID_COLS: Record<GridCols, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3" };
+const COLS_KEY = "VDO_library_cols";
+function readCols(): GridCols {
+  try {
+    const n = Number(localStorage.getItem(COLS_KEY));
+    return n === 1 || n === 2 || n === 3 ? n : 2;
+  } catch {
+    return 2;
+  }
+}
+
 interface StockItem {
   id: string;
   source: "pexels" | "pixabay" | "curated";
@@ -66,6 +79,16 @@ export function UnifiedLibraryPanel({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState<string | null>(null);
+  const [cols, setColsState] = useState<GridCols>(() => (typeof window === "undefined" ? 2 : readCols()));
+  const setCols = (n: GridCols) => {
+    setColsState(n);
+    try {
+      localStorage.setItem(COLS_KEY, String(n));
+    } catch {
+      /* private window: just for now */
+    }
+  };
+  const gridCls = `grid gap-2 ${GRID_COLS[cols]}`;
 
   // Remote Stock Search state
   const [stockVideos, setStockVideos] = useState<StockItem[]>([]);
@@ -492,6 +515,25 @@ export function UnifiedLibraryPanel({
             </div>
           </div>
 
+          {/* Tiles side by side: 1, 2 or 3 */}
+          <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-line bg-raised/50 p-0.5" role="group" aria-label="Tiles per row" data-testid="library-cols">
+            {([1, 2, 3] as const).map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setCols(n)}
+                aria-pressed={cols === n}
+                aria-label={`${n} per row`}
+                title={`${n} per row`}
+                className={`flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums transition-colors ${
+                  cols === n ? "bg-primary text-white shadow-xs" : "text-muted hover:bg-raised hover:text-ink"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+
           {/* Volume On/Off Hover Preview Toggle (Icon Only) */}
           <button
             type="button"
@@ -595,7 +637,7 @@ export function UnifiedLibraryPanel({
             )}
 
             {isSearchingStock && stockVideos.length === 0 ? (
-              <SkeletonGrid n={4} />
+              <SkeletonGrid n={cols * 2} className={GRID_COLS[cols]} />
             ) : stockVideos.length === 0 ? (
               activeCategory === "videos" ? (
                 <div className="py-6 text-center text-muted text-[11px]">
@@ -603,7 +645,7 @@ export function UnifiedLibraryPanel({
                 </div>
               ) : null
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className={gridCls}>
                 {stockVideos.map((it) => {
                   const stockMeme: MemeClipItem = {
                     id: it.id,
@@ -719,7 +761,7 @@ export function UnifiedLibraryPanel({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className={gridCls}>
               {filteredMemes.map((m) => (
                 <div
                   key={m.id}
@@ -809,7 +851,7 @@ export function UnifiedLibraryPanel({
                 <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold px-1">
                   <Spinner size="xs" /> SEARCHING ONLINE MEMES…
                 </div>
-                <SkeletonGrid n={4} />
+                <SkeletonGrid n={cols * 2} className={GRID_COLS[cols]} />
               </div>
             )}
             {onlineMemes.length > 0 && (
@@ -817,7 +859,7 @@ export function UnifiedLibraryPanel({
                 <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
                   <span>SEARCHABLE ONLINE MEMES ({onlineMemes.length})</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className={gridCls}>
                   {onlineMemes.map((m) => (
                     <div
                       key={m.id}
@@ -911,7 +953,7 @@ export function UnifiedLibraryPanel({
             </div>
 
             {isSearchingPhotos && stockPhotos.length === 0 ? (
-              <SkeletonGrid n={4} />
+              <SkeletonGrid n={cols * 2} className={GRID_COLS[cols]} />
             ) : stockPhotos.length === 0 ? (
               activeCategory === "photos" ? (
                 <div className="py-6 text-center text-muted text-[11px]">
@@ -919,7 +961,7 @@ export function UnifiedLibraryPanel({
                 </div>
               ) : null
             ) : (
-              <div className="grid grid-cols-2 gap-2">
+              <div className={gridCls}>
                 {stockPhotos.map((p) => (
                   <div
                     key={p.id}

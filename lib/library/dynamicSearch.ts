@@ -91,7 +91,7 @@ export async function searchOnlineMemesWhy(query: string, limit = 4): Promise<{ 
           ? "YouTube search took too long. Try again."
           : stderr
             ? ytDlpFailure(stderr)
-            : `The YouTube search tool stopped (${e.signal ?? `exit ${e.code ?? "?"}`}) without saying why.`;
+            : `The YouTube search tool stopped (${e.signal ?? `exit ${e.code ?? "?"}`}): ${String((err as Error)?.message ?? err).replace(/\/[^\s:'"]+/g, "…").slice(0, 160)}`;
     return { items: [], error: why };
   }
 }

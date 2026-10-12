@@ -39,7 +39,7 @@ import { drawBackdrop } from "@/lib/backdrops";
 import { trackingAt, type TrackingPoint, type BlurAttachment } from "@/lib/tracking/types";
 import { findTrackingAttachmentForClip, evaluateAttachmentTransform } from "@/lib/tracking/attach";
 
-const BG_CLASS: Record<Exclude<Bg, "custom">, string> = { checker: "bg-checker", white: "bg-white", black: "bg-[#1f1f1f]", image: "bg-checker", video: "bg-checker" };
+const BG_CLASS: Record<Exclude<Bg, "custom">, string> = { checker: "bg-checker", white: "bg-white", black: "bg-black", image: "bg-checker", video: "bg-checker" };
 /** Preview resolution (the export uses the full canvas size). */
 const MAX_SIDE = 1280;
 

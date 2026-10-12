@@ -195,9 +195,6 @@ export function ProjectsPanel(p: {
         next.delete(x.id);
         return next;
       });
-      if (x.id === p.currentId) {
-        p.onNew();
-      }
     } catch (e) {
       setError((e as Error).message);
     }
@@ -230,8 +227,8 @@ export function ProjectsPanel(p: {
       }
       const firstId = Array.from(selected)[0] ?? "";
       setSelected(new Set());
-      if (deletedCurrent) {
-        p.onNew();
+      if (deletedCurrent && p.currentId) {
+        p.onDeleted(p.currentId);
       } else if (firstId) {
         p.onDeleted(firstId);
       }

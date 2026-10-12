@@ -22,7 +22,7 @@ export function ResultPlayer({ webmUrl, movUrl, posterUrl, width, height }: { we
     v.src = usingMov ? movUrl : webmUrl;
     v.play().catch(() => undefined);
   }, [movUrl, webmUrl, usingMov]);
-  const bgClass = bg === "checker" ? "bg-checker" : bg === "white" ? "bg-white" : "bg-[#1F2937]";
+  const bgClass = bg === "checker" ? "bg-checker" : bg === "white" ? "bg-white" : "bg-black";
   return (
     <div className="flex flex-col gap-2">
       <div className={`rounded-lg border border-control p-3 ${bgClass}`}>

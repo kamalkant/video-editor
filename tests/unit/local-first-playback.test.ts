@@ -238,10 +238,11 @@ describe("kept on this computer: sent only when a server feature needs it", () =
       L.addLocal(i, file(), "video", null, "local");
       await fetch(`/api/videos/${i}`);
       await fetch(`/api/videos/${i}/thumb`);
+      await fetch(`/api/videos/${i}/pick`);
       expect(sent).toEqual([]);
       await fetch(`/api/videos/${i}/derived`, { method: "POST" });
       expect(sent).toEqual([i]);
-      expect(realFetch).toHaveBeenCalledTimes(3);
+      expect(realFetch).toHaveBeenCalledTimes(4);
     } finally {
       uninstall();
     }

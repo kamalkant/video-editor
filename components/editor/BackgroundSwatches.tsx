@@ -8,10 +8,10 @@ export type Bg = "checker" | "white" | "black" | "custom" | "image" | "video";
 /** A picture or video chosen for the preview background. Stays in the browser (object URL); never uploaded or exported. */
 export type BgMedia = { kind: "image" | "video"; url: string; name: string };
 
-const TILES: { value: Bg; label: string; tile: string }[] = [
+export const TILES: { value: Bg; label: string; tile: string }[] = [
   { value: "checker", label: "Checkerboard", tile: "bg-checker" },
   { value: "white", label: "White", tile: "bg-white" },
-  { value: "black", label: "Black", tile: "bg-[#1f1f1f]" },
+  { value: "black", label: "Black", tile: "bg-black" },
   { value: "custom", label: "Custom", tile: "" },
   { value: "image", label: "Image", tile: "bg-raised" },
   { value: "video", label: "Video", tile: "bg-raised" },

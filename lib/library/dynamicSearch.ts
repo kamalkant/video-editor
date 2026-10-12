@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { FFMPEG, runFfmpeg } from "@/lib/ffmpeg/run";
-import { NO_YTDLP, YTDLP_JS, ytDlpBin, ytDlpEnv, ytDlpFailure } from "@/lib/import/ytdlp";
+import { NO_YTDLP, YTDLP_JS, ytDlpBin, ytDlpEnv, ytDlpFailure, ytDlpFfmpegArgs } from "@/lib/import/ytdlp";
 import type { MemeClipItem } from "./memeCatalog";
 import { dataRoot } from "@/lib/dataRoot";
 
@@ -130,7 +130,7 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
     const formattedDuration = String(Math.floor(maxDuration)).padStart(2, "0");
     await execFilePromise(
       ytDlpBin(),
-      [...YTDLP_JS, "--download-sections", `*00:00:00-00:00:${formattedDuration}`, "-f", "b[ext=mp4]/bv*[ext=mp4]+ba[ext=m4a]/b", "--ffmpeg-location", FFMPEG, "--force-overwrites", "-o", tempRaw, "--", videoUrl],
+      [...YTDLP_JS, "--download-sections", `*00:00:00-00:00:${formattedDuration}`, "-f", "b[ext=mp4]/bv*[ext=mp4]+ba[ext=m4a]/b", ...ytDlpFfmpegArgs(FFMPEG), "--force-overwrites", "-o", tempRaw, "--", videoUrl],
       { timeout: 60000, env: ytDlpEnv() },
     );
 

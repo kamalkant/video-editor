@@ -332,6 +332,12 @@ import {
 
 export const LAST_SPEC_KEY = "VDO:v2:last";
 
+/** The message of an API error body ({ error: { message } }), if it has one. */
+const apiErrorMessage = (body: unknown): string | null => {
+  const m = (body as { error?: { message?: unknown } } | null)?.error?.message;
+  return typeof m === "string" && m ? m : null;
+};
+
 /** A dialog opened before its code has arrived: a spinner where it will appear. */
 function DialogLoading() {
   return (
@@ -1402,7 +1408,8 @@ function StudioInner(props: Props) {
       overlay?: boolean;
       point?: { x: number; y: number };
     } = {},
-  ) => {
+  ): Promise<boolean> => {
+    setWorking("Adding the clip…");
     try {
       const res = await fetch("/api/library/memes/import", {
         method: "POST",
@@ -1413,7 +1420,8 @@ function StudioInner(props: Props) {
           duration: item.duration,
         }),
       });
-      if (!res.ok) throw new Error("Could not import meme clip.");
+      // (the server says why: e.g. the online clip couldn't be downloaded)
+      if (!res.ok) throw new Error(apiErrorMessage(await res.json().catch(() => null)) ?? "Could not import meme clip.");
       const videoMeta: VideoMeta = await res.json();
 
       if (opts.point) {
@@ -1464,9 +1472,13 @@ function StudioInner(props: Props) {
           duration: videoMeta.info.duration,
         });
       }
+      return true;
     } catch (e) {
+      // (shown, not thrown: the drop handlers don't wait for it)
       setNotice((e as Error).message);
-      throw e;
+      return false;
+    } finally {
+      setWorking(null);
     }
   };
 

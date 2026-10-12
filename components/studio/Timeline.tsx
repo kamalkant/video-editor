@@ -393,6 +393,11 @@ type Landing = {
   drop?: { trackId: string; at: number; index?: number };
 };
 
+/**
+ * The playhead time for what the timeline shows and does at the playhead (the editing tools, the time
+ * label, split / freeze / marker at the playhead): at most every 150 ms, so playback doesn't re-render the
+ * whole timeline every frame. The red needle itself follows the clock every frame (PlayheadNeedle).
+ */
 function useThrottledClock(clock: Clock, intervalMs = 150): number {
   const subscribe = useCallback(
     (onStoreChange: () => void) => {
@@ -433,6 +438,7 @@ function PlayheadNeedle({
   inner: number;
 }) {
   const t = useSyncExternalStore(clock.subscribe, clock.get, () => 0);
+  const pos = x(Math.min(total, t));
   return (
     <div
       aria-hidden="true"
@@ -440,8 +446,8 @@ function PlayheadNeedle({
       style={{ width: inner }}
     >
       <span
-        className="absolute inset-y-0 w-0.5 -translate-x-1/2 bg-red-500 will-change-[left]"
-        style={{ left: x(Math.min(total, t)) }}
+        className="absolute inset-y-0 left-0 w-0.5 -translate-x-1/2 bg-red-500 will-change-transform"
+        style={{ transform: `translate3d(${pos}px, 0, 0)` }}
         data-testid="playhead"
       >
         <span className="absolute -left-[5px] top-0.5 block size-3 rotate-45 rounded-sm bg-red-500" />
@@ -871,7 +877,7 @@ export function Timeline(p: TimelineProps) {
 
   /** Times clips and the playhead can snap to, leaving out one clip's own edges. */
   const edges = (except?: string, includePlayhead = true) => {
-    const out = includePlayhead ? [0, t] : [0];
+    const out = includePlayhead ? [0, p.clock.get()] : [0];
     if (doc.markers) {
       for (const m of doc.markers) out.push(m.t);
     }

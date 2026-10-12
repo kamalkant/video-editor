@@ -1,27 +1,76 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { AtmosphericWebGlStage } from "./canvas/AtmosphericWebGlStage";
 import { TopNav } from "./dom/TopNav";
 import { ScrollMotionCard } from "./dom/ScrollMotionCard";
 import { ScrollTimelineHero } from "./hero/ScrollTimelineHero";
-import { AllToolsFeaturesShowcaseSection } from "./sections/AllToolsFeaturesShowcaseSection";
-import { UseCasesSection } from "./sections/UseCasesSection";
-import { TemplatesShowcaseSection } from "./sections/TemplatesShowcaseSection";
-import { ResourcesSection } from "./sections/ResourcesSection";
-import { ExplodedLayerSection } from "./sections/ExplodedLayerSection";
-import { EcosystemCtaSection } from "./sections/EcosystemCtaSection";
-import { PricingSection, type PlanData } from "./sections/PricingSection";
-import { FaqSection } from "./sections/FaqSection";
-import { FooterCTA } from "./dom/FooterCTA";
 import { useResolvedTheme } from "@/lib/editor/theme";
+import type { PlanData } from "./sections/PricingSection";
+
+// Below-the-fold sections dynamically loaded with ssr: true to preserve SEO while splitting client JS
+const AllToolsFeaturesShowcaseSection = dynamic(
+  () => import("./sections/AllToolsFeaturesShowcaseSection").then((m) => m.AllToolsFeaturesShowcaseSection),
+  { ssr: true },
+);
+const UseCasesSection = dynamic(
+  () => import("./sections/UseCasesSection").then((m) => m.UseCasesSection),
+  { ssr: true },
+);
+const TemplatesShowcaseSection = dynamic(
+  () => import("./sections/TemplatesShowcaseSection").then((m) => m.TemplatesShowcaseSection),
+  { ssr: true },
+);
+const ResourcesSection = dynamic(
+  () => import("./sections/ResourcesSection").then((m) => m.ResourcesSection),
+  { ssr: true },
+);
+const ExplodedLayerSection = dynamic(
+  () => import("./sections/ExplodedLayerSection").then((m) => m.ExplodedLayerSection),
+  { ssr: true },
+);
+const EcosystemCtaSection = dynamic(
+  () => import("./sections/EcosystemCtaSection").then((m) => m.EcosystemCtaSection),
+  { ssr: true },
+);
+const PricingSection = dynamic(
+  () => import("./sections/PricingSection").then((m) => m.PricingSection),
+  { ssr: true },
+);
+const FaqSection = dynamic(
+  () => import("./sections/FaqSection").then((m) => m.FaqSection),
+  { ssr: true },
+);
+const FooterCTA = dynamic(
+  () => import("./dom/FooterCTA").then((m) => m.FooterCTA),
+  { ssr: true },
+);
 
 // Interactive Feature Modules (Full-Width Large Stages)
-import { AiCutoutModule } from "./modules/AiCutoutModule";
-import { OverlayCompositionModule } from "./modules/OverlayCompositionModule";
-import { MotionTrackingModule } from "./modules/MotionTrackingModule";
-import { AiGenerationModule } from "./modules/AiGenerationModule";
-import { PlatformFormatsModule } from "./modules/PlatformFormatsModule";
-import { CompareReviewModule } from "./modules/CompareReviewModule";
+const AiCutoutModule = dynamic(
+  () => import("./modules/AiCutoutModule").then((m) => m.AiCutoutModule),
+  { ssr: true },
+);
+const OverlayCompositionModule = dynamic(
+  () => import("./modules/OverlayCompositionModule").then((m) => m.OverlayCompositionModule),
+  { ssr: true },
+);
+const MotionTrackingModule = dynamic(
+  () => import("./modules/MotionTrackingModule").then((m) => m.MotionTrackingModule),
+  { ssr: true },
+);
+const AiGenerationModule = dynamic(
+  () => import("./modules/AiGenerationModule").then((m) => m.AiGenerationModule),
+  { ssr: true },
+);
+const PlatformFormatsModule = dynamic(
+  () => import("./modules/PlatformFormatsModule").then((m) => m.PlatformFormatsModule),
+  { ssr: true },
+);
+const CompareReviewModule = dynamic(
+  () => import("./modules/CompareReviewModule").then((m) => m.CompareReviewModule),
+  { ssr: true },
+);
 
 export function MarketingWebsite({ initialPlans }: { initialPlans?: PlanData[] } = {}) {
   const theme = useResolvedTheme();

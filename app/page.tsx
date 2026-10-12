@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { redirect } from "next/navigation";
 import { MarketingWebsite } from "@/components/website/MarketingWebsite";
 import { listPlans } from "@/lib/db/plans";
+import { preload } from "react-dom";
 import { FAQS } from "@/components/website/sections/faqs";
 import { getSiteUrl, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "@/lib/seo/config";
 import { buildHomeJsonLd } from "@/lib/seo/schema";
@@ -55,6 +56,12 @@ export default async function RootPage({
   } catch (error) {
     console.error("Failed to load initial plans for SSR:", error);
   }
+
+  // Preload critical hero LCP media poster so the browser initiates download on the first HTML byte
+  preload("/website/images/Creating_video_editing_product_demo_20261011025631.webp", {
+    as: "image",
+    fetchPriority: "high",
+  });
 
   // what search engines read about the product, organization and verified FAQs
   const jsonLd = buildHomeJsonLd({

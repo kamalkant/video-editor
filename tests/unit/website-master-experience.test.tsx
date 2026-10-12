@@ -273,12 +273,13 @@ describe("VDO Premium Website Master Experience", () => {
   
 });
 
-    it("MarketingWebsite master root renders all sections seamlessly", () => {
+    it("MarketingWebsite master root renders all sections seamlessly", async () => {
     render(<MarketingWebsite />);
     expect(screen.getByText("Limits.")).toBeDefined();
-    expect(screen.getByText("Engineered For Every Dimension Of Video")).toBeDefined();
-    expect(screen.getAllByText("01").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("06").length).toBeGreaterThan(0);
+    // (the sections below the hero load as their own chunks: server-rendered on the site, a moment later here)
+    expect(await screen.findByText("Engineered For Every Dimension Of Video", {}, { timeout: 5000 })).toBeDefined();
+    expect((await screen.findAllByText("01", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText("06", {}, { timeout: 5000 })).length).toBeGreaterThan(0);
     expect(screen.queryByText("Timeline Preview")).toBeNull();
     expect(screen.queryByText("Share Anywhere")).toBeNull();
     expect(screen.queryByText("Live Web Studio Experience")).toBeNull();

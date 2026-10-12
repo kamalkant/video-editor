@@ -112,6 +112,9 @@ export const ytDlpBin = () => {
  * The Linux yt-dlp is one file that unpacks itself into the temp folder each time it starts; shared
  * hosting often doesn't let programs run from /tmp, so it unpacks into the site's own data folder.
  */
+/** YouTube pages need a JavaScript runtime; servers have Node (this process), not deno: yt-dlp may use it. */
+export const YTDLP_JS = ["--js-runtimes", `node:${process.execPath}`];
+
 export function ytDlpEnv(): NodeJS.ProcessEnv {
   if (process.platform !== "linux") return process.env;
   const tmp = join(dataRoot(), "tmp");
@@ -135,7 +138,9 @@ export function ytDlpFailure(stderr: string): string {
     return "YouTube is blocking downloads from this server right now. Download the clip on your computer and upload it.";
   if (/Sign in|age/i.test(stderr)) return "YouTube asks to sign in for this video, so it can't be imported.";
   if (/unavailable|private/i.test(stderr)) return "This video is private or unavailable.";
-  return "YouTube's video couldn't be downloaded. Try another one.";
+  // (anything else: yt-dlp's own last error line, without the server's folders, so it can be fixed)
+  const last = stderr.split("\n").map((l) => l.trim()).filter((l) => /ERROR|error/.test(l)).pop()?.replace(/\/[^\s:'"]+/g, "…").slice(0, 160);
+  return last ? `YouTube didn't answer as expected (${last}).` : "YouTube's video couldn't be downloaded. Try another one.";
 }
 
 /** Can the YouTube downloader run here, and if not why (ENOENT: not there; EACCES: not allowed to run…). */
@@ -166,7 +171,7 @@ export function ytDlpVersion(): Promise<string | null> {
 export function ytDownload(id: string, out: string, onProgress: (pct: number) => void, signal?: AbortSignal): Promise<void> {
   if (!/^[\w-]{11}$/.test(id)) return Promise.reject(new ImportError("Unknown YouTube video.", 400, "bad_id"));
   return new Promise((resolve, reject) => {
-    const args = ["--no-playlist", "--newline", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/b[height<=1080]", "--merge-output-format", "mp4", "--ffmpeg-location", FFMPEG, "--no-part", "--no-mtime", "-o", out, "--", `https://www.youtube.com/watch?v=${id}`];
+    const args = [...YTDLP_JS, "--no-playlist", "--newline", "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/b[height<=1080]", "--merge-output-format", "mp4", "--ffmpeg-location", FFMPEG, "--no-part", "--no-mtime", "-o", out, "--", `https://www.youtube.com/watch?v=${id}`];
     const c = runYtDlp(ytDlpBin(), args, { stdio: ["ignore", "pipe", "pipe"], signal });
     let err = "";
     // several parts (picture, sound): progress goes 0→100 per part; report the whole

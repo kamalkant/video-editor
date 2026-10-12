@@ -20,6 +20,7 @@
 import type { MediaLite } from "../edit/doc";
 import type { VideoMeta } from "../api/types";
 import { ApiError } from "../api/types";
+import { CHUNKED_ABOVE_BYTES, uploadInChunks } from "../api/chunkedUpload";
 import { filmSlots, FILM_H } from "../editor/film";
 import { LIMITS } from "../settings";
 import { opfsDelete, opfsReadBlob, opfsWriteBlob } from "../storage/opfs";
@@ -403,28 +404,33 @@ export function onLocalUploadFailed(l: FailedListener): () => void {
 
 export type Transport = (id: string, file: Blob, name: string, onProgress: (sent: number, total: number) => void) => Promise<VideoMeta>;
 
-/** PUT /api/videos/<id> with progress (fetch can't report upload progress). */
+/**
+ * Send a file under its id, with progress: a big one in chunks (lib/api/chunkedUpload: hosting proxies stall
+ * long single requests), a small one as PUT /api/videos/<id> (XHR: fetch can't report upload progress).
+ */
 export const xhrTransport: Transport = (id, file, name, onProgress) =>
-  new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", `/api/videos/${id}`);
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    xhr.setRequestHeader("X-File-Name", encodeURIComponent(name));
-    xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
-    xhr.onload = () => {
-      let body: unknown = null;
-      try {
-        body = JSON.parse(xhr.responseText);
-      } catch {
-        /* not JSON */
-      }
-      if (xhr.status >= 200 && xhr.status < 300) return resolve(body as VideoMeta);
-      const err = (body as { error?: { code: string; message: string } })?.error;
-      reject(new ApiError(xhr.status, err?.code ?? "http_" + xhr.status, err?.message ?? "The upload stopped."));
-    };
-    xhr.onerror = () => reject(new ApiError(0, "network", "The upload stopped: no connection to the server."));
-    xhr.send(file);
-  });
+  file.size > CHUNKED_ABOVE_BYTES
+    ? uploadInChunks(file, { name, id }, onProgress)
+    : new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", `/api/videos/${id}`);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
+        xhr.setRequestHeader("X-File-Name", encodeURIComponent(name));
+        xhr.upload.onprogress = (e) => onProgress(e.loaded, e.lengthComputable ? e.total : file.size);
+        xhr.onload = () => {
+          let body: unknown = null;
+          try {
+            body = JSON.parse(xhr.responseText);
+          } catch {
+            /* not JSON */
+          }
+          if (xhr.status >= 200 && xhr.status < 300) return resolve(body as VideoMeta);
+          const err = (body as { error?: { code: string; message: string } })?.error;
+          reject(new ApiError(xhr.status, err?.code ?? "http_" + xhr.status, err?.message ?? "The upload stopped."));
+        };
+        xhr.onerror = () => reject(new ApiError(0, "network", "The upload stopped: no connection to the server."));
+        xhr.send(file);
+      });
 
 let transport: Transport = xhrTransport;
 /** (tests) */

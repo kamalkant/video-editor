@@ -114,10 +114,8 @@ export async function restoreUpload(id: string, body: WebReadableStream<Uint8Arr
   return saveUpload(body, contentType, fileName, contentLength, false, userId, { id });
 }
 
-export async function saveUpload(body: WebReadableStream<Uint8Array> | null, contentType: string | null, fileName: string | null, contentLength: number | null, recording = false, userId?: string | null, opts: { id?: string } = {}): Promise<VideoMeta> {
-  startCleanup();
-  if (opts.id !== undefined && !isId(opts.id)) throw new UploadError("bad_id", "That media id isn't valid.", 400);
-  if (!body) throw new UploadError("empty", "No file was sent.");
+/** The checks made before any of an upload arrives: its type and announced size (throws UploadError). */
+export function checkUploadStart(contentType: string | null, contentLength: number | null): void {
   const type = (contentType ?? "").split(";")[0].trim().toLowerCase();
   if (type && !EXT[type] && type !== "application/octet-stream") {
     throw new UploadError("unsupported_type", "This file type isn't supported. Use a video (MP4, MOV, WebM, M4V, MKV, AVI), a picture (PNG, JPG, WebP) or a sound (MP3, WAV, M4A).", 415);
@@ -125,6 +123,13 @@ export async function saveUpload(body: WebReadableStream<Uint8Array> | null, con
   if (contentLength && contentLength > LIMITS.maxUploadBytes) {
     throw new UploadError("too_big", `This file is ${Math.round(contentLength / 1048576)} MB. The limit is ${LIMIT_LABEL}.`, 413);
   }
+}
+
+export async function saveUpload(body: WebReadableStream<Uint8Array> | null, contentType: string | null, fileName: string | null, contentLength: number | null, recording = false, userId?: string | null, opts: { id?: string } = {}): Promise<VideoMeta> {
+  startCleanup();
+  if (opts.id !== undefined && !isId(opts.id)) throw new UploadError("bad_id", "That media id isn't valid.", 400);
+  if (!body) throw new UploadError("empty", "No file was sent.");
+  checkUploadStart(contentType, contentLength);
   const id = opts.id ?? newId();
   const dir = videoDir(id);
   await claimDir(dir);
@@ -139,21 +144,53 @@ export async function saveUpload(body: WebReadableStream<Uint8Array> | null, con
   try {
     await pipeline(Readable.fromWeb(body), limiter, createWriteStream(sourcePath(id)));
     if (bytes === 0) throw new UploadError("empty", "The file is empty.");
-    // browser recordings: constant frame rate, a real length, fast seeking (lib/ffmpeg/normalize)
-    if (recording)
-      await normalizeRecording(sourcePath(id)).catch(() => {
-        throw new UploadError("unreadable", "The recording couldn't be read. Try recording again.", 422);
-      });
-    // (the preview copy, when one is needed, is made after the upload answers: the editor plays your own
-    // file meanwhile, and /play waits for the copy)
-    return await describe(id, fileName, userId, { copyLater: true });
+    return await finishUpload(id, fileName, recording, userId);
   } catch (err) {
     await removeDir(dir);
-    if (err instanceof UploadError) throw err;
-    if (err instanceof ProbeError) throw new UploadError(err.code, err.message, 422);
-    throw new UploadError("unreadable", "The upload stopped or the file couldn't be read. Try again.", 400);
+    throw uploadFailure(err);
   }
 }
+
+/**
+ * An upload whose bytes already arrived on this server another way (in chunks, lib/uploads/chunked): the
+ * file at `path` is moved in, then it's checked and described exactly like saveUpload.
+ */
+export async function saveUploadedFile(path: string, fileName: string | null, recording = false, userId?: string | null, opts: { id?: string } = {}): Promise<VideoMeta> {
+  startCleanup();
+  if (opts.id !== undefined && !isId(opts.id)) throw new UploadError("bad_id", "That media id isn't valid.", 400);
+  const id = opts.id ?? newId();
+  const dir = videoDir(id);
+  await claimDir(dir);
+  try {
+    await rename(path, sourcePath(id)).catch(async () => {
+      await copyFile(path, sourcePath(id));
+      await rm(path, { force: true });
+    });
+    return await finishUpload(id, fileName, recording, userId);
+  } catch (err) {
+    await removeDir(dir);
+    throw uploadFailure(err);
+  }
+}
+
+/** The last steps of every upload, once the file is in place. */
+async function finishUpload(id: string, fileName: string | null, recording: boolean, userId?: string | null): Promise<VideoMeta> {
+  // browser recordings: constant frame rate, a real length, fast seeking (lib/ffmpeg/normalize)
+  if (recording)
+    await normalizeRecording(sourcePath(id)).catch(() => {
+      throw new UploadError("unreadable", "The recording couldn't be read. Try recording again.", 422);
+    });
+  // (the preview copy, when one is needed, is made after the upload answers: the editor plays your own
+  // file meanwhile, and /play waits for the copy)
+  return await describe(id, fileName, userId, { copyLater: true });
+}
+
+const uploadFailure = (err: unknown): UploadError =>
+  err instanceof UploadError
+    ? err
+    : err instanceof ProbeError
+      ? new UploadError(err.code, err.message, 422)
+      : new UploadError("unreadable", "The upload stopped or the file couldn't be read. Try again.", 400);
 
 /**
  * Make an upload's folder. A finished upload (it has meta.json) is never overwritten; a folder left by an

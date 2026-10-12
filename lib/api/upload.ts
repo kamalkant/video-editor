@@ -1,5 +1,6 @@
 import { LIMITS } from "../settings";
 import { ApiError, type VideoMeta } from "./types";
+import { CHUNKED_ABOVE_BYTES, uploadInChunks } from "./chunkedUpload";
 
 /** Every video file that works (a browser can't play some of them: those get a playable copy, lib/ffmpeg/playable). */
 export const VIDEO_EXTS = ["mp4", "mov", "webm", "m4v", "mkv", "avi"];
@@ -24,8 +25,13 @@ export function precheck(file: File): "unsupported_type" | "too_big" | null {
   return null;
 }
 
-/** Raw-body upload with progress (fetch can't report upload progress). */
+/**
+ * Upload a file with progress. A big one goes in chunks (lib/api/chunkedUpload: hosting proxies stall long
+ * single requests); a small one as the raw body of one request (XHR: fetch can't report upload progress).
+ */
 export function uploadVideo(file: File | Blob, onProgress: (loaded: number, total: number) => void, signal?: AbortSignal, o: { name?: string; recording?: boolean } = {}): Promise<VideoMeta> {
+  if (file.size > CHUNKED_ABOVE_BYTES)
+    return uploadInChunks(file, { name: o.name ?? (file as File).name ?? "recording", recording: o.recording }, onProgress, signal);
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/videos");

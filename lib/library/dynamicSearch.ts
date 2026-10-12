@@ -28,8 +28,13 @@ export type DynamicSearchResult = {
  * Searches YouTube for short meme clips on-demand.
  */
 export async function searchOnlineMemes(query: string, limit = 4): Promise<MemeClipItem[]> {
+  return (await searchOnlineMemesWhy(query, limit)).items;
+}
+
+/** The same, with the reason when YouTube search didn't work (shown in the Library instead of nothing). */
+export async function searchOnlineMemesWhy(query: string, limit = 4): Promise<{ items: MemeClipItem[]; error: string | null }> {
   const cleanQ = query.trim().replace(/[^a-zA-Z0-9\s]/g, "");
-  if (!cleanQ || cleanQ.length < 2) return [];
+  if (!cleanQ || cleanQ.length < 2) return { items: [], error: null };
 
   await ensureSearchDir();
 
@@ -74,10 +79,12 @@ export async function searchOnlineMemes(query: string, limit = 4): Promise<MemeC
       }
     }
 
-    return results;
+    return { items: results, error: null };
   } catch (err) {
     console.warn("Online meme search timed out or failed:", err);
-    return [];
+    const e = err as { code?: string; stderr?: string; killed?: boolean };
+    const why = e.code === "ENOENT" ? NO_YTDLP : e.killed ? "YouTube search took too long. Try again." : ytDlpFailure(String(e.stderr ?? ""));
+    return { items: [], error: why };
   }
 }
 

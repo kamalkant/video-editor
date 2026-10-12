@@ -10,6 +10,7 @@ import type { ProjectSummary } from "@/lib/projects/model";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { exportVDO, importVDO } from "@/lib/storage/VDO";
 import { saveFileWithPicker } from "@/lib/storage/filePicker";
+import { localThumb } from "@/lib/media/localMedia";
 
 export type ProjectSort = "date-desc" | "date-asc" | "name" | "duration";
 export type ProjectView = "grid" | "list";
@@ -512,20 +513,7 @@ export function ProjectsPanel(p: {
                     aria-label={current ? `${x.name} (open)` : `Open ${x.name}`}
                     aria-current={current || undefined}
                   >
-                    {x.coverId ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/api/videos/${x.coverId}/thumb`}
-                        alt=""
-                        className="size-full object-cover pointer-events-none"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="flex size-full items-center justify-center text-muted">
-                        <Icon name="film" className="size-6 opacity-40" />
-                      </div>
-                    )}
+                    <ProjectCover coverId={x.coverId} iconClass="size-6" />
                   </button>
                 </div>
 
@@ -656,20 +644,7 @@ export function ProjectsPanel(p: {
                     aria-label={current ? `${x.name} (open)` : `Open ${x.name}`}
                     aria-current={current || undefined}
                   >
-                    {x.coverId ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={`/api/videos/${x.coverId}/thumb`}
-                        alt=""
-                        className="size-full object-cover pointer-events-none"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="flex size-full items-center justify-center text-muted">
-                        <Icon name="film" className="size-3 opacity-40" />
-                      </div>
-                    )}
+                    <ProjectCover coverId={x.coverId} iconClass="size-3" />
                   </button>
 
                   {/* Name & status */}
@@ -810,5 +785,30 @@ export function ProjectsPanel(p: {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * A project's picture: its first video's thumbnail (a file still uploading: the frame taken in the browser,
+ * lib/media/localMedia); the film icon when there's none or it can't be loaded (a file no longer on the server).
+ */
+function ProjectCover({ coverId, iconClass }: { coverId: string | null; iconClass: string }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (!coverId || failed === coverId)
+    return (
+      <div className="flex size-full items-center justify-center text-muted">
+        <Icon name="film" className={`${iconClass} opacity-40`} />
+      </div>
+    );
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={localThumb(coverId) ?? `/api/videos/${coverId}/thumb`}
+      alt=""
+      className="size-full object-cover pointer-events-none"
+      loading="lazy"
+      draggable={false}
+      onError={() => setFailed(coverId)}
+    />
   );
 }

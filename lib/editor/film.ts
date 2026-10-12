@@ -121,3 +121,21 @@ export function parseFilmOps(param: string): OpInstance[] {
   const ops = z.array(opInstanceSchema).max(20).parse(JSON.parse(json));
   return sanitizeSpec({ version: 1, ops, output: DEFAULT_OUTPUT }).ops.filter((o) => o.enabled);
 }
+
+/**
+ * Where each frame of a film goes, for a film made in the browser (lib/media/localMedia) with the same
+ * layout as the server's (lib/ffmpeg/preview renderFilm): frame i shows the middle of slot i, at column
+ * i % FILM_COLS and row ⌊i / FILM_COLS⌋, each `fw` × FILM_H.
+ */
+export function filmSlots(duration: number, fps: number, width: number, height: number) {
+  const n = filmCount(duration, fps);
+  const fw = filmFrameW(width, height);
+  const rows = Math.ceil(n / FILM_COLS);
+  return {
+    n,
+    fw,
+    canvasW: FILM_COLS * fw,
+    canvasH: rows * FILM_H,
+    at: (i: number) => ({ t: ((i + 0.5) * duration) / n, x: (i % FILM_COLS) * fw, y: Math.floor(i / FILM_COLS) * FILM_H }),
+  };
+}

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getCapabilities } from "@/lib/ffmpeg/capabilities";
+import { ytDlpCheck } from "@/lib/import/youtube";
 
 export const runtime = "nodejs";
 
@@ -16,5 +17,7 @@ const BUILD = (() => {
 export async function GET(request: Request) {
   const refresh = new URL(request.url).searchParams.has("refresh");
   const caps = await getCapabilities(refresh);
-  return Response.json({ build: BUILD, ...caps }, { status: caps.ok ? 200 : 503 });
+  // the YouTube downloader (meme search, YouTube import): runs here or why not
+  const ytdlp = await ytDlpCheck();
+  return Response.json({ build: BUILD, ...caps, ytdlp }, { status: caps.ok ? 200 : 503 });
 }

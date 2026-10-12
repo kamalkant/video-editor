@@ -116,6 +116,19 @@ export function ytDlpFailure(stderr: string): string {
   return "YouTube's video couldn't be downloaded. Try another one.";
 }
 
+/** Can the YouTube downloader run here, and if not why (ENOENT: not there; EACCES: not allowed to run…). */
+export function ytDlpCheck(): Promise<{ ok: boolean; version?: string; why?: string }> {
+  return new Promise((resolve) => {
+    const c = runYtDlp(ytDlpBin(), ["--version"], { stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    let err = "";
+    c.stdout!.on("data", (d: Buffer) => (out += d.toString()));
+    c.stderr!.on("data", (d: Buffer) => (err = (err + d.toString()).slice(-400)));
+    c.on("error", (e) => resolve({ ok: false, why: (e as NodeJS.ErrnoException).code ?? e.message }));
+    c.on("close", (code) => resolve(code === 0 ? { ok: true, version: out.trim() } : { ok: false, why: `exit ${code}: ${err.trim().split("\n").pop()?.replace(/\/[^\s:'"]+/g, "…") ?? ""}`.slice(0, 200) }));
+  });
+}
+
 /** Is the YouTube downloader installed? */
 export function ytDlpVersion(): Promise<string | null> {
   return new Promise((resolve) => {

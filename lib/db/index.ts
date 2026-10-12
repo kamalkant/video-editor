@@ -2,11 +2,12 @@ import "server-only";
 import { existsSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { dataRoot } from "../dataRoot";
 import { SCHEMA_SQL } from "./schema";
 import { seedDefaultData, SEED_ADMIN_PASSWORD } from "./seed";
 import { verifyPassword } from "../auth/passwords";
 
-const DB_DIR = join(process.cwd(), "data");
+const DB_DIR = join(dataRoot(), "data");
 // `next build` prerenders pages in several worker processes at once: each gets its own throwaway database,
 // so the build never races to seed (or prints an admin password into) the real one, which is made at first start
 const BUILDING = process.env.NEXT_PHASE === "phase-production-build" && !process.env.VDO_DB_PATH;

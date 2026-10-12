@@ -112,8 +112,28 @@ function run(bin: string, args: string[], opts: RunOptions = {}): Promise<RunRes
   });
 }
 
+/**
+ * Threads per decoder, filter graph and encoder. FFmpeg's default is one per CPU core, which on shared
+ * hosting (Hostinger: a big machine, a small per-account limit on threads) fails every job with
+ * "Resource temporarily unavailable". FFMPEG_THREADS sets it (0 = FFmpeg's default); off a Mac it's 2.
+ */
+export const FFMPEG_THREADS = Number(process.env.FFMPEG_THREADS ?? (APPLE_MEDIA ? 0 : 2)) || 0;
+
+/** `args` with the thread limit: before each input, for the filters, and for the (last) output. */
+export function limitThreads(args: string[], n: number = FFMPEG_THREADS): string[] {
+  if (!n || !args.includes("-i") || args.includes("-threads")) return args;
+  const t = String(n);
+  const out: string[] = ["-filter_threads", t, "-filter_complex_threads", t];
+  args.forEach((a, i) => {
+    if (a === "-i") out.push("-threads", t);
+    if (i === args.length - 1) out.push("-threads", t);
+    out.push(a);
+  });
+  return out;
+}
+
 export function runFfmpeg(args: string[], opts?: RunOptions): Promise<RunResult> {
-  return run(FFMPEG, ["-hide_banner", "-nostdin", "-loglevel", "error", ...args], opts);
+  return run(FFMPEG, ["-hide_banner", "-nostdin", "-loglevel", "error", ...limitThreads(args)], opts);
 }
 
 export async function runFfprobe(args: string[], opts?: RunOptions): Promise<string> {
@@ -123,6 +143,6 @@ export async function runFfprobe(args: string[], opts?: RunOptions): Promise<str
 
 /** Run FFmpeg for its log output (e.g. volumedetect), which goes to stderr. */
 export async function runFfmpegLog(args: string[], opts?: RunOptions): Promise<string> {
-  const r = await run(FFMPEG, ["-hide_banner", "-nostdin", "-loglevel", "info", ...args], opts);
+  const r = await run(FFMPEG, ["-hide_banner", "-nostdin", "-loglevel", "info", ...limitThreads(args)], opts);
   return r.stderr;
 }

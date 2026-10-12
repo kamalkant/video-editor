@@ -8,10 +8,11 @@ import {
   writeFile,
 } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
+import { dataRoot } from "./dataRoot";
 
 export const STORAGE_ROOT = resolve(
   /*turbopackIgnore: true*/ process.env.VDO_STORAGE ??
-    join(process.cwd(), "storage"),
+    join(dataRoot(), "storage"),
 );
 export const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 

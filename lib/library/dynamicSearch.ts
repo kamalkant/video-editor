@@ -5,11 +5,12 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { MemeClipItem } from "./memeCatalog";
+import { dataRoot } from "@/lib/dataRoot";
 
 const execPromise = promisify(exec);
 const execFilePromise = promisify(execFile);
 
-const CACHE_DIR = join(process.cwd(), "data", "cache", "memes", "search");
+const CACHE_DIR = join(dataRoot(), "data", "cache", "memes", "search");
 
 export async function ensureSearchDir() {
   await mkdir(CACHE_DIR, { recursive: true });

@@ -5,8 +5,9 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { runFfmpeg } from "@/lib/ffmpeg/run";
 import { MEME_CATALOG, type MemeClipItem } from "./memeCatalog";
+import { dataRoot } from "@/lib/dataRoot";
 
-const CACHE_DIR = join(process.cwd(), "data", "cache", "memes");
+const CACHE_DIR = join(dataRoot(), "data", "cache", "memes");
 
 const CATEGORY_COLORS: Record<string, { bg: string; accent: string; text: string }> = {
   comedy: { bg: "0x1c1917", accent: "0xf59e0b", text: "0xfef08a" },

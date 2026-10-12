@@ -18,9 +18,8 @@ export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/
     return fileResponse(storagePath("videos", id, video.playable), mime, request.headers.get("range"), { cache: "private, max-age=86400" });
   }
   // (as the upload: the same types /source sends)
-  const url = new URL(request.url);
-  url.pathname = url.pathname.replace(/\/play$/, "/source");
-  if (kindOf(video) !== "video") return Response.redirect(url, 307);
+  // (a relative Location: behind the host's proxy request.url can be the internal address)
+  if (kindOf(video) !== "video") return new Response(null, { status: 307, headers: { Location: `/api/videos/${id}/source` } });
   const mime = video.info.container === "webm" ? "video/webm" : "video/mp4";
   return fileResponse(sourcePath(id), mime, request.headers.get("range"), { cache: "private, max-age=86400" });
 }

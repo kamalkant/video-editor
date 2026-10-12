@@ -1,8 +1,7 @@
 import { stat } from "node:fs/promises";
 import { apiError } from "@/lib/http/errors";
 import { fileResponse } from "@/lib/http/range";
-import { getVideo, kindOf, sourcePath } from "@/lib/videos";
-import { storagePath } from "@/lib/storage";
+import { getVideo, kindOf } from "@/lib/videos";
 import {
   ensureProxy,
   getProxyStatus,
@@ -24,7 +23,7 @@ async function fileExists(p: string): Promise<boolean> {
 /**
  * Proxy Endpoint:
  * Streams 720p fast-seeking proxy with HTTP 206 Partial Content range requests.
- * If proxy is generating or not yet ready, gracefully falls back to /play copy or /source
+ * If proxy is generating or not yet ready, redirects to /play (or /source), so this URL only ever serves the proxy,
  * ensuring playback never breaks or displays black frames.
  */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/proxy">) {
@@ -50,20 +49,11 @@ export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/
   // Proxy not yet ready: trigger background generation if not already active
   void ensureProxy(video).catch(() => undefined);
 
-  // Safe fallback to playable copy or source file
-  if (video.playable) {
-    const mime = video.playable.endsWith(".webm") ? "video/webm" : "video/mp4";
-    return fileResponse(storagePath("videos", id, video.playable), mime, request.headers.get("range"), { cache: "private, max-age=86400" });
-  }
-
-  if (kindOf(video) !== "video") {
-    const sourceUrl = new URL(request.url);
-    sourceUrl.pathname = sourceUrl.pathname.replace(/\/proxy$/, "/source");
-    return Response.redirect(sourceUrl, 307);
-  }
-
-  const mime = video.info.container === "webm" ? "video/webm" : "video/mp4";
-  return fileResponse(sourcePath(id), mime, request.headers.get("range"), { cache: "private, max-age=86400" });
+  // Meanwhile the preview plays /play (the playable copy, or the upload). A redirect, not those bytes under
+  // this URL: once the proxy exists this URL is a different file, and a player still reading the old one
+  // asked for ranges past its end (416) and froze on a black frame.
+  // (a relative Location: behind the host's proxy request.url can be the internal address)
+  return new Response(null, { status: 307, headers: { Location: `/api/videos/${id}/${kindOf(video) === "video" ? "play" : "source"}`, "Cache-Control": "no-store" } });
 }
 
 /**

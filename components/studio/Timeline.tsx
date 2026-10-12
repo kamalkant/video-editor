@@ -44,6 +44,7 @@ import { elementName } from "@/lib/elements/catalog";
 import { filmOpsParam, filmTiles } from "@/lib/editor/film";
 import { getEditingTools } from "@/lib/editor/editingTools";
 import { useTheme } from "@/lib/editor/theme";
+import { localSrc, localThumb, notOnServer } from "@/lib/media/localMedia";
 import type { MemeClipItem } from "@/lib/library/memeCatalog";
 
 export { MEDIA_DRAG, MEME_DRAG } from "@/lib/editor/mediaDrag";
@@ -3309,8 +3310,11 @@ function ClipBlock(p: {
     400,
   );
   const m = p.media;
+  // a file still uploading (lib/media/localMedia): the server has no filmstrip or waveform for it yet;
+  // a frame taken in the browser stands in, then the server's follow
+  const uploading = "mediaId" in c && notOnServer(c.mediaId);
   const film =
-    c.type === "video" && m && m.width > 0 && m.duration > 0
+    c.type === "video" && m && m.width > 0 && m.duration > 0 && !uploading
       ? {
           url: `/api/videos/${c.mediaId}/film${opsParam ? `?ops=${opsParam}` : ""}`,
           tiles: filmTiles({
@@ -3328,12 +3332,12 @@ function ClipBlock(p: {
       : null;
   if (c.type === "video" && p.media) {
     bg = {
-      backgroundImage: `url(/api/videos/${c.mediaId}/thumb)`,
+      backgroundImage: `url(${localThumb(c.mediaId) ?? `/api/videos/${c.mediaId}/thumb`})`,
       backgroundSize: "cover",
       backgroundPosition: "center",
       backgroundRepeat: "no-repeat",
     };
-  } else if (c.type === "audio" && p.media)
+  } else if (c.type === "audio" && p.media && !uploading)
     bg = {
       backgroundImage: `url(/api/videos/${c.mediaId}/wave)`,
       backgroundSize: `${p.media.duration * perSec}px 100%`,
@@ -3341,7 +3345,7 @@ function ClipBlock(p: {
     };
   else if (c.type === "image")
     bg = {
-      backgroundImage: `url(/api/videos/${c.mediaId}/source)`,
+      backgroundImage: `url(${localSrc(c.mediaId) ?? `/api/videos/${c.mediaId}/source`})`,
       backgroundSize: "auto 100%",
       backgroundRepeat: "repeat-x",
     };

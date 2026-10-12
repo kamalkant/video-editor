@@ -1,9 +1,16 @@
-import { afterAll, describe, it, expect } from "vitest";
+import { vi, afterAll, describe, it, expect } from "vitest";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { POST as uploadPost } from "@/app/api/templates/upload/route";
 import { GET as mediaGet } from "@/app/api/templates/media/route";
 import { listLibrary } from "@/lib/library";
+
+// these routes store files: they need a signed-in user (lib/auth/requireUser)
+vi.mock("@/lib/auth/session", async (orig) => ({
+  ...(await orig<typeof import("@/lib/auth/session")>()),
+  getCurrentUser: async () => ({ id: "test-user", email: "t@example.com", name: "Test", role: "user", status: "active" }),
+}));
+
 
 // uploads land in public/templates (served by the site): remove what this test adds, or every
 // run would ship two more test files with the website

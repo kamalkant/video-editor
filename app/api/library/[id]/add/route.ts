@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { apiError } from "@/lib/http/errors";
 import { copyForImport, uploadAssetId } from "@/lib/library";
 import { getVideo, importFile } from "@/lib/videos";
+import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,8 @@ export async function POST(
   request: Request,
   ctx: RouteContext<"/api/library/[id]/add">,
 ) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   const { id } = await ctx.params;
   const url = new URL(request.url);
   const hide = url.searchParams.get("hidden") === "1";

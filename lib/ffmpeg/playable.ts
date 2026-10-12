@@ -63,13 +63,14 @@ export function playableArgs(src: string, out: string, mode: Exclude<PlayableMod
 }
 
 /** Make the copy at `out` (it's removed again if making it fails). */
-export async function makePlayable(src: string, out: string, mode: Exclude<PlayableMode, "none">, info: Pick<VideoInfo, "width" | "height" | "hasAudio">): Promise<void> {
+export async function makePlayable(src: string, out: string, mode: Exclude<PlayableMode, "none">, info: Pick<VideoInfo, "width" | "height" | "hasAudio">, opts: { background?: boolean } = {}): Promise<void> {
   try {
     try {
-      await runFfmpeg(playableArgs(src, out, mode, info), { timeoutMs: 30 * 60 * 1000 });
+      await runFfmpeg(playableArgs(src, out, mode, info), { timeoutMs: 30 * 60 * 1000, background: opts.background });
     } catch (err) {
-      if (mode !== "mp4") throw err;
-      await runFfmpeg(playableArgs(src, out, mode, info, "libx264"), { timeoutMs: 45 * 60 * 1000 });
+      // (the fallback is libx264: nothing new to try when that was the first try, off a Mac)
+      if (mode !== "mp4" || FAST_H264 === "libx264") throw err;
+      await runFfmpeg(playableArgs(src, out, mode, info, "libx264"), { timeoutMs: 45 * 60 * 1000, background: opts.background });
     }
     if (!(await stat(out)).size) throw new Error("empty copy");
   } catch (err) {

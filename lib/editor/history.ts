@@ -11,7 +11,10 @@ export type HistoryAction<S, A> =
   | { type: "do"; action: A; group?: string; now: number }
   | { type: "undo" }
   | { type: "redo" }
-  | { type: "reset"; state: S };
+  | { type: "reset"; state: S }
+  /** A fact true in every step, e.g. an upload's details arriving from the server: applied to the present,
+   * the undo steps and the redo steps alike, without making an undo step of its own. */
+  | { type: "everywhere"; update: (s: S) => S };
 
 export function initHistory<S>(present: S): History<S> {
   return { past: [], present, future: [], group: null, at: 0 };
@@ -30,6 +33,11 @@ export function historyReducer<S, A>(reducer: (s: S, a: A) => S) {
       }
       case "reset":
         return initHistory(a.state);
+      case "everywhere": {
+        const present = a.update(h.present);
+        if (present === h.present && !h.past.length && !h.future.length) return h;
+        return { ...h, past: h.past.map(a.update), present, future: h.future.map(a.update) };
+      }
       case "do": {
         const next = reducer(h.present, a.action);
         if (next === h.present) return h;

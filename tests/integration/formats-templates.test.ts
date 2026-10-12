@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { vi, afterAll, beforeAll, describe, expect, it } from "vitest";
 import { importFile, sourcePath } from "@/lib/videos";
 import { storagePath, projectReferences } from "@/lib/storage";
 import {
@@ -16,6 +16,13 @@ import { listLibrary } from "@/lib/library";
 import { POST as libraryAdd } from "@/app/api/library/[id]/add/route";
 import { GET as mediaGet } from "@/app/api/templates/media/route";
 import { BROADCAST_TEMPLATES } from "@/lib/templates/newsTemplates";
+
+// these routes store files: they need a signed-in user (lib/auth/requireUser)
+vi.mock("@/lib/auth/session", async (orig) => ({
+  ...(await orig<typeof import("@/lib/auth/session")>()),
+  getCurrentUser: async () => ({ id: "test-user", email: "t@example.com", name: "Test", role: "user", status: "active" }),
+}));
+
 
 const tmp = mkdtempSync(join(tmpdir(), "VDO-formats-"));
 const ff = (...args: string[]) =>

@@ -9,6 +9,7 @@ import { ProbeError } from "@/lib/ffmpeg/probe";
 import { VIDEO_EXTS } from "@/lib/api/upload";
 import { LIMITS, limitSizeLabel } from "@/lib/settings";
 import { rememberUpload } from "@/lib/templates/custom";
+import { requireUser } from "@/lib/auth/requireUser";
 
 const AUDIO_EXTS = ["mp3", "wav", "m4a", "aac", "ogg", "opus"];
 
@@ -21,6 +22,8 @@ export const runtime = "nodejs";
  * 3. Returns the persistent URL, thumbnail URL, and VideoMeta.
  */
 export async function POST(request: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

@@ -4,6 +4,7 @@ import type { ReadableStream as WebReadableStream } from "node:stream/web";
 import { deleteVideo, getVideo, hideVideoFromLibrary, restoreUpload, UploadError } from "@/lib/videos";
 import { getCurrentUser } from "@/lib/auth/session";
 import { templatesUsing } from "@/lib/templates/custom";
+import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
@@ -45,24 +46,32 @@ export async function DELETE(_request: Request, ctx: RouteContext<"/api/videos/[
 
 
 /**
- * Restore an embedded video/media file (e.g. from an imported portable .VDO package).
+ * An upload under an id the browser chose: the editor's local-first import (the clip is already on the
+ * timeline, playing from your own file, while this runs in the background) and portable .vdo packages.
+ * Sending the same file again is harmless: the finished upload is returned.
  */
 export async function PUT(request: Request, ctx: RouteContext<"/api/videos/[id]">) {
+  const user = await requireUser("Sign in to upload.");
+  if (user instanceof Response) return user;
   const { id } = await ctx.params;
   const existing = await getVideo(id);
-  if (existing) return Response.json(existing);
+  if (existing) {
+    // (someone else's file under that id: not yours to see or replace)
+    if (existing.userId && existing.userId !== user.id) return apiError(409, "exists", "A file with this id is already uploaded.");
+    return Response.json(existing);
+  }
 
   const fileName = request.headers.get("x-file-name") || `${id}.mp4`;
   const contentType = request.headers.get("content-type");
 
   try {
-    const user = await getCurrentUser();
     const meta = await restoreUpload(
       id,
       request.body as unknown as WebReadableStream<Uint8Array> | null,
       contentType,
       fileName,
-      user?.id ?? null,
+      user.id,
+      request.headers.get("content-length") ? Number(request.headers.get("content-length")) : null,
     );
     return Response.json(meta, { status: 201 });
   } catch (err) {

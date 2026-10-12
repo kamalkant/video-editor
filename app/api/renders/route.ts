@@ -1,10 +1,13 @@
 import { apiError } from "@/lib/http/errors";
 import { MAX_RENDER_BYTES, RenderError, saveRender } from "@/lib/renders";
+import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
 /** A PNG the editor drew (a text clip) for the export. Body: the PNG. Returns { id }. */
 export async function POST(request: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   const type = request.headers.get("content-type") ?? "";
   if (!type.startsWith("image/png")) return apiError(415, "bad_type", "Send a PNG picture.");
   const length = Number(request.headers.get("content-length") ?? 0);

@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { createSlots, SlotAbortedError, type Slots } from "./slots";
 
 // FFMPEG_PATH, else the copy scripts/fetch-ffmpeg.mjs put in vendor/ffmpeg (Linux hosts without FFmpeg), else the PATH
 const vendored = (name: string) => {
@@ -48,6 +49,8 @@ export type RunOptions = {
   collectStdout?: boolean;
   /** Collect a second output written by FFmpeg to `pipe:3`. */
   collectFd3?: boolean;
+  /** Work nobody is waiting on right now (a preview copy, a proxy): it runs after people's requests (lib/ffmpeg/slots). */
+  background?: boolean;
 };
 
 export type RunResult = { stdout: Buffer; fd3: Buffer; stderr: string };
@@ -132,8 +135,28 @@ export function limitThreads(args: string[], n: number = FFMPEG_THREADS): string
   return out;
 }
 
+/** FFmpeg jobs at once: off a Mac 3 (FFMPEG_JOBS sets it; 0 = no limit, as on a Mac). See lib/ffmpeg/slots. */
+export const FFMPEG_JOBS = Number(process.env.FFMPEG_JOBS ?? (APPLE_MEDIA ? 0 : 3)) || 0;
+const g = globalThis as unknown as { __viplaySlots?: Slots };
+const slots = (g.__viplaySlots ??= createSlots(FFMPEG_JOBS));
+
+/** FFmpeg, once a place is free (the wait doesn't count toward `timeoutMs`). */
+async function inSlot(args: string[], opts: RunOptions | undefined): Promise<RunResult> {
+  let release: () => void;
+  try {
+    release = await slots.acquire(!!opts?.background, opts?.signal);
+  } catch (err) {
+    throw err instanceof SlotAbortedError ? new AbortedError() : err;
+  }
+  try {
+    return await run(FFMPEG, args, opts);
+  } finally {
+    release();
+  }
+}
+
 export function runFfmpeg(args: string[], opts?: RunOptions): Promise<RunResult> {
-  return run(FFMPEG, ["-hide_banner", "-nostdin", "-loglevel", "error", ...limitThreads(args)], opts);
+  return inSlot(["-hide_banner", "-nostdin", "-loglevel", "error", ...limitThreads(args)], opts);
 }
 
 export async function runFfprobe(args: string[], opts?: RunOptions): Promise<string> {
@@ -143,6 +166,6 @@ export async function runFfprobe(args: string[], opts?: RunOptions): Promise<str
 
 /** Run FFmpeg for its log output (e.g. volumedetect), which goes to stderr. */
 export async function runFfmpegLog(args: string[], opts?: RunOptions): Promise<string> {
-  const r = await run(FFMPEG, ["-hide_banner", "-nostdin", "-loglevel", "info", ...limitThreads(args)], opts);
+  const r = await inSlot(["-hide_banner", "-nostdin", "-loglevel", "info", ...limitThreads(args)], opts);
   return r.stderr;
 }

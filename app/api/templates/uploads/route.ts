@@ -1,5 +1,6 @@
 import { apiError } from "@/lib/http/errors";
 import { rememberUpload, templateErrorResponse } from "@/lib/templates/custom";
+import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
@@ -8,6 +9,8 @@ export const runtime = "nodejs";
  * My Assets via POST /api/videos): remembered so it's listed by /api/templates/media after a reload.
  */
 export async function POST(request: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   let body: { assetId?: unknown; kind?: unknown };
   try {
     body = await request.json();

@@ -4,13 +4,15 @@ import { mediaIdsOf } from "@/lib/edit/doc";
 import { listProjects } from "@/lib/projects/store";
 import { listVideos, saveUpload, UploadError } from "@/lib/videos";
 import { getCurrentUser } from "@/lib/auth/session";
+import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
 /** Raw-body upload: the file is the request body; its name is in X-File-Name. */
 export async function POST(request: Request) {
+  const user = await requireUser("Sign in to upload.");
+  if (user instanceof Response) return user;
   const len = request.headers.get("content-length");
-  const user = await getCurrentUser();
 
   try {
     const meta = await saveUpload(
@@ -19,7 +21,7 @@ export async function POST(request: Request) {
       request.headers.get("x-file-name"),
       len ? Number(len) : null,
       request.headers.get("x-recording") === "1",
-      user?.id ?? null,
+      user.id,
     );
     return Response.json(meta, { status: 201 });
   } catch (err) {

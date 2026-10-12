@@ -1,5 +1,6 @@
 import { createWriteStream } from "node:fs";
-import { copyFile, readdir, rename, rm } from "node:fs/promises";
+import { copyFile, mkdir, readdir, rename, rm } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
@@ -25,6 +26,8 @@ export type VideoMeta = {
   keyVia?: "border" | "frame";
   /** A copy the browser can play, for the preview (the source isn't playable in a browser); see lib/ffmpeg/playable. */
   playable?: "playable.mp4" | "playable.webm";
+  /** That copy is being made in the background (a browser upload doesn't wait for it): see whenPlayable. */
+  playablePending?: boolean;
   /** Lightweight 720p fast-seeking proxy for timeline editing; export always uses sourcePath. */
   proxy?: {
     ready: boolean;
@@ -48,7 +51,7 @@ export type VideoMeta = {
 
 export type AiMade = { by: "gemini" | "grok"; what: "image" | "background" | "voice" | "video"; prompt?: string; model?: string };
 
-export type UploadErrorCode = "too_big" | "empty" | "unsupported_type" | ProbeError["code"];
+export type UploadErrorCode = "too_big" | "empty" | "unsupported_type" | "bad_id" | "exists" | ProbeError["code"];
 
 export class UploadError extends Error {
   constructor(
@@ -103,29 +106,17 @@ function cleanName(name: string | null): string {
   return n.replace(/[^\w.\- ()]/g, "_").slice(0, 120) || "video";
 }
 
-/** Stream the request body to disk, stopping as soon as it passes the size limit. */
-export async function restoreUpload(id: string, body: WebReadableStream<Uint8Array> | null, contentType: string | null, fileName: string | null, userId?: string | null): Promise<VideoMeta> {
-  startCleanup();
-  if (!body) throw new UploadError("empty", "No file was sent.");
-  const type = (contentType ?? "").split(";")[0].trim().toLowerCase();
-  if (type && !EXT[type] && type !== "application/octet-stream") {
-    throw new UploadError("unsupported_type", "This file type isn't supported.", 415);
-  }
-  const dir = videoDir(id);
-  await ensureDir(dir);
-  try {
-    await pipeline(Readable.fromWeb(body), createWriteStream(sourcePath(id)));
-    return await describe(id, fileName, userId);
-  } catch (err) {
-    await removeDir(dir);
-    if (err instanceof UploadError) throw err;
-    if (err instanceof ProbeError) throw new UploadError(err.code, err.message, 422);
-    throw new UploadError("unreadable", "The file couldn't be read.", 400);
-  }
+/**
+ * An upload under an id the browser chose: the editor's local-first import (the clip is already on the
+ * timeline under that id, playing from your own file) and portable .vdo packages. Same checks as saveUpload.
+ */
+export async function restoreUpload(id: string, body: WebReadableStream<Uint8Array> | null, contentType: string | null, fileName: string | null, userId?: string | null, contentLength: number | null = null): Promise<VideoMeta> {
+  return saveUpload(body, contentType, fileName, contentLength, false, userId, { id });
 }
 
-export async function saveUpload(body: WebReadableStream<Uint8Array> | null, contentType: string | null, fileName: string | null, contentLength: number | null, recording = false, userId?: string | null): Promise<VideoMeta> {
+export async function saveUpload(body: WebReadableStream<Uint8Array> | null, contentType: string | null, fileName: string | null, contentLength: number | null, recording = false, userId?: string | null, opts: { id?: string } = {}): Promise<VideoMeta> {
   startCleanup();
+  if (opts.id !== undefined && !isId(opts.id)) throw new UploadError("bad_id", "That media id isn't valid.", 400);
   if (!body) throw new UploadError("empty", "No file was sent.");
   const type = (contentType ?? "").split(";")[0].trim().toLowerCase();
   if (type && !EXT[type] && type !== "application/octet-stream") {
@@ -134,9 +125,9 @@ export async function saveUpload(body: WebReadableStream<Uint8Array> | null, con
   if (contentLength && contentLength > LIMITS.maxUploadBytes) {
     throw new UploadError("too_big", `This file is ${Math.round(contentLength / 1048576)} MB. The limit is ${LIMIT_LABEL}.`, 413);
   }
-  const id = newId();
+  const id = opts.id ?? newId();
   const dir = videoDir(id);
-  await ensureDir(dir);
+  await claimDir(dir);
   let bytes = 0;
   const limiter = new Transform({
     transform(chunk: Buffer, _enc, cb) {
@@ -153,7 +144,9 @@ export async function saveUpload(body: WebReadableStream<Uint8Array> | null, con
       await normalizeRecording(sourcePath(id)).catch(() => {
         throw new UploadError("unreadable", "The recording couldn't be read. Try recording again.", 422);
       });
-    return await describe(id, fileName, userId);
+    // (the preview copy, when one is needed, is made after the upload answers: the editor plays your own
+    // file meanwhile, and /play waits for the copy)
+    return await describe(id, fileName, userId, { copyLater: true });
   } catch (err) {
     await removeDir(dir);
     if (err instanceof UploadError) throw err;
@@ -162,8 +155,24 @@ export async function saveUpload(body: WebReadableStream<Uint8Array> | null, con
   }
 }
 
+/**
+ * Make an upload's folder. A finished upload (it has meta.json) is never overwritten; a folder left by an
+ * upload that stopped halfway (no meta.json) is replaced: its id is the browser's, sending it again.
+ */
+async function claimDir(dir: string) {
+  await ensureDir(dirname(dir));
+  try {
+    await mkdir(dir);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+    if (await readJson(join(dir, "meta.json"))) throw new UploadError("exists", "A file with this id is already uploaded.", 409);
+    await removeDir(dir);
+    await mkdir(dir);
+  }
+}
+
 /** Probe a stored source file and write its meta.json (the last step of every upload). */
-async function describe(id: string, fileName: string | null, userId?: string | null): Promise<VideoMeta> {
+async function describe(id: string, fileName: string | null, userId?: string | null, { copyLater = false } = {}): Promise<VideoMeta> {
   const { kind, info } = await probeMedia(sourcePath(id));
   // green/blue/black background detection only makes sense for videos
   const key = kind === "video" ? await detectKeyColor(sourcePath(id), info) : null;
@@ -171,7 +180,8 @@ async function describe(id: string, fileName: string | null, userId?: string | n
   const mode = playableMode(kind, info);
   const copy = playableFile(mode);
   let playable: VideoMeta["playable"];
-  if (mode !== "none" && copy) {
+  const later = copyLater && mode !== "none" && !!copy;
+  if (mode !== "none" && copy && !later) {
     try {
       await makePlayable(sourcePath(id), storagePath("videos", id, copy), mode, info);
       playable = copy as VideoMeta["playable"];
@@ -189,10 +199,46 @@ async function describe(id: string, fileName: string | null, userId?: string | n
     keyKind: key?.kind ?? null,
     keyVia: key?.via,
     ...(playable ? { playable } : {}),
+    ...(later ? { playablePending: true } : {}),
     ...(userId ? { userId } : {}),
   };
   await writeJson(storagePath("videos", id, "meta.json"), meta);
+  if (later) void whenPlayable(meta);
   return meta;
+}
+
+/** Preview copies being made in the background (one per video at a time). */
+const gp = globalThis as unknown as { __viplayCopies?: Map<string, Promise<VideoMeta>> };
+const copies = (gp.__viplayCopies ??= new Map());
+
+/**
+ * The video once its preview copy is made: starts the copy if it's pending and not being made (e.g. the
+ * server restarted meanwhile). Background work (lib/ffmpeg/slots). Never throws: without a copy the
+ * video is returned as it is (the export still uses the original).
+ */
+export function whenPlayable(video: VideoMeta): Promise<VideoMeta> {
+  if (!video.playablePending) return Promise.resolve(video);
+  const running = copies.get(video.id);
+  if (running) return running;
+  const mode = playableMode(video.kind ?? "video", video.info);
+  const copy = playableFile(mode);
+  const finish = async (made: boolean) => {
+    const now = await getVideo(video.id);
+    if (!now) return video; // deleted meanwhile
+    const next: VideoMeta = { ...now, ...(made ? { playable: copy as VideoMeta["playable"] } : {}) };
+    delete next.playablePending;
+    await writeJson(storagePath("videos", video.id, "meta.json"), next).catch(() => undefined);
+    return next;
+  };
+  const job = (mode === "none" || !copy
+    ? finish(false)
+    : makePlayable(sourcePath(video.id), storagePath("videos", video.id, copy), mode, video.info, { background: true }).then(
+        () => finish(true),
+        () => finish(false),
+      )
+  ).finally(() => copies.delete(video.id));
+  copies.set(video.id, job);
+  return job;
 }
 
 /** Add a file a ✦ Gemini feature made to My Assets, marked so it is kept (it was paid for). The file is moved. */

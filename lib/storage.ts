@@ -203,12 +203,14 @@ export async function cleanupOld(now = Date.now()) {
     }
     for (const e of entries) {
       if (!isId(e) || keep[kind].has(e)) continue;
-      // pictures, voices and videos made by Gemini were paid for: never cleaned up
-      if (
-        kind === "videos" &&
-        (await readJson<{ ai?: unknown }>(join(base, e, "meta.json")))?.ai
-      )
-        continue;
+      if (kind === "videos") {
+        const meta = await readJson<{ ai?: unknown; userId?: unknown }>(join(base, e, "meta.json"));
+        // pictures, voices and videos made by Gemini were paid for: never cleaned up
+        if (meta?.ai) continue;
+        // someone's upload (My Assets): projects are saved in the browser, so the server can't see which
+        // uploads a project uses; kept until its owner deletes it (it was cleaned after 24 h: projects lost media)
+        if (meta?.userId) continue;
+      }
       try {
         const st = await stat(join(base, e));
         if (now - st.mtimeMs > MAX_AGE_MS) await removeDir(join(base, e));

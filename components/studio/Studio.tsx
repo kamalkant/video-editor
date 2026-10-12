@@ -30,7 +30,7 @@ import { Popover } from "@/components/ui/Popover";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Tip } from "@/components/ui/Tip";
 import { toApiError } from "@/lib/api/types";
-import { ACCEPT } from "@/lib/api/upload";
+import { ACCEPT, precheck } from "@/lib/api/upload";
 import {
   type AnyClip,
   type MainClip,
@@ -81,12 +81,38 @@ import {
 } from "@/lib/edit/spec";
 import { createClock } from "@/lib/editor/clock";
 import {
+  clipIdsUsing,
   clipStudioState,
   defaultVideoClip,
   docReducer,
+  withMediaFacts,
+  withMediaKnown,
   type DocAction,
   type DocState,
 } from "@/lib/editor/docReducer";
+import {
+  addLocal,
+  forgetLocal,
+  installUploadGate,
+  localItem,
+  localSrc,
+  localVersion,
+  notOnServer,
+  onLocalUploaded,
+  onLocalUploadFailed,
+  overLimit,
+  pendingAmong,
+  persistLocal,
+  probeLocal,
+  provisionalMeta,
+  releaseLocalExcept,
+  restoreLocal,
+  setLocalAccount,
+  subscribeLocal,
+  uploadingItems,
+  uploadLocal,
+} from "@/lib/media/localMedia";
+import { newUuid } from "@/lib/storage/uuid";
 import { historyReducer, initHistory } from "@/lib/editor/history";
 import {
   LAST_SETTINGS_KEY,
@@ -869,6 +895,10 @@ function StudioInner(props: Props) {
   }, [doc, clock]);
 
   const { user, accountCode, workspace } = useAuth();
+  // local-first media (lib/media/localMedia): imported files play from this computer while they upload
+  const localVer = useSyncExternalStore(subscribeLocal, localVersion, () => 0);
+  useEffect(() => installUploadGate(), []);
+  useEffect(() => setLocalAccount(workspace?.accountCode ?? null), [workspace]);
   const [deviceFolder, setDeviceFolder] = useState<string | null>("Documents/vdo");
 
   useEffect(() => {
@@ -923,6 +953,8 @@ function StudioInner(props: Props) {
 
   const docRef = useRef(doc);
   docRef.current = doc;
+  const docMediaRef = useRef(ds.media);
+  docMediaRef.current = ds.media;
   const mediaRef = useRef(ds.media);
   mediaRef.current = ds.media;
 
@@ -977,16 +1009,19 @@ function StudioInner(props: Props) {
   }, [projectId]);
 
   // If the server didn't find the project (e.g. newly imported or offline local project), check the local workspace
+  // (once the account's storage is open: it opens a moment after the editor, so this runs again then)
+  const loadedLocalProject = useRef(false);
   useEffect(() => {
-    if (props.initialProject) return;
+    if (props.initialProject || loadedLocalProject.current) return;
     if (typeof window === "undefined") return;
     const searchParams = new URLSearchParams(window.location.search);
     const pid = searchParams.get("p");
     if (!pid) return;
+    const ws = workspace ?? localWorkspaceManager.getActiveWorkspace();
+    if (!ws) return;
+    loadedLocalProject.current = true;
 
     void (async () => {
-      const ws = localWorkspaceManager.getActiveWorkspace();
-      if (!ws) return;
       try {
         const localProj = await ws.getProject(pid);
         if (localProj) {
@@ -1006,7 +1041,46 @@ function StudioInner(props: Props) {
         console.error("Failed to load local project on init", err);
       }
     })();
-  }, [props.initialProject]);
+  }, [props.initialProject, workspace]);
+
+  /**
+   * A project's files (lib/media/localMedia): those with a copy in this browser play from it again, an upload
+   * that didn't finish (or stopped) goes on, and files the editor doesn't know yet get their details.
+   */
+  const restoreLocalFor = useCallback(async (d: TimelineDoc) => {
+    const ids = mediaIdsOf(d);
+    releaseLocalExcept(new Set(ids));
+    for (const id of ids) if (notOnServer(id) && localItem(id)?.state === "failed") uploadLocal(id);
+    const serverMeta = async (id: string): Promise<VideoMeta | null> => {
+      try {
+        const r = await fetch(`/api/videos/${id}`);
+        return r.ok ? ((await r.json()) as VideoMeta) : null;
+      } catch {
+        return null;
+      }
+    };
+    const unknown = await restoreLocal(ids, async (id) => !!(await serverMeta(id)));
+    // details of files on the server the editor doesn't have yet (a project reopened from this browser)
+    const known = new Set(unknown.map((m) => m.id));
+    const fetched: VideoMeta[] = [];
+    for (const id of ids) {
+      if (known.has(id) || docMediaRef.current[id]) continue;
+      const m = await serverMeta(id);
+      if (m) fetched.push(m);
+    }
+    if (fetched.length) setMetas((x) => ({ ...x, ...Object.fromEntries(fetched.map((m) => [m.id, m])) }));
+    const lites = [...unknown, ...fetched.map(mediaLiteOf)];
+    if (lites.length) dispatchHistory({ type: "everywhere", update: (st) => withMediaKnown(st, lites) });
+  }, []);
+  // the open project's files, once the account's storage is open (and again when another project opens)
+  const restoredFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!workspace) return;
+    const key = `${workspace.accountCode}:${projectId ?? ""}`;
+    if (restoredFor.current === key) return;
+    restoredFor.current = key;
+    void restoreLocalFor(docRef.current);
+  }, [workspace, projectId, restoreLocalFor]);
 
   // autosave: every change to the timeline goes into the project
   const firstDoc = useRef(true);
@@ -1059,6 +1133,31 @@ function StudioInner(props: Props) {
   useEffect(() => {
     live.current = { doc, hasClips, activeClip };
   });
+
+  // a background upload ended (lib/media/localMedia)
+  useEffect(() => {
+    const offDone = onLocalUploaded((meta) => {
+      // the server's details (exact length and frame rate, sound, detected green screen) replace the
+      // browser's first guess, in every undo step (not an undo step of its own)
+      setMetas((m) => ({ ...m, [meta.id]: meta }));
+      const lite = mediaLiteOf(meta);
+      dispatchHistory({ type: "everywhere", update: (st) => withMediaFacts(st, lite) });
+      refreshLists();
+    });
+    const offFail = onLocalUploadFailed(({ id, message, permanent }) => {
+      if (permanent) {
+        // the server can't use this file (it couldn't be exported either): it leaves the timeline
+        const ids = clipIdsUsing(live.current.doc, id);
+        if (ids.length) dispatchDoc({ type: "deleteClips", clipIds: ids }, `upload-refused:${id}`);
+        void forgetLocal(id);
+        setNotice(`A file couldn't be used: ${message}`);
+      } else setNotice(`An upload stopped (${message}). The clip plays here; the export waits for it. It is sent again when you reopen or reload the project.`);
+    });
+    return () => {
+      offDone();
+      offFail();
+    };
+  }, [dispatchDoc, refreshLists]);
 
   /** A picture dropped on the preview: logo-sized (a fifth of the width) where it was dropped, for the whole video. */
   const placeLogo = (v: VideoMeta, pt: { x: number; y: number }) => {
@@ -1574,6 +1673,7 @@ function StudioInner(props: Props) {
     try {
       const res = await fetch(`/api/videos/${a.id}`, { method: "DELETE" });
       if (!res.ok && res.status !== 404) throw await toApiError(res);
+      void forgetLocal(a.id);
       refreshLists();
       return null;
     } catch (e) {
@@ -1581,7 +1681,8 @@ function StudioInner(props: Props) {
     }
   };
 
-  const uploadFiles = (files: File[]) => {
+  /** Uploaded first, then on the timeline (files this browser can't play: the server makes a playable copy). */
+  const uploadFirst = (files: File[]) => {
     if (!files.length) return;
     if (uploadBusy) {
       queue.current.push(...files);
@@ -1589,6 +1690,47 @@ function StudioInner(props: Props) {
     }
     queue.current.push(...files.slice(1));
     void startUpload(files[0]);
+  };
+  /**
+   * New files: each one this browser can play goes on the timeline at once, playing from this computer,
+   * and uploads in the background (lib/media/localMedia); the others are uploaded first, as before.
+   */
+  const uploadFiles = (files: File[]) => {
+    if (!files.length) return;
+    void (async () => {
+      const later: File[] = [];
+      for (const f of files) {
+        // (a file of the wrong type or too big: the old way says why)
+        if (precheck(f)) {
+          later.push(f);
+          continue;
+        }
+        const url = URL.createObjectURL(f);
+        let probe: Awaited<ReturnType<typeof probeLocal>> = null;
+        try {
+          probe = await probeLocal(f, url);
+        } catch {
+          probe = null;
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+        if (!probe) {
+          later.push(f);
+          continue;
+        }
+        const tooBig = overLimit(probe);
+        if (tooBig) {
+          setNotice(`“${f.name}”: ${tooBig}`);
+          continue;
+        }
+        const id = newUuid();
+        addLocal(id, f, probe.kind, probe.poster);
+        onUploaded.current(provisionalMeta(id, f, probe));
+        uploadLocal(id);
+        void persistLocal(id, f, { ...probe, name: f.name });
+      }
+      uploadFirst(later);
+    })();
   };
   const uploadFile = (f: File) => uploadFiles([f]);
 
@@ -4408,6 +4550,20 @@ function StudioInner(props: Props) {
       : null,
     () => showPanel("media"),
   );
+  const sending = uploadingItems();
+  void localVer;
+  useTask(
+    sending.length
+      ? {
+          id: "local-uploads",
+          kind: "upload",
+          label: sending.some((u) => u.state === "failed") ? "Upload stopped" : "Uploading",
+          detail: sending.length === 1 ? sending[0]!.name : `${sending.length} files`,
+          percent: (100 * sending.reduce((n, u) => n + u.progress * u.size, 0)) / Math.max(1, sending.reduce((n, u) => n + u.size, 0)),
+        }
+      : null,
+    () => showPanel("media"),
+  );
   const steadying = [...new Set(stabIds)].filter((m) => !stab.url[m]);
   const firstClipOf = (pred: (c: AnyClip) => boolean) =>
     doc.tracks.flatMap((t): AnyClip[] => t.clips).find(pred)?.id ?? null;
@@ -4487,8 +4643,14 @@ function StudioInner(props: Props) {
     (t) => t.kind === "audio" && t.clips.some((c) => c.duck),
   );
   const speech = useSpeechRanges(doc, ds.media, anyDuck);
-  const sourceOf = (c: VideoClip) =>
-    c.stabilize && !hasAi(c) ? (stab.url[c.mediaId] ?? null) : null;
+  const sourceOf = (c: VideoClip) => {
+    const steady = c.stabilize && !hasAi(c) ? (stab.url[c.mediaId] ?? null) : null;
+    if (steady) return steady;
+    // an imported file plays from this computer (lib/media/localMedia); with proxies on, the server's
+    // light copy once the file is there
+    const local = localSrc(c.mediaId);
+    return local && !(proxyMode && !notOnServer(c.mediaId)) ? local : null;
+  };
   const packedOf = (c: VideoClip) =>
     activeClip && c.id === activeClip.id && aiOn
       ? aiMask.packed
@@ -4845,8 +5007,13 @@ function StudioInner(props: Props) {
       ),
   );
   /** Why a format can't be made now. MP4 and the other solid formats don't need background removal. */
+  const waitingUploads = pendingAmong(mediaIdsOf(doc));
   const exportBlocked = (f: ExportFormat): string | null =>
-    !capability.ok
+    waitingUploads.length
+      ? waitingUploads.some((u) => u.state === "failed")
+        ? `“${waitingUploads.find((u) => u.state === "failed")!.name}” didn't reach the server, so it can't be exported yet. Reload or reopen the project to send it again.`
+        : `Uploading ${waitingUploads.length === 1 ? `“${waitingUploads[0]!.name}”` : `${waitingUploads.length} files`} (${Math.round((100 * waitingUploads.reduce((n, u) => n + u.progress * u.size, 0)) / Math.max(1, waitingUploads.reduce((n, u) => n + u.size, 0)))}%): the export runs on the server, so it starts once the upload is done. You can keep editing.`
+      : !capability.ok
       ? `Can't make videos yet: ${capability.message}`
       : !hasClips
         ? "Add a video or picture first."
@@ -7621,6 +7788,7 @@ function StudioInner(props: Props) {
     <ProgramPlayer
       doc={doc}
       proxyMode={proxyMode}
+      localVersion={localVer}
       media={playerMedia}
       clock={clock}
       playerRef={programRef}

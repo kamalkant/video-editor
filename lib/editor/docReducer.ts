@@ -244,3 +244,32 @@ export function docReducer(s: DocState, a: DocAction): DocState {
       return { ...s, doc: updateMarker(d, a.markerId, a.patch) };
   }
 }
+
+/**
+ * An upload's details from the server (exact length, frame rate, sound, detected key…) for a file already
+ * on the timeline from this computer (lib/media/localMedia): they replace the browser's first guess, and a
+ * clip that reaches past the exact length ends there. A state without the file is left as it is.
+ */
+export function withMediaFacts(s: DocState, m: MediaLite): DocState {
+  const had = s.media[m.id];
+  if (!had) return s;
+  const media = { ...s.media, [m.id]: m };
+  if (!(m.duration > 0) || m.duration >= had.duration) return { ...s, media };
+  const end = m.duration;
+  const tracks = s.doc.tracks.map((t) => ({
+    ...t,
+    clips: t.clips.map((c) => {
+      if ((c.type !== "video" && c.type !== "audio") || c.mediaId !== m.id || c.out <= end) return c;
+      return { ...c, out: end, in: Math.min(c.in, Math.max(0, end - 0.1)) };
+    }),
+  })) as Track[];
+  return { media, doc: { ...s.doc, tracks } };
+}
+
+/** Files the editor didn't know (e.g. after a reload): added, without replacing what it knows. */
+export const withMediaKnown = (s: DocState, list: MediaLite[]): DocState =>
+  list.every((m) => s.media[m.id]) ? s : { ...s, media: { ...Object.fromEntries(list.map((m) => [m.id, m])), ...s.media } };
+
+/** The clips (any track) that show this upload. */
+export const clipIdsUsing = (doc: TimelineDoc, mediaId: string): string[] =>
+  doc.tracks.flatMap((t) => t.clips.filter((c) => "mediaId" in c && (c as { mediaId: string }).mediaId === mediaId).map((c) => c.id));

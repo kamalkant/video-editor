@@ -209,6 +209,8 @@ export function ensureProxy(
           buildProxyArgs(src, tmpOut, video.info, FAST_H264),
           {
             timeoutMs: 30 * 60 * 1000,
+            // (made ahead of need: after people's requests, lib/ffmpeg/slots)
+            background: true,
             onProgress: (t) => {
               work.percent = Math.min(99, Math.round((100 * t) / Math.max(0.1, video.info.duration)));
               onProgress?.(work.percent);
@@ -216,12 +218,14 @@ export function ensureProxy(
           },
         );
       } catch (hwErr) {
-        if (isAlpha) throw hwErr;
+        // (the fallback is libx264: nothing new to try when that was the first try, off a Mac)
+        if (isAlpha || FAST_H264 === "libx264") throw hwErr;
         await rm(tmpOut, { force: true });
         await runFfmpeg(
           buildProxyArgs(src, tmpOut, video.info, "libx264"),
           {
             timeoutMs: 45 * 60 * 1000,
+            background: true,
             onProgress: (t) => {
               work.percent = Math.min(99, Math.round((100 * t) / Math.max(0.1, video.info.duration)));
               onProgress?.(work.percent);

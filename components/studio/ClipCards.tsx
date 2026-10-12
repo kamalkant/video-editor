@@ -45,6 +45,7 @@ import { clipLength, type MediaLite } from "@/lib/edit/doc";
 import type { KeyframeOp } from "@/lib/edit/docEdit";
 import { hasKeys, keyIndexAt, keysOf, motionAt, transformAt, visibleKeys, type MotionClip } from "@/lib/edit/keyframes";
 import type { Clock } from "@/lib/editor/clock";
+import { localThumb } from "@/lib/media/localMedia";
 
 function Card({
   title,
@@ -1445,7 +1446,7 @@ export function ClipPropsCard({
         <Fold title="Looks" testId="looks-section">
           <LooksStrip
             color={clip.color}
-            thumb={`/api/videos/${clip.mediaId}/thumb`}
+            thumb={localThumb(clip.mediaId) ?? `/api/videos/${clip.mediaId}/thumb`}
             onChange={(c, g) => onPatch({ color: c }, g)}
             onAll={onLookAll ? () => onLookAll(clip.color) : undefined}
           />
@@ -1658,7 +1659,7 @@ export function ClipPropsCard({
         <Fold title="Looks" testId="looks-section">
           <LooksStrip
             color={clip.color}
-            thumb={`/api/videos/${clip.mediaId}/thumb`}
+            thumb={localThumb(clip.mediaId) ?? `/api/videos/${clip.mediaId}/thumb`}
             onChange={(c, g) => onPatch({ color: c }, g)}
             onAll={onLookAll ? () => onLookAll(clip.color) : undefined}
           />
@@ -1808,7 +1809,7 @@ export function ClipInspector(
   const looks = (
     <LooksStrip
       color={clip.color}
-      thumb={`/api/videos/${clip.mediaId}/thumb`}
+      thumb={localThumb(clip.mediaId) ?? `/api/videos/${clip.mediaId}/thumb`}
       onChange={(c, g) => onPatch({ color: c }, g)}
       onAll={onLookAll ? () => onLookAll(clip.color) : undefined}
     />

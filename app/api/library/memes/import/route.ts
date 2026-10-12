@@ -6,6 +6,7 @@ import { MEME_CATALOG } from "@/lib/library/memeCatalog";
 import { ensureMemeVideo } from "@/lib/library/memeGenerator";
 import { dynamicFailure, ensureDynamicVideo } from "@/lib/library/dynamicSearch";
 import { importFile } from "@/lib/videos";
+import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,8 @@ export const runtime = "nodejs";
  * Imports a curated or dynamic meme video into My Assets so it can be inserted into the timeline or canvas.
  */
 export async function POST(request: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
     const body = await request.json();
     const id = body?.id;

@@ -29,6 +29,7 @@ import type { Bg, BgMedia } from "./BackgroundSwatches";
 import type { PlayerApi } from "./PreviewPane";
 import { VideoControls } from "./VideoControls";
 import { readPreviewMuted, writePreviewMuted } from "@/lib/editor/previewSound";
+import { localSrc, localThumb } from "@/lib/media/localMedia";
 import { Icon } from "@/components/ui/Icon";
 import { cornerPin, cornerResize, pivotFromPointer, pivotOnCanvas, radiusDotLocal, radiusFromPointer, sideStretch, skewDrag, textSideStretch, xyForCenter, type HandleBox } from "@/lib/player/handles";
 import { boxQuad, hasCorners, quadOk, type BoxLook, type CornerKey, type Corners, type Pt, type Quad } from "@/lib/player/quad";
@@ -85,7 +86,7 @@ function soundClips(doc: TimelineDoc, media: Record<string, MediaLite>): Sound[]
   const out: Sound[] = [];
   for (const t of doc.tracks)
     if (t.kind === "audio" && !t.muted)
-      for (const c of t.clips as AudioPlaced[]) out.push({ id: c.id, src: c.denoise ? cleanUrl(c.mediaId, c.denoise) : sourceUrl(c.mediaId), in: c.in, start: c.start, len: clipLength(c), volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, duck: c.duck });
+      for (const c of t.clips as AudioPlaced[]) out.push({ id: c.id, src: c.denoise ? cleanUrl(c.mediaId, c.denoise) : (localSrc(c.mediaId) ?? sourceUrl(c.mediaId)), in: c.in, start: c.start, len: clipLength(c), volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, duck: c.duck });
   const main = mainTrack(doc);
   const starts = mainStarts(main.clips);
   for (const t of doc.tracks) {
@@ -284,6 +285,8 @@ export function ProgramPlayer(p: {
   reversedOf?: (clip: VideoClip) => string | null;
   /** Use lightweight 720p proxies for playback and scrubbing. */
   proxyMode?: boolean;
+  /** Changes when an imported file becomes playable from this computer (lib/media/localMedia). */
+  localVersion?: number;
   fit?: boolean;
   bg: Bg;
   custom: string;
@@ -412,7 +415,8 @@ export function ProgramPlayer(p: {
   });
 
   const vClips = useMemo(() => videoClips(doc), [doc]);
-  const aClips = useMemo(() => soundClips(doc, p.media), [doc, p.media]);
+  // (localVersion: an imported file became playable from this computer, lib/media/localMedia)
+  const aClips = useMemo(() => soundClips(doc, p.media), [doc, p.media, p.localVersion]);
   const aClipsRef = useRef(aClips);
   useEffect(() => {
     aClipsRef.current = aClips;
@@ -428,15 +432,18 @@ export function ProgramPlayer(p: {
     if (bd?.kind === "media" && p.media[bd.mediaId]?.kind === "image") want.push(bd.mediaId);
     // your logo (Brand Kit)
     if (doc.watermark) want.push(doc.watermark.mediaId);
-    for (const id of want)
-      if (!images.current.has(id)) {
+    for (const id of want) {
+      const had = images.current.get(id);
+      // (a picture that failed, e.g. asked for before its upload: again, from this computer if it's here)
+      if (!had || (had.complete && !had.naturalWidth && localSrc(id))) {
         const img = new Image();
-        img.src = `/api/videos/${id}/source`;
+        img.src = localSrc(id) ?? `/api/videos/${id}/source`;
         images.current.set(id, img);
       }
+    }
     // elements that were deleted: let go of their pictures
     for (const id of elementPics.current.keys()) if (!findClip(doc, id)) elementPics.current.delete(id);
-  }, [doc, p.media]);
+  }, [doc, p.media, p.localVersion]);
   useEffect(() => {
     const fonts = typeof document !== "undefined" ? document.fonts : undefined;
     if (!fonts) return;
@@ -888,15 +895,16 @@ export function ProgramPlayer(p: {
         if (img?.complete && img.naturalWidth) [src, sw, sh] = [img, img.naturalWidth, img.naturalHeight];
       } else if (m?.kind === "video") {
         let v = bdVideo.current;
-        if (!v || v.dataset.src !== bd.mediaId) {
+        const bdUrl = localSrc(bd.mediaId) ?? sourceUrl(bd.mediaId);
+        if (!v || v.dataset.src !== bdUrl) {
           v?.remove();
           v = document.createElement("video");
           v.muted = true;
           v.playsInline = true;
           v.loop = true;
           v.preload = "auto";
-          v.dataset.src = bd.mediaId;
-          v.src = sourceUrl(bd.mediaId);
+          v.dataset.src = bdUrl;
+          v.src = bdUrl;
           poolBox.current?.appendChild(v);
           bdVideo.current = v;
         }
@@ -3001,7 +3009,7 @@ export function ProgramPlayer(p: {
                   </div>
                 ) : dragged && dragged.kind === "image" ? (
                   <div className="h-full w-full overflow-hidden rounded p-1">
-                    <img src={`/api/videos/${dragged.id}/thumb`} alt="" className="h-full w-full object-contain drop-shadow" />
+                    <img src={localThumb(dragged.id) ?? `/api/videos/${dragged.id}/thumb`} alt="" className="h-full w-full object-contain drop-shadow" />
                   </div>
                 ) : null}
 

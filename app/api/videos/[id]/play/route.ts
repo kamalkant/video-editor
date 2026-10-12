@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/http/errors";
 import { fileResponse } from "@/lib/http/range";
-import { getVideo, kindOf, sourcePath } from "@/lib/videos";
+import { getVideo, kindOf, sourcePath, whenPlayable } from "@/lib/videos";
 import { storagePath } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -11,8 +11,15 @@ export const runtime = "nodejs";
  */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/play">) {
   const { id } = await ctx.params;
-  const video = await getVideo(id);
+  let video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
+  if (video.playablePending) {
+    // the copy is being made (an upload doesn't wait for it): wait a little for it; past that the original
+    // meanwhile, by redirect (never the original's bytes under this URL, which then becomes the copy)
+    const made = await Promise.race([whenPlayable(video), new Promise<null>((r) => setTimeout(() => r(null), 20_000))]);
+    if (!made || made.playablePending) return new Response(null, { status: 307, headers: { Location: `/api/videos/${id}/source`, "Cache-Control": "no-store" } });
+    video = made; // (without a copy after all, the original is what plays)
+  }
   if (video.playable) {
     const mime = video.playable.endsWith(".webm") ? "video/webm" : "video/mp4";
     return fileResponse(storagePath("videos", id, video.playable), mime, request.headers.get("range"), { cache: "private, max-age=86400" });

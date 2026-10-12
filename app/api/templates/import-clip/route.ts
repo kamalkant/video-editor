@@ -4,6 +4,7 @@ import { basename, extname, join } from "node:path";
 import { apiError } from "@/lib/http/errors";
 import { importFile } from "@/lib/videos";
 import { TEMPLATE_VIDEO_CLIPS } from "@/lib/templates/templateMediaAssets";
+import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,8 @@ export const runtime = "nodejs";
  * so it can be placed directly on the timeline or used as a background.
  */
 export async function POST(request: Request) {
+  const user = await requireUser();
+  if (user instanceof Response) return user;
   try {
     const body = (await request.json()) as { clipId?: string; url?: string };
     const clipId = body?.clipId;

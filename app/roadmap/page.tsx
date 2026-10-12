@@ -3,9 +3,26 @@ import { Icon } from "@/components/ui/Icon";
 import Link from "next/link";
 import { AREAS, FEATURES, STATUS_LABEL, type Area, type Status } from "@/lib/roadmap";
 
+const ROADMAP_TITLE = "Product Roadmap & What's New · ViPlay Studio";
+const ROADMAP_DESC = "Explore the live feature roadmap for ViPlay Studio: AI video editing tools, word-by-word captions, neural dubbing, transparent web avatars, and upcoming releases.";
+
 export const metadata: Metadata = {
-  title: "What's coming · ViPlay Studio",
-  description: "Everything ViPlay Studio does today, and the features that are coming next.",
+  title: ROADMAP_TITLE,
+  description: ROADMAP_DESC,
+  alternates: {
+    canonical: "/roadmap",
+  },
+  openGraph: {
+    title: ROADMAP_TITLE,
+    description: ROADMAP_DESC,
+    url: "/roadmap",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: ROADMAP_TITLE,
+    description: ROADMAP_DESC,
+  },
 };
 
 const ORDER: Area[] = ["edit", "record", "text", "audio", "background", "ai", "subtitles", "effects", "transitions", "elements", "brand", "templates", "export"];

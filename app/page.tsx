@@ -3,6 +3,9 @@ import localFont from "next/font/local";
 import { redirect } from "next/navigation";
 import { MarketingWebsite } from "@/components/website/MarketingWebsite";
 import { listPlans } from "@/lib/db/plans";
+import { FAQS } from "@/components/website/sections/faqs";
+import { getSiteUrl, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "@/lib/seo/config";
+import { buildHomeJsonLd } from "@/lib/seo/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -13,9 +16,8 @@ const inter = localFont({ src: "./fonts/Inter-latin.woff2", weight: "100 900", d
 // headings (globals.css: .vdo-site h1/h2/h3 use --font-display)
 const interTight = localFont({ src: "./fonts/InterTight-latin.woff2", weight: "500 800", display: "swap", variable: "--font-display-face", adjustFontFallback: "Arial" });
 
-const TITLE = "ViPlay Studio — AI video editor for Reels, Shorts & YouTube";
-const DESCRIPTION =
-  "Edit in your browser: word-by-word captions in Hindi, Hinglish and English, edit by transcript, Hindi ↔ English dubbing, studio voice, and YouTube + Shorts + square in one export. Plans from ₹0.";
+const TITLE = DEFAULT_TITLE;
+const DESCRIPTION = DEFAULT_DESCRIPTION;
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -54,21 +56,12 @@ export default async function RootPage({
     console.error("Failed to load initial plans for SSR:", error);
   }
 
-  // what search engines read about the product (the same plans and prices as the page)
-  const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "ViPlay Studio",
-    applicationCategory: "MultimediaApplication",
-    operatingSystem: "Web browser",
-    description: DESCRIPTION,
-    offers: (initialPlans ?? []).map((p) => ({
-      "@type": "Offer",
-      name: p.name,
-      price: (p.price_amount / 100).toFixed(2),
-      priceCurrency: p.currency,
-    })),
-  };
+  // what search engines read about the product, organization and verified FAQs
+  const jsonLd = buildHomeJsonLd({
+    siteUrl: getSiteUrl(),
+    plans: initialPlans,
+    faqs: FAQS,
+  });
 
   return (
     <div className={`${inter.variable} ${interTight.variable} ${inter.className}`}>

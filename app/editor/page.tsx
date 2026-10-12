@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Studio } from "@/components/studio/Studio";
 import { AnnouncementBanner } from "@/components/studio/AnnouncementBanner";
@@ -8,8 +9,14 @@ import { getCapabilities } from "@/lib/ffmpeg/capabilities";
 import { getJob } from "@/lib/jobs/queue";
 import { getProject } from "@/lib/projects/store";
 import { getVideo, type VideoMeta } from "@/lib/videos";
+import { NO_INDEX_ROBOTS } from "@/lib/seo/config";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Editor",
+  robots: NO_INDEX_ROBOTS,
+};
 
 /**
  * ViPlay Studio — Full Multi-Track NLE Video Editor.

@@ -1,6 +1,6 @@
 import { apiError } from "@/lib/http/errors";
 import { fileResponse } from "@/lib/http/range";
-import { ensureDynamicVideo } from "@/lib/library/dynamicSearch";
+import { dynamicFailure, ensureDynamicVideo } from "@/lib/library/dynamicSearch";
 
 export const runtime = "nodejs";
 
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   try {
     const videoPath = await ensureDynamicVideo(id);
     if (!videoPath) {
-      return apiError(404, "not_found", "Failed to resolve dynamic video.");
+      return apiError(502, "not_found", dynamicFailure(id) ?? "Failed to resolve dynamic video.");
     }
 
     return fileResponse(videoPath, "video/mp4", request.headers.get("range"), {

@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     await copyFile(videoPath, tempFile);
 
     try {
-      const meta = await importFile(tempFile, `${safeTitle}.mp4`);
+      const meta = await importFile(tempFile, `${safeTitle}.mp4`, user.id);
       return Response.json(meta, { status: 201 });
     } finally {
       await rm(dir, { recursive: true, force: true });

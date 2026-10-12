@@ -14,6 +14,7 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { exportVDO, importVDO } from "@/lib/storage/VDO";
 import { saveFileWithPicker } from "@/lib/storage/filePicker";
 import { localThumb } from "@/lib/media/localMedia";
+import { MEME_DRAG, type MemeDragItem } from "@/lib/editor/mediaDrag";
 
 export type ProjectSort = "date-desc" | "date-asc" | "name" | "duration";
 export type ProjectView = "grid" | "list";
@@ -28,9 +29,14 @@ export function ProjectsPanel(p: {
   onRenamed: (id: string, name: string) => void;
   onDeleted: (id: string) => void;
   onOpenStorage?: () => void;
+  onDropFiles?: (files: File[]) => void;
+  onDropMeme?: (meme: MemeDragItem) => void;
+  onImportVDOFile?: (file: File) => Promise<void>;
 }) {
   const { workspace } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [panelDragging, setPanelDragging] = useState(false);
+  const dragDepthRef = useRef(0);
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -304,12 +310,51 @@ export function ProjectsPanel(p: {
     }
   };
 
+  const handleProjectDrop = async (dataTransfer: DataTransfer) => {
+    const files = Array.from(dataTransfer.files || []);
+    if (files.length > 0) {
+      const vdoFile = files.find((f) => /\.vdo$/i.test(f.name));
+      if (vdoFile) {
+        if (p.onImportVDOFile) {
+          await p.onImportVDOFile(vdoFile);
+        } else if (workspace) {
+          setBusy(`Importing “${vdoFile.name}”…`);
+          try {
+            const imported = await importVDO(vdoFile, workspace);
+            p.onOpen(imported.id);
+            p.onRenamed(imported.id, imported.name);
+          } catch (err) {
+            setError((err as Error).message || "Import failed.");
+          } finally {
+            setBusy(null);
+          }
+        }
+        return;
+      }
+      // Media files dropped: create a new project with them
+      if (p.onDropFiles) {
+        p.onDropFiles(files);
+      }
+      return;
+    }
+
+    const memeJson = dataTransfer.getData(MEME_DRAG);
+    if (memeJson && p.onDropMeme) {
+      try {
+        const meme = JSON.parse(memeJson);
+        p.onDropMeme(meme);
+      } catch {
+        // ignore parse error
+      }
+    }
+  };
+
   const total = sortedProjects?.length ?? 0;
   const allSelected = total > 0 && selected.size === total;
 
   return (
     <div
-      className="flex flex-col gap-3"
+      className="relative flex flex-col gap-3 min-h-full"
       data-testid="projects-panel"
       onClick={(e) =>
         picked &&
@@ -322,7 +367,51 @@ export function ProjectsPanel(p: {
           setPicked(null);
         }
       }}
+      onDragEnter={(e) => {
+        const types = Array.from(e.dataTransfer?.types || []);
+        if (types.includes("Files") || types.includes(MEME_DRAG)) {
+          e.preventDefault();
+          dragDepthRef.current++;
+          setPanelDragging(true);
+        }
+      }}
+      onDragOver={(e) => {
+        const types = Array.from(e.dataTransfer?.types || []);
+        if (types.includes("Files") || types.includes(MEME_DRAG)) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "copy";
+        }
+      }}
+      onDragLeave={(e) => {
+        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+        if (dragDepthRef.current === 0) {
+          setPanelDragging(false);
+        }
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragDepthRef.current = 0;
+        setPanelDragging(false);
+        void handleProjectDrop(e.dataTransfer);
+      }}
     >
+      {panelDragging && (
+        <div
+          data-testid="projects-drop-overlay"
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-primary bg-surface/92 backdrop-blur-md p-6 text-center shadow-xl animate-in fade-in duration-150 pointer-events-none"
+        >
+          <div className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-inner">
+            <Icon name="folderOpen" className="size-7 animate-bounce" />
+          </div>
+          <p className="text-sm font-semibold text-ink">
+            Drop here to import
+          </p>
+          <p className="text-xs text-muted max-w-[220px]">
+            Drop <strong>.VDO</strong> to import project, or drop <strong>media clips</strong> to start a new project
+          </p>
+        </div>
+      )}
       {/* Header action buttons */}
       <div className="flex items-center gap-2">
         <button

@@ -25,6 +25,11 @@ export const ytDlpBin = () => {
  */
 /** YouTube pages need a JavaScript runtime; servers have Node (this process), not deno: yt-dlp may use it. */
 export const YTDLP_JS = ["--js-runtimes", `node:${process.execPath}`];
+/** Player client preferences: android client bypasses 403 Forbidden throttling on datacenter IPs */
+export const YTDLP_CLIENT_ARGS = [
+  "--extractor-args",
+  "youtube:player_client=android,web",
+];
 
 export function ytDlpEnv(): NodeJS.ProcessEnv {
   if (process.platform !== "linux") return process.env;

@@ -4,7 +4,6 @@ import { AtmosphericWebGlStage } from "./canvas/AtmosphericWebGlStage";
 import { TopNav } from "./dom/TopNav";
 import { ScrollMotionCard } from "./dom/ScrollMotionCard";
 import { ScrollTimelineHero } from "./hero/ScrollTimelineHero";
-import { VideoEditorShowcaseSection } from "./sections/VideoEditorShowcaseSection";
 import { AllToolsFeaturesShowcaseSection } from "./sections/AllToolsFeaturesShowcaseSection";
 import { UseCasesSection } from "./sections/UseCasesSection";
 import { TemplatesShowcaseSection } from "./sections/TemplatesShowcaseSection";
@@ -16,15 +15,13 @@ import { FaqSection } from "./sections/FaqSection";
 import { FooterCTA } from "./dom/FooterCTA";
 import { useResolvedTheme } from "@/lib/editor/theme";
 
-// 8 Interactive Feature Modules (Full-Width Large Stages)
+// Interactive Feature Modules (Full-Width Large Stages)
 import { AiCutoutModule } from "./modules/AiCutoutModule";
 import { OverlayCompositionModule } from "./modules/OverlayCompositionModule";
 import { MotionTrackingModule } from "./modules/MotionTrackingModule";
 import { AiGenerationModule } from "./modules/AiGenerationModule";
-import { TimelinePreviewModule } from "./modules/TimelinePreviewModule";
 import { PlatformFormatsModule } from "./modules/PlatformFormatsModule";
 import { CompareReviewModule } from "./modules/CompareReviewModule";
-import { ShareAnywhereModule } from "./modules/ShareAnywhereModule";
 
 export function MarketingWebsite({ initialPlans }: { initialPlans?: PlanData[] } = {}) {
   const theme = useResolvedTheme();
@@ -50,11 +47,6 @@ export function MarketingWebsite({ initialPlans }: { initialPlans?: PlanData[] }
           <ScrollTimelineHero />
         </section>
 
-        {/* 01.5: Live Video Editor Studio Showcase (5-10s Interactive Experience) */}
-        <section id="editor-showcase" className="w-full py-16 sm:py-24 px-4 sm:px-8 lg:px-12 max-w-7xl mx-auto">
-          <VideoEditorShowcaseSection />
-        </section>
-
         {/* 01.8: Complete Studio Tools & Features Matrix (from VIDEO_STUDIO_PRESENTATION.md) */}
         <section id="all-features" className="w-full py-16 sm:py-24 px-4 sm:px-8 lg:px-12 max-w-7xl mx-auto">
           <AllToolsFeaturesShowcaseSection />
@@ -71,7 +63,7 @@ export function MarketingWebsite({ initialPlans }: { initialPlans?: PlanData[] }
               Engineered For Every Dimension Of Video
             </h2>
             <p className={`text-sm sm:text-base max-w-2xl mx-auto mt-4 leading-relaxed ${isLight ? "text-slate-600" : "text-slate-400"}`}>
-              Real-time alpha cutouts, neural video synthesis, precision multi-track timelines, and instant cross-platform distribution.
+              Real-time alpha cutouts, neural video synthesis, multi-layer overlays, and cross-platform format mastering.
             </p>
           </div>
 
@@ -97,11 +89,6 @@ export function MarketingWebsite({ initialPlans }: { initialPlans?: PlanData[] }
               <AiGenerationModule />
             </ScrollMotionCard>
 
-            {/* 05 Timeline Preview */}
-            <ScrollMotionCard>
-              <TimelinePreviewModule />
-            </ScrollMotionCard>
-
             {/* 06 Any Format. Any Platform. */}
             <ScrollMotionCard>
               <PlatformFormatsModule />
@@ -110,11 +97,6 @@ export function MarketingWebsite({ initialPlans }: { initialPlans?: PlanData[] }
             {/* 07 Compare & Review */}
             <ScrollMotionCard>
               <CompareReviewModule />
-            </ScrollMotionCard>
-
-            {/* 08 Share Anywhere */}
-            <ScrollMotionCard>
-              <ShareAnywhereModule />
             </ScrollMotionCard>
           </div>
         </section>

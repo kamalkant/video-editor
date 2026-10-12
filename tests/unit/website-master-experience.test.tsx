@@ -278,6 +278,9 @@ describe("VDO Premium Website Master Experience", () => {
     expect(screen.getByText("Limits.")).toBeDefined();
     expect(screen.getByText("Engineered For Every Dimension Of Video")).toBeDefined();
     expect(screen.getAllByText("01").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("08").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("06").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Timeline Preview")).toBeNull();
+    expect(screen.queryByText("Share Anywhere")).toBeNull();
+    expect(screen.queryByText("Live Web Studio Experience")).toBeNull();
   });
 });

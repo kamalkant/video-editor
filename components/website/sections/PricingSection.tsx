@@ -287,7 +287,7 @@ export function PricingSection({ initialPlans }: { initialPlans?: PlanData[] }) 
               {isCurrentPlan ? (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-1 rounded-full bg-emerald-500 text-slate-950 text-xs font-extrabold uppercase tracking-wider shadow-md flex items-center gap-1.5">
                   <Icon name="check" className="size-3 text-slate-950 stroke-[3]" />
-                  <span>Your Current Plan</span>
+                  <span className="whitespace-nowrap">Your Current Plan</span>
                 </div>
               ) : isPopular ? (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-site-accent-fill px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-white shadow-md">

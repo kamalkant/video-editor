@@ -126,11 +126,8 @@ export async function GET(request: Request) {
     }
   }
 
-  // no Pexels / Pixabay key on this server: the library's own broadcast loops, so STOCK VIDEOS isn't empty
+  // Check if neither Pexels nor Pixabay key is available
   const needsKey = !isImportFake() && !aiKey("pexels") && !aiKey("pixabay");
-  if (needsKey && provider === "all" && !items.length) {
-    items = (await curatedStockProvider.search({ query: q, category, aspectRatio })).items;
-  }
 
   return NextResponse.json({
     items,

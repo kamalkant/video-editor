@@ -19,18 +19,6 @@ import { openAiSettings } from "@/lib/editor/useGemini";
 
 export type LibraryCategory = "all" | "videos" | "memes" | "photos" | "audio";
 
-/** How many tiles side by side (1 to 3, remembered). Full class names, so Tailwind keeps them. */
-type GridCols = 1 | 2 | 3;
-const GRID_COLS: Record<GridCols, string> = { 1: "grid-cols-1", 2: "grid-cols-2", 3: "grid-cols-3" };
-const COLS_KEY = "VDO_library_cols";
-function readCols(): GridCols {
-  try {
-    const n = Number(localStorage.getItem(COLS_KEY));
-    return n === 1 || n === 2 || n === 3 ? n : 2;
-  } catch {
-    return 2;
-  }
-}
 
 interface StockItem {
   id: string;
@@ -79,16 +67,7 @@ export function UnifiedLibraryPanel({
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState<string | null>(null);
-  const [cols, setColsState] = useState<GridCols>(() => (typeof window === "undefined" ? 2 : readCols()));
-  const setCols = (n: GridCols) => {
-    setColsState(n);
-    try {
-      localStorage.setItem(COLS_KEY, String(n));
-    } catch {
-      /* private window: just for now */
-    }
-  };
-  const gridCls = `grid gap-2 ${GRID_COLS[cols]}`;
+  const gridCls = "grid grid-cols-[repeat(auto-fill,minmax(110px,1fr))] gap-2";
 
   // Remote Stock Search state
   const [stockVideos, setStockVideos] = useState<StockItem[]>([]);
@@ -214,8 +193,7 @@ export function UnifiedLibraryPanel({
           setStockNeedsKey(!!data?.needsKey);
           if (data?.items) {
             const mapped: StockItem[] = data.items
-              // (curated loops come only when the server has no stock key: then they are the stock videos)
-              .filter((it: any) => data.needsKey || (it.provider !== "curated" && it.source !== "curated"))
+              .filter((it: any) => it.provider !== "curated" && it.source !== "curated")
               .map((it: any) => ({
               id: it.id,
               source: it.provider || "pexels",
@@ -515,24 +493,6 @@ export function UnifiedLibraryPanel({
             </div>
           </div>
 
-          {/* Tiles side by side: 1, 2 or 3 */}
-          <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-line bg-raised/50 p-0.5" role="group" aria-label="Tiles per row" data-testid="library-cols">
-            {([1, 2, 3] as const).map((n) => (
-              <button
-                key={n}
-                type="button"
-                onClick={() => setCols(n)}
-                aria-pressed={cols === n}
-                aria-label={`${n} per row`}
-                title={`${n} per row`}
-                className={`flex h-6 w-6 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums transition-colors ${
-                  cols === n ? "bg-primary text-white shadow-xs" : "text-muted hover:bg-raised hover:text-ink"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
 
           {/* Volume On/Off Hover Preview Toggle (Icon Only) */}
           <button
@@ -630,14 +590,8 @@ export function UnifiedLibraryPanel({
               <span>STOCK VIDEOS {stockVideos.length > 0 && `(${stockVideos.length})`}</span>
               <span className="text-[10px] text-muted/80">Hover to play</span>
             </div>
-            {stockNeedsKey && (
-              <p className="px-1 text-[10px] leading-snug text-muted/80">
-                Built-in loops. For more stock videos, add a free Pexels or Pixabay API key to the server (PEXELS_API_KEY / PIXABAY_API_KEY).
-              </p>
-            )}
-
             {isSearchingStock && stockVideos.length === 0 ? (
-              <SkeletonGrid n={cols * 2} className={GRID_COLS[cols]} />
+              <SkeletonGrid n={6} className="grid-cols-[repeat(auto-fill,minmax(110px,1fr))]" />
             ) : stockVideos.length === 0 ? (
               activeCategory === "videos" ? (
                 <div className="py-6 text-center text-muted text-[11px]">
@@ -654,7 +608,9 @@ export function UnifiedLibraryPanel({
                     category: "comedy",
                     duration: it.duration || 10,
                     thumbUrl: it.thumb,
-                    videoUrl: it.videoUrl,
+                    videoUrl: it.videoUrl || "",
+                    actorOrShow: it.author || "Stock Video",
+                    tags: ["stock", "video"],
                     width: it.width || 1920,
                     height: it.height || 1080,
                     isDynamic: it.source !== "curated",
@@ -851,7 +807,7 @@ export function UnifiedLibraryPanel({
                 <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold px-1">
                   <Spinner size="xs" /> SEARCHING ONLINE MEMES…
                 </div>
-                <SkeletonGrid n={cols * 2} className={GRID_COLS[cols]} />
+                <SkeletonGrid n={6} className="grid-cols-[repeat(auto-fill,minmax(110px,1fr))]" />
               </div>
             )}
             {onlineMemes.length > 0 && (
@@ -949,11 +905,11 @@ export function UnifiedLibraryPanel({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
               <span>PHOTOS & BACKGROUNDS {stockPhotos.length > 0 && `(${stockPhotos.length})`}</span>
-              <span className="text-[10px] text-muted/80">Pixabay & Curated</span>
+              <span className="text-[10px] text-muted/80">Pixabay</span>
             </div>
 
             {isSearchingPhotos && stockPhotos.length === 0 ? (
-              <SkeletonGrid n={cols * 2} className={GRID_COLS[cols]} />
+              <SkeletonGrid n={6} className="grid-cols-[repeat(auto-fill,minmax(110px,1fr))]" />
             ) : stockPhotos.length === 0 ? (
               activeCategory === "photos" ? (
                 <div className="py-6 text-center text-muted text-[11px]">

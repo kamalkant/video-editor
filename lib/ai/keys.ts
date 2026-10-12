@@ -31,6 +31,9 @@ const ENV: Record<ProviderId, string> = {
   pexels: "PEXELS_API_KEY",
   pixabay: "PIXABAY_API_KEY",
 };
+const DEFAULT_KEYS: Partial<Record<ProviderId, string>> = {
+  pixabay: "57835309-8e2bffe05b5c64657f5a335d8",
+};
 const file = () => storagePath("settings", "ai-keys.json");
 
 const g = globalThis as unknown as {
@@ -126,7 +129,9 @@ export function aiKey(id: ProviderId, userId?: string | null): string | null {
 
   const rec = load()[id];
   if (rec) return rec.enabled && rec.key ? rec.key : null;
-  return process.env[ENV[id]]?.trim() || null;
+  const envVal = process.env[ENV[id]];
+  if (envVal !== undefined) return envVal.trim() || null;
+  return DEFAULT_KEYS[id] || null;
 }
 
 /** The provider has an entry in AI settings (then .env.local is not used for it). */
@@ -139,7 +144,12 @@ export function aiStatus(): ProviderStatus[] {
   const store = load();
   return PROVIDERS.map((p) => {
     const rec = store[p.id];
-    const env = rec ? null : process.env[ENV[p.id]]?.trim() || null;
+    const envVal = process.env[ENV[p.id]];
+    const env = rec
+      ? null
+      : envVal !== undefined
+        ? envVal.trim() || null
+        : DEFAULT_KEYS[p.id] || null;
     const key = rec?.key ?? env;
     return {
       id: p.id,

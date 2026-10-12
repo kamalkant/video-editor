@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { featureById } from "@/lib/roadmap";
 import { GeminiBadge } from "./GeminiBits";
 
@@ -136,12 +137,14 @@ export function AiToolsPanel({ onClose, target, onTool, whyNot, onSettings }: { 
   const list = useRef<HTMLDivElement>(null);
   // the AI credits left (platform AI costs credits; your own key in Settings doesn't)
   const [credits, setCredits] = useState<number | null>(null);
+  const [creditsLoading, setCreditsLoading] = useState(true);
   useEffect(() => {
     let live = true;
     fetch("/api/user/ai-credits")
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => live && typeof j?.ledger?.balance === "number" && setCredits(j.ledger.balance))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => live && setCreditsLoading(false));
     return () => {
       live = false;
     };
@@ -188,6 +191,7 @@ export function AiToolsPanel({ onClose, target, onTool, whyNot, onSettings }: { 
             </div>
             <p className="text-xs text-muted">
               Use AI to create, edit and enhance your videos faster.
+              {credits === null && creditsLoading && <Skeleton className="ml-1 inline-block h-3 w-24 align-middle" />}
               {credits !== null && (
                 <>
                   {" "}

@@ -88,7 +88,7 @@ export async function importVDO(
                 method: "PUT",
                 headers: {
                   "Content-Type": assetMeta.mimeType,
-                  "X-File-Name": assetMeta.name,
+                  "X-File-Name": encodeURIComponent(assetMeta.name),
                 },
                 body: blob,
               }).catch(() => {

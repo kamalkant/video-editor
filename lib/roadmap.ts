@@ -87,7 +87,7 @@ export const FEATURES: Feature[] = [
   f("edit", "ready", "detach-audio", "Detach audio", "Split a video's sound onto its own track."),
   f("edit", "ready", "markers", "Markers", "Mark moments on the timeline and jump between them."),
   f("transitions", "ready", "crossfade", "Crossfade and dissolve", "Soft blend from one clip to the next."),
-  f("edit", "ready", "import", "Import from the web", "Add media → Import: search Pexels and Pixabay (free stock videos) and bring a clip onto the timeline; search YouTube and import your own or Creative Commons videos."),
+  f("edit", "ready", "import", "Import from the web", "Add media → Import: search Pexels and Pixabay (free stock videos) and bring a clip onto the timeline."),
   f("ai", "ready", "ai-keys", "AI settings: your own API keys", "AI Tools → Settings: add, check, switch off or remove a key for Gemini (Grok and OpenAI keys can be saved; their features are coming). No key or off: those features stay off."),
   f("ai", "ready", "grok", "Grok pictures and videos", "Grok Imagine with your xAI key, next to Gemini.", false, "Grok pictures are real; Grok video is a preview placeholder for now."),
   f("transitions", "ready", "tr-none", "None (a plain cut)", "Take a transition off a cut, or off every cut on Video 1."),
@@ -130,7 +130,7 @@ export const FEATURES: Feature[] = [
   f("export", "ready", "presets", "Export presets", "One click for YouTube 16:9, Shorts / Reels 9:16 and square."),
   f("export", "ready", "gif", "GIF export", "Short loops for chats and slides (up to 30 s, 15 fps, 640 px wide)."),
   f("export", "ready", "estimate", "Size estimate for every project", "Know the file size before you export."),
-  f("export", "ready", "share", "Share link and YouTube upload", "Send a preview link or a website embed.", false, "YouTube upload is a simulation until Google sign-in for YouTube is set up; the share link works on this computer and network."),
+  f("export", "ready", "share", "Share link", "Send a preview link or a website embed.", false, "The share link works on this computer and network."),
 
   // ---------- Google Gemini AI Services ----------
   f("ai", "ready", "gen-video", "Generate video", "✦ Gemini Veo 3.1: a 4–8 second clip with sound from words, or starting from your picture. The price shows before you click.", true),

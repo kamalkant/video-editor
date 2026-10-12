@@ -310,7 +310,7 @@ export function TopBar(p: {
             onClick={p.onShare}
             className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-canvas px-2.5 text-xs font-medium text-ink hover:border-control hover:bg-raised transition-colors mr-1 hidden"
             aria-label="Share project"
-            title="Share preview link or upload to YouTube"
+            title="Share a preview link"
             data-testid="topbar-share-button"
           >
             <Icon name="share" className="size-3.5 text-primary" />

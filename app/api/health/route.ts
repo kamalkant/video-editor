@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getCapabilities } from "@/lib/ffmpeg/capabilities";
-import { ytDlpCheck } from "@/lib/import/youtube";
+import { ytDlpCheck } from "@/lib/import/ytdlp";
 
 export const runtime = "nodejs";
 

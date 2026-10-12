@@ -6,7 +6,6 @@ import { isProviderId, providerOf, PROVIDERS } from "@/lib/ai/providers";
 import { apiError } from "@/lib/http/errors";
 import { isImportFake } from "@/lib/import/fake";
 import { ImportError, testStockKey } from "@/lib/import/stock";
-import { testYouTubeKey } from "@/lib/import/youtube";
 import {
   listUserCredentials,
   setUserCredential,
@@ -91,7 +90,7 @@ export async function PUT(request: Request) {
   const key = typeof b.key === "string" ? b.key.trim() : "";
   if (!key) return apiError(400, "empty", "Paste the key first.");
   if (!p.shape.test(key)) {
-    const hint = p.id === "gemini" || p.id === "youtube" ? "keys are usually 16+ characters, e.g. starting with AIza…" : `they start with ${p.example}`;
+    const hint = p.id === "gemini" ? "keys are usually 16+ characters, e.g. starting with AIza…" : `they start with ${p.example}`;
     return apiError(400, "bad_key", `That doesn't look like a valid ${p.name} key (${hint}). Check you copied all of it.`);
   }
 
@@ -106,10 +105,9 @@ export async function PUT(request: Request) {
     forgetModels();
   }
 
-  if ((p.id === "pexels" || p.id === "pixabay" || p.id === "youtube") && !isImportFake()) {
+  if ((p.id === "pexels" || p.id === "pixabay") && !isImportFake()) {
     try {
-      if (p.id === "youtube") await testYouTubeKey(key);
-      else await testStockKey(p.id, key);
+      await testStockKey(p.id, key);
     } catch (err) {
       if (err instanceof ImportError && err.code === "key_refused") return apiError(400, "key_refused", `${p.name} didn't accept this key. Check you copied all of it.`);
       if (err instanceof ImportError) return apiError(502, "key_unchecked", `Couldn't check the key with ${p.name}: ${err.message}`);

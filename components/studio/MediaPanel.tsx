@@ -3,6 +3,8 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
+import { Spinner } from "@/components/ui/Spinner";
+import { Skeleton, SkeletonGrid, SkeletonRows } from "@/components/ui/Skeleton";
 import { Tip } from "@/components/ui/Tip";
 import { mediaLiteOf } from "@/lib/edit/doc";
 import { setMediaDrag } from "@/lib/editor/mediaDrag";
@@ -12,10 +14,32 @@ import type { Asset } from "@/lib/media/useLibrary";
 import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
 import { LIMITS, limitSizeLabel } from "@/lib/settings";
 import type { UploadState } from "@/lib/upload/useUpload";
-import { localItem, localThumb } from "@/lib/media/localMedia";
+import { localItem, localSrc, localThumb } from "@/lib/media/localMedia";
 
 /** A file still uploading shows the frame taken in the browser (lib/media/localMedia). */
 const thumbOf = (id: string) => localThumb(id) ?? `/api/videos/${id}/thumb`;
+
+/** A thumbnail with a shimmer in its place until the picture has arrived (the server may still be making it). */
+function Thumb({ src, className }: { src: string; className: string }) {
+  const [state, setState] = useState<{ src: string; ok: boolean | null }>({ src, ok: null });
+  // (a new picture: loading again)
+  const ok = state.src === src ? state.ok : null;
+  return (
+    <>
+      {ok === null && <Skeleton className="absolute inset-0 rounded-none" />}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className={`${className} ${ok === null ? "opacity-0" : ""}`}
+        loading="lazy"
+        draggable={false}
+        onLoad={() => setState({ src, ok: true })}
+        onError={() => setState({ src, ok: false })}
+      />
+    </>
+  );
+}
 
 /** "Uploading 45%" over a file of this tab that isn't on the server yet. */
 function UploadBadge({ id, compact }: { id: string; compact?: boolean }) {
@@ -88,8 +112,8 @@ export function MediaPanel(p: {
   /** Add an upload to the timeline. */
   onAdd: (a: Asset) => void;
   onDelete: (a: Asset) => Promise<string | null>;
-  /** The Import window (Pexels, Pixabay, YouTube). */
-  onImport: (tab: "pexels" | "pixabay" | "youtube") => void;
+  /** The Import window (Pexels, Pixabay). */
+  onImport: (tab: "pexels" | "pixabay") => void;
   onOpenLibrary?: () => void;
 }) {
   const [dragging, setDragging] = useState(false);
@@ -325,7 +349,7 @@ export function MediaPanel(p: {
           <span className="block font-medium text-ink">
             Stock &amp; Web Library
           </span>
-          <span className="text-muted">Videos, memes, audio &amp; YouTube</span>
+          <span className="text-muted">Videos, photos, memes &amp; audio</span>
         </span>
         <Icon name="chevronRight" className="size-4 text-muted" />
       </button>
@@ -489,7 +513,7 @@ export function MediaPanel(p: {
               </button>
               <button
                 type="button"
-                className="btn min-h-0 size-7 p-0 flex items-center justify-center bg-danger text-white hover:bg-danger/90 disabled:opacity-30 disabled:pointer-events-none"
+                className={`btn min-h-0 size-7 p-0 flex items-center justify-center bg-danger text-white hover:bg-danger/90 disabled:pointer-events-none ${deletingBatch ? "disabled:opacity-80" : "disabled:opacity-30"}`}
                 onClick={() => void deleteBatch()}
                 disabled={selectedAssets.size === 0 || deletingBatch}
                 aria-label={
@@ -506,7 +530,7 @@ export function MediaPanel(p: {
                 }
                 data-testid="delete-selected-assets"
               >
-                <Icon name="trash" className="size-3.5" />
+                {deletingBatch ? <Spinner size="xs" /> : <Icon name="trash" className="size-3.5" />}
               </button>
             </div>
           </div>
@@ -531,7 +555,12 @@ export function MediaPanel(p: {
         )}
         {p.listError && <Notice tone="error">{p.listError}</Notice>}
         {p.assets === null && !p.listError ? (
-          <p className="text-sm text-muted">Loading…</p>
+          <div aria-busy="true" data-testid="assets-loading">
+            <span role="status" className="sr-only">
+              Loading your media…
+            </span>
+            {view === "grid" ? <SkeletonGrid n={6} /> : <SkeletonRows n={5} thumb />}
+          </div>
         ) : sortedAssets && sortedAssets.length === 0 ? (
           <div
             className="flex flex-col items-center gap-1 px-3 py-6 text-center"
@@ -599,14 +628,7 @@ export function MediaPanel(p: {
                       aria-label={a.fileName}
                       title={`${a.fileName}${a.credit ? ` · by ${a.credit.author} on ${a.credit.source === "pexels" ? "Pexels" : a.credit.source === "pixabay" ? "Pixabay" : "YouTube"}${a.credit.license === "cc" ? " (Creative Commons: credit them)" : ""}` : ""} · Double-click to add to timeline, drag to place, right-click for options`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={thumbOf(a.id)}
-                        alt=""
-                        className="size-full object-contain pointer-events-none"
-                        loading="lazy"
-                        draggable={false}
-                      />
+                      <Thumb src={thumbOf(a.id)} className="size-full object-contain pointer-events-none" />
                       <UploadBadge id={a.id} />
                     </button>
                   </div>
@@ -750,14 +772,7 @@ export function MediaPanel(p: {
                       onDragEnd={() => setMediaDrag(null)}
                       title="Double-click to add to timeline, drag to place"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={thumbOf(a.id)}
-                        alt=""
-                        className="size-full object-cover pointer-events-none"
-                        loading="lazy"
-                        draggable={false}
-                      />
+                      <Thumb src={thumbOf(a.id)} className="size-full object-cover pointer-events-none" />
                       <UploadBadge id={a.id} compact />
                     </div>
 
@@ -845,7 +860,8 @@ export function MediaPanel(p: {
               label: "Download original",
               onSelect: () => {
                 const a = document.createElement("a");
-                a.href = `/api/videos/${menu.asset.id}/source`;
+                // (a file from this computer: saved from here, no download from the server)
+                a.href = localSrc(menu.asset.id) ?? `/api/videos/${menu.asset.id}/source`;
                 a.download = menu.asset.fileName;
                 a.click();
               },

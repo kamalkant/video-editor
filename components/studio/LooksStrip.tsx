@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { LabeledSlider } from "@/components/ui/LabeledSlider";
+import { Skeleton } from "@/components/ui/Skeleton";
 import type { ColorAdjust } from "@/lib/edit/doc";
 import { applyMat, colorMatrix, LOOKS, NEUTRAL, vignetteGain, vignetteOf } from "@/lib/player/look";
 import { deleteMyLook, readMyLooks, saveMyLook, type MyLook } from "@/lib/editor/myLooks";
@@ -9,6 +10,9 @@ import { deleteMyLook, readMyLooks, saveMyLook, type MyLook } from "@/lib/editor
 /** A small picture of the clip with a look applied (the same matrix as the preview and the export). */
 function LookThumb({ src, look }: { src: string | null; look: string | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // the clip's picture is on its way: a shimmer until it's drawn
+  const [drawnFor, setDrawnFor] = useState<string | null>(null);
+  const loading = !!src && drawnFor !== src;
   useEffect(() => {
     const cv = ref.current;
     const ctx = cv?.getContext("2d", { willReadFrequently: true });
@@ -40,11 +44,16 @@ function LookThumb({ src, look }: { src: string | null; look: string | null }) {
     };
     if (!src) return draw(null);
     const img = new Image();
-    img.onload = () => draw(img);
-    img.onerror = () => draw(null);
+    img.onload = () => (draw(img), setDrawnFor(src));
+    img.onerror = () => (draw(null), setDrawnFor(src));
     img.src = src;
   }, [src, look]);
-  return <canvas ref={ref} width={96} height={54} aria-hidden="true" className="block aspect-video w-full rounded" />;
+  return (
+    <span className="relative block">
+      <canvas ref={ref} width={96} height={54} aria-hidden="true" className="block aspect-video w-full rounded" />
+      {loading && <Skeleton className="absolute inset-0 rounded" />}
+    </span>
+  );
 }
 
 /** Looks (filters) for a clip: one click, then a vignette strength. */

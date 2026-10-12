@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Skeleton, SkeletonGrid } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 import { VoiceSearchMic } from "@/components/ui/VoiceSearchMic";
 import { formatTime } from "@/lib/format";
 import type { VideoMeta } from "@/lib/videos";
@@ -15,17 +17,7 @@ import { createDragChip, MEME_DRAG, setMemeDrag } from "@/lib/editor/mediaDrag";
 import type { LibraryItem as AudioLibraryItem } from "@/lib/library";
 import { openAiSettings } from "@/lib/editor/useGemini";
 
-export type LibraryCategory = "all" | "videos" | "memes" | "photos" | "audio" | "youtube";
-
-const YT_SUGGESTIONS = [
-  "Lofi beats",
-  "Green screen meme",
-  "Cinematic drone",
-  "Countdown timer",
-  "Sound effects",
-  "Nature 4K",
-  "Cyberpunk loop",
-];
+export type LibraryCategory = "all" | "videos" | "memes" | "photos" | "audio";
 
 interface StockItem {
   id: string;
@@ -53,16 +45,6 @@ interface StockPhotoItem {
   source: "pixabay" | "curated";
 }
 
-interface YouTubeItem {
-  id: string;
-  title: string;
-  author: string;
-  thumb: string;
-  duration: number;
-  license: "cc" | "standard";
-  pageUrl?: string;
-}
-
 type Props = {
   onInsertVideo: (video: VideoMeta, add: boolean) => void;
   onInsertMeme: (
@@ -85,11 +67,6 @@ export function UnifiedLibraryPanel({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [progressMsg, setProgressMsg] = useState<string | null>(null);
 
-  // YouTube / Web URL import state (integrated into top search input)
-  const [urlRights, setUrlRights] = useState(true);
-  const [isUrlImporting, setIsUrlImporting] = useState(false);
-  const [urlError, setUrlError] = useState<string | null>(null);
-
   // Remote Stock Search state
   const [stockVideos, setStockVideos] = useState<StockItem[]>([]);
   // the server has no Pexels / Pixabay key: STOCK VIDEOS shows the built-in loops, and says how to get more
@@ -98,16 +75,16 @@ export function UnifiedLibraryPanel({
   const [isSearchingStock, setIsSearchingStock] = useState(false);
   const [isSearchingPhotos, setIsSearchingPhotos] = useState(false);
 
-  // YouTube Search state
-  const [ytVideos, setYtVideos] = useState<YouTubeItem[]>([]);
+  // Online memes (yt-dlp search on the server)
   const [onlineMemes, setOnlineMemes] = useState<MemeClipItem[]>([]);
-  // why a search source found nothing (no API key on the server, YouTube blocking it…): shown, not swallowed
-  const [searchNotes, setSearchNotes] = useState<{ memes?: string | null; youtube?: string | null }>({});
+  // why a search source found nothing (no API key on the server, the downloader blocked…): shown, not swallowed
+  const [searchNotes, setSearchNotes] = useState<{ memes?: string | null }>({});
   const [isSearchingOnlineMemes, setIsSearchingOnlineMemes] = useState(false);
-  const [isSearchingYt, setIsSearchingYt] = useState(false);
 
   // Audio Library state
   const [audioItems, setAudioItems] = useState<AudioLibraryItem[]>([]);
+  const [audioLoading, setAudioLoading] = useState(true);
+  const [audioBusyId, setAudioBusyId] = useState<string | null>(null);
 
   // MP3 / Audio preview volume controls
   const [audioVolume, setAudioVolume] = useState<number>(() => {
@@ -179,7 +156,10 @@ export function UnifiedLibraryPanel({
           setAudioItems(data.items);
         }
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        if (!unmounted) setAudioLoading(false);
+      });
     return () => {
       unmounted = true;
     };
@@ -187,13 +167,16 @@ export function UnifiedLibraryPanel({
 
   // Search stock videos whenever query or category changes
   useEffect(() => {
-    if (activeCategory === "youtube" || activeCategory === "audio" || activeCategory === "photos") {
+    if (activeCategory === "audio" || activeCategory === "photos") {
       setStockVideos([]);
+      setIsSearchingStock(false);
       return;
     }
 
+    // (a newer search cancels the older one: a slow answer never replaces newer results)
+    const ctl = new AbortController();
+    setIsSearchingStock(true);
     const timer = setTimeout(async () => {
-      setIsSearchingStock(true);
       try {
         const u = new URLSearchParams({
           q: q.trim(),
@@ -201,9 +184,10 @@ export function UnifiedLibraryPanel({
           provider: "all",
           aspectRatio: projectShape === "portrait" ? "9:16" : projectShape === "landscape" ? "16:9" : "all",
         });
-        const res = await fetch(`/api/stock/search?${u}`);
+        const res = await fetch(`/api/stock/search?${u}`, { signal: ctl.signal });
         if (res.ok) {
           const data = await res.json();
+          if (ctl.signal.aborted) return;
           setStockNeedsKey(!!data?.needsKey);
           if (data?.items) {
             const mapped: StockItem[] = data.items
@@ -227,43 +211,51 @@ export function UnifiedLibraryPanel({
       } catch {
         // Fallback gracefully
       } finally {
-        setIsSearchingStock(false);
+        if (!ctl.signal.aborted) setIsSearchingStock(false);
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      ctl.abort();
+      clearTimeout(timer);
+    };
   }, [q, activeCategory, projectShape]);
 
   // Search stock photos whenever query or category changes
   useEffect(() => {
     if (activeCategory !== "photos" && activeCategory !== "all") {
       setStockPhotos([]);
+      setIsSearchingPhotos(false);
       return;
     }
 
+    const ctl = new AbortController();
+    setIsSearchingPhotos(true);
     const timer = setTimeout(async () => {
-      setIsSearchingPhotos(true);
       try {
         const u = new URLSearchParams();
         if (q.trim()) u.set("q", q.trim());
-        const res = await fetch(`/api/stock/photos?${u}`);
+        const res = await fetch(`/api/stock/photos?${u}`, { signal: ctl.signal });
         if (res.ok) {
           const data = await res.json();
-          if (data?.items) {
+          if (!ctl.signal.aborted && data?.items) {
             setStockPhotos(data.items);
           }
         }
       } catch {
         // Fallback gracefully
       } finally {
-        setIsSearchingPhotos(false);
+        if (!ctl.signal.aborted) setIsSearchingPhotos(false);
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      ctl.abort();
+      clearTimeout(timer);
+    };
   }, [q, activeCategory]);
 
-    // Search online dynamic memes when searching in memes or all
+  // Search online dynamic memes when searching in memes or all
   useEffect(() => {
     const query = q.trim();
     if (!query || (activeCategory !== "memes" && activeCategory !== "all")) {
@@ -273,10 +265,11 @@ export function UnifiedLibraryPanel({
     }
 
     let cancelled = false;
+    const ctl = new AbortController();
+    setIsSearchingOnlineMemes(true);
     const timer = setTimeout(async () => {
-      setIsSearchingOnlineMemes(true);
       try {
-        const res = await fetch(`/api/library/memes/search?q=${encodeURIComponent(query)}&online=1`);
+        const res = await fetch(`/api/library/memes/search?q=${encodeURIComponent(query)}&online=1`, { signal: ctl.signal });
         if (res.ok) {
           const data = await res.json();
           if (!cancelled && Array.isArray(data?.items)) {
@@ -294,122 +287,10 @@ export function UnifiedLibraryPanel({
 
     return () => {
       cancelled = true;
+      ctl.abort();
       clearTimeout(timer);
     };
   }, [q, activeCategory]);
-
-  // Search YouTube whenever query changes (on youtube, memes, or all tab)
-  useEffect(() => {
-    if (activeCategory !== "youtube" && activeCategory !== "memes" && (activeCategory !== "all" || !q.trim())) {
-      setYtVideos([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      const searchQuery = q.trim();
-      if (!searchQuery) {
-        setYtVideos([]);
-        return;
-      }
-      setIsSearchingYt(true);
-      try {
-        const u = new URLSearchParams({
-          source: "youtube",
-          q: activeCategory === "memes" ? `${searchQuery} meme` : searchQuery,
-          page: "1",
-        });
-        const res = await fetch(`/api/import/search?${u}`);
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          setSearchNotes((n) => ({ ...n, youtube: err?.error?.message ?? "YouTube search isn't available right now." }));
-          setYtVideos([]);
-        } else setSearchNotes((n) => ({ ...n, youtube: null }));
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.items) {
-            const mapped: YouTubeItem[] = data.items.map((it: any) => ({
-              id: it.id,
-              title: it.title,
-              author: it.author,
-              thumb: it.thumb,
-              duration: it.duration || 30,
-              license: it.license === "cc" ? "cc" : "standard",
-              pageUrl: it.pageUrl,
-            }));
-            setYtVideos(mapped);
-          }
-        }
-      } catch {
-        // Fallback gracefully
-      } finally {
-        setIsSearchingYt(false);
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [q, activeCategory]);
-
-  // Extract YouTube ID helper
-  const extractYtId = (str: string): string | null => {
-    const s = str.trim();
-    if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
-    const match = s.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
-    return match ? match[1] : null;
-  };
-
-  // Direct YouTube / Web URL import handler (via top search bar)
-  const handleImportUrl = async (overrideUrl?: string) => {
-    const target = (overrideUrl ?? q).trim();
-    const ytId = extractYtId(target);
-    if (!ytId) {
-      setUrlError("Please enter a valid YouTube link or video ID.");
-      return;
-    }
-    setUrlError(null);
-    setIsUrlImporting(true);
-    setProgressMsg("Starting import from YouTube…");
-
-    try {
-      const res = await fetch("/api/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          source: "youtube",
-          id: ytId,
-          rights: urlRights ? "mine" : "cc",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error?.message ?? "Failed to start import.");
-      }
-
-      // Poll job progress
-      const jobId = data.id;
-      for (let i = 0; i < 60; i++) {
-        await new Promise((r) => setTimeout(r, 800));
-        const check = await fetch(`/api/import/jobs/${jobId}`, { cache: "no-store" });
-        const job = await check.json().catch(() => null);
-        if (job?.percent !== undefined) {
-          setProgressMsg(`Importing: ${job.percent}%`);
-        }
-        if (job?.state === "ready" && job.media) {
-          onInsertVideo(job.media, true);
-          setQ("");
-          setProgressMsg(null);
-          return;
-        }
-        if (job?.state === "failed") {
-          throw new Error(job.error ?? "Import failed.");
-        }
-      }
-      throw new Error("Import took too long. Check My Assets shortly.");
-    } catch (err) {
-      setUrlError((err as Error).message || "Import failed.");
-    } finally {
-      setIsUrlImporting(false);
-      setProgressMsg(null);
-    }
-  };
 
   // Import stock video directly to timeline
   const handleImportStock = async (item: StockItem) => {
@@ -505,25 +386,6 @@ export function UnifiedLibraryPanel({
     }
   };
 
-  // Import YouTube search item directly to timeline as dynamic meme
-  const handleImportYtItem = async (item: YouTubeItem) => {
-    const dynMeme: MemeClipItem = {
-      id: "dyn_" + item.id,
-      title: item.title,
-      dialogue: item.title,
-      actorOrShow: item.author,
-      category: "comedy",
-      duration: Math.min(30, item.duration || 30),
-      thumbUrl: item.thumb,
-      videoUrl: `/api/library/memes/search/video?id=${item.id}`,
-      tags: ["youtube", "online"],
-      width: 640,
-      height: 360,
-      isDynamic: true,
-    };
-    await handleInsertMemeItem(dynMeme);
-  };
-
   // Audio Play/Pause preview: plays real sound through /api/library/[id]/audio
   const handleToggleAudio = (it: AudioLibraryItem) => {
     if (playingAudioId === it.id) {
@@ -543,6 +405,7 @@ export function UnifiedLibraryPanel({
 
   // Audio Insert to timeline: uses /api/library/[id]/add to copy asset
   const handleInsertAudio = async (it: AudioLibraryItem) => {
+    setAudioBusyId(it.id);
     try {
       const res = await fetch(`/api/library/${it.id}/add`, { method: "POST" });
       const data = await res.json();
@@ -571,6 +434,8 @@ export function UnifiedLibraryPanel({
         keyKind: null,
       };
       onInsertAudio?.(meta);
+    } finally {
+      setAudioBusyId(null);
     }
   };
 
@@ -580,8 +445,13 @@ export function UnifiedLibraryPanel({
     { id: "memes", label: "Memes", icon: "sparkles" },
     { id: "photos", label: "Photos", icon: "camera" },
     { id: "audio", label: "Audio", icon: "audio" },
-    { id: "youtube", label: "Web / YouTube", icon: "play" },
   ];
+
+  // a search is on its way for the sources this tab shows (the box shows a spinner, the sections skeletons)
+  const searching =
+    (activeCategory !== "audio" && activeCategory !== "photos" && activeCategory !== "memes" && isSearchingStock) ||
+    ((activeCategory === "all" || activeCategory === "photos") && isSearchingPhotos) ||
+    ((activeCategory === "all" || activeCategory === "memes") && isSearchingOnlineMemes);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden text-xs">
@@ -589,35 +459,26 @@ export function UnifiedLibraryPanel({
       <div className="border-b border-line p-2.5 space-y-2 bg-surface">
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1 flex items-center">
-            <Icon name="search" className="absolute left-2.5 size-4 text-muted pointer-events-none" />
+            {searching ? (
+              <Spinner size="sm" className="absolute left-2.5 text-primary pointer-events-none" />
+            ) : (
+              <Icon name="search" className="absolute left-2.5 size-4 text-muted pointer-events-none" />
+            )}
             <input
               type="text"
               value={q}
-              onChange={(e) => {
-                setQ(e.target.value);
-                if (urlError) setUrlError(null);
-              }}
-              placeholder="Search stock videos, photos, memes, audio, or paste URL…"
-              className="w-full rounded-lg border border-line bg-raised/40 pl-8 pr-20 py-1.5 text-xs text-ink placeholder:text-muted focus:border-primary focus:outline-none transition-colors [&::-webkit-search-cancel-button]:hidden"
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search stock videos, photos, memes, audio…"
+              aria-label="Search the library"
+              aria-busy={searching}
+              data-testid="library-search"
+              className="w-full rounded-lg border border-line bg-raised/40 pl-8 pr-14 py-1.5 text-xs text-ink placeholder:text-muted focus:border-primary focus:outline-none transition-colors [&::-webkit-search-cancel-button]:hidden"
             />
             <div className="absolute right-2 flex items-center gap-1">
-              {extractYtId(q) && (
-                <button
-                  type="button"
-                  disabled={isUrlImporting}
-                  onClick={() => void handleImportUrl()}
-                  className="rounded bg-primary px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-primary/90 transition-colors shrink-0"
-                >
-                  {isUrlImporting ? "Importing…" : "Import"}
-                </button>
-              )}
               {q && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setQ("");
-                    setUrlError(null);
-                  }}
+                  onClick={() => setQ("")}
                   className="text-muted hover:text-ink px-1 cursor-pointer"
                   title="Clear search"
                 >
@@ -626,10 +487,7 @@ export function UnifiedLibraryPanel({
               )}
               <VoiceSearchMic
                 size="xs"
-                onTranscript={(transcript) => {
-                  setQ(transcript);
-                  if (urlError) setUrlError(null);
-                }}
+                onTranscript={(transcript) => setQ(transcript)}
               />
             </div>
           </div>
@@ -653,7 +511,9 @@ export function UnifiedLibraryPanel({
             <Icon name={audioPreviewEnabled ? "volume" : "mute"} className="size-4" />
           </button>
         </div>
-        {urlError && <div className="text-[10px] text-danger px-1">{urlError}</div>}
+        <span className="sr-only" role="status" aria-live="polite">
+          {searching ? "Searching…" : ""}
+        </span>
 
         {/* Category Pills */}
         <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
@@ -676,25 +536,6 @@ export function UnifiedLibraryPanel({
             );
           })}
         </div>
-
-        {/* Quick YouTube Search Suggestions (Only on Web / YouTube category) */}
-        {activeCategory === "youtube" && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
-            <span className="text-[10px] font-semibold text-muted uppercase shrink-0">
-              Suggestions:
-            </span>
-            {YT_SUGGESTIONS.map((sug) => (
-              <button
-                key={sug}
-                type="button"
-                onClick={() => setQ(sug)}
-                className="shrink-0 rounded-full border border-line bg-raised/50 px-2 py-0.5 text-[10px] text-muted hover:border-primary hover:text-ink transition-colors"
-              >
-                {sug}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Sub-categories for Memes: One Line and Horizontal Scroll */}
         {activeCategory === "memes" && (
@@ -720,20 +561,19 @@ export function UnifiedLibraryPanel({
       {/* Progress / Status banner */}
       {progressMsg && (
         <div className="bg-primary/10 border-b border-primary/20 px-3 py-1.5 text-[11px] text-primary flex items-center gap-2 shrink-0">
-          <span className="inline-block size-2 rounded-full bg-primary animate-pulse" />
+          <Spinner size="xs" />
           <span>{progressMsg}</span>
         </div>
       )}
 
       {/* Main Results Scroll Area */}
       <div className="flex-1 overflow-y-auto p-2.5 space-y-4">
-        {/* why a search source found nothing: a missing API key, YouTube refusing this server… */}
-        {q.trim() && (searchNotes.youtube || searchNotes.memes || (stockNeedsKey && activeCategory !== "memes")) && (
+        {/* why a search source found nothing: a missing API key, the meme downloader refused… */}
+        {q.trim() && (searchNotes.memes || (stockNeedsKey && activeCategory !== "memes")) && (
           <div className="rounded-lg border border-warn-line bg-warn-soft px-2.5 py-2 text-[11px] leading-snug text-ink" role="status" data-testid="library-search-notes">
             <p className="font-semibold">Some sources can't search yet</p>
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
               {stockNeedsKey && activeCategory !== "memes" && <li>Stock videos (Pixabay / Pexels): add a free Pixabay or Pexels API key.</li>}
-              {searchNotes.youtube && <li>YouTube: {searchNotes.youtube}</li>}
               {searchNotes.memes && <li>Online memes: {searchNotes.memes}</li>}
             </ul>
             <button type="button" className="mt-1.5 text-[11px] font-semibold text-primary underline" onClick={openAiSettings}>
@@ -754,7 +594,9 @@ export function UnifiedLibraryPanel({
               </p>
             )}
 
-            {stockVideos.length === 0 && !isSearchingStock ? (
+            {isSearchingStock && stockVideos.length === 0 ? (
+              <SkeletonGrid n={4} />
+            ) : stockVideos.length === 0 ? (
               activeCategory === "videos" ? (
                 <div className="py-6 text-center text-muted text-[11px]">
                   Type in the search bar above to find free stock videos.
@@ -872,7 +714,7 @@ export function UnifiedLibraryPanel({
                   {q.trim() ? `No local memes match "${q.trim()}"` : "No memes found"}
                 </div>
                 <div className="text-[11px] text-muted">
-                  {ytVideos.length > 0 ? "Found online meme clips below:" : "Try searching another meme dialogue or keyword."}
+                  {onlineMemes.length > 0 ? "Found online meme clips below:" : isSearchingOnlineMemes ? "Searching online memes…" : "Try searching another meme dialogue or keyword."}
                 </div>
               </div>
             )}
@@ -962,6 +804,14 @@ export function UnifiedLibraryPanel({
             </div>
 
             {/* Searchable Online Memes (dynamic search clips) */}
+            {isSearchingOnlineMemes && onlineMemes.length === 0 && (
+              <div className="space-y-1.5 pt-2" data-testid="online-memes-loading">
+                <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold px-1">
+                  <Spinner size="xs" /> SEARCHING ONLINE MEMES…
+                </div>
+                <SkeletonGrid n={4} />
+              </div>
+            )}
             {onlineMemes.length > 0 && (
               <div className="space-y-1.5 pt-2">
                 <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
@@ -1060,7 +910,9 @@ export function UnifiedLibraryPanel({
               <span className="text-[10px] text-muted/80">Pixabay & Curated</span>
             </div>
 
-            {stockPhotos.length === 0 && !isSearchingPhotos ? (
+            {isSearchingPhotos && stockPhotos.length === 0 ? (
+              <SkeletonGrid n={4} />
+            ) : stockPhotos.length === 0 ? (
               activeCategory === "photos" ? (
                 <div className="py-6 text-center text-muted text-[11px]">
                   No stock photos found. Try a different search.
@@ -1095,10 +947,10 @@ export function UnifiedLibraryPanel({
                           e.stopPropagation();
                           void handleImportPhoto(p);
                         }}
-                        className="pointer-events-auto absolute bottom-1.5 right-1.5 z-30 flex size-5.5 items-center justify-center rounded-full bg-primary text-white hover:scale-110 transition-transform shadow-md cursor-pointer"
+                        className="pointer-events-auto absolute bottom-1.5 right-1.5 z-30 flex size-5.5 items-center justify-center rounded-full bg-primary text-white hover:scale-110 transition-transform shadow-md cursor-pointer disabled:opacity-50"
                         title="Add photo to timeline"
                       >
-                        <Icon name="plus" className="size-3" />
+                        {busyId === p.id ? <Spinner size="xs" /> : <Icon name="plus" className="size-3" />}
                       </button>
                     </div>
 
@@ -1112,138 +964,21 @@ export function UnifiedLibraryPanel({
           </div>
         )}
 
-        {/* 4. YouTube Results (visible on youtube tab, all tab, or when searching memes) */}
-        {activeCategory === "youtube" && ytVideos.length === 0 && !isSearchingYt && (
-          <div className="rounded-lg border border-dashed border-line p-4 text-center space-y-1 text-muted my-2">
-            <div className="text-xs font-semibold text-ink">Search YouTube Library</div>
-            <div className="text-[11px] leading-relaxed text-muted">
-              Type above to search Creative Commons clips, sound bites & B-roll, or paste any direct YouTube link.
-            </div>
+        {/* 4. Audio & Music Tracks */}
+        {(activeCategory === "all" || activeCategory === "audio") && audioLoading && audioItems.length === 0 && (
+          <div className="space-y-1.5" aria-busy="true" data-testid="library-audio-loading">
+            <div className="text-muted text-[11px] font-semibold px-1">AUDIO & MUSIC</div>
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg border border-line bg-surface p-2">
+                <Skeleton className="size-6 shrink-0 rounded-full" />
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <Skeleton className="h-2.5 w-2/3" />
+                  <Skeleton className="h-2 w-1/3" />
+                </span>
+              </div>
+            ))}
           </div>
         )}
-
-        {(activeCategory === "all" || activeCategory === "youtube" || (activeCategory === "memes" && q.trim().length > 0 && onlineMemes.length === 0)) && ytVideos.length > 0 && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
-              <span>
-                {activeCategory === "memes" ? "ONLINE MEME & YOUTUBE CLIPS" : "YOUTUBE SEARCH RESULTS"} ({ytVideos.length})
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              {ytVideos.map((yt) => {
-                const dynMeme: MemeClipItem = {
-                  id: "dyn_" + yt.id,
-                  title: yt.title,
-                  dialogue: yt.title,
-                  actorOrShow: yt.author,
-                  category: "comedy",
-                  duration: Math.min(30, yt.duration || 30),
-                  thumbUrl: yt.thumb,
-                  videoUrl: `/api/library/memes/search/video?id=${yt.id}`,
-                  tags: ["youtube", "online"],
-                  width: 640,
-                  height: 360,
-                  isDynamic: true,
-                };
-                return (
-                  <div
-                    key={yt.id}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(MEME_DRAG, JSON.stringify(dynMeme));
-                      e.dataTransfer.setData("text/plain", dynMeme.title);
-                      e.dataTransfer.effectAllowed = "copy";
-                      setMemeDrag(dynMeme);
-                      const chip = createDragChip(yt.title, yt.thumb);
-                      if (chip) e.dataTransfer.setDragImage(chip, 16, 20);
-                    }}
-                    onDragEnd={() => setMemeDrag(null)}
-                    className="group relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface hover:border-primary/50 transition-all cursor-grab active:cursor-grabbing shadow-xs select-none"
-                    onMouseEnter={() => setHoveredId(yt.id)}
-                    onMouseLeave={() => setHoveredId(null)}
-                  >
-                    <div className="relative aspect-video w-full bg-black/40 overflow-hidden pointer-events-none">
-                      <img
-                        src={yt.thumb}
-                        alt={yt.title}
-                        className="size-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
-                        loading="lazy"
-                        draggable={false}
-                      />
-
-                      {/* Video play on hover */}
-                      {hoveredId === yt.id && (
-                        <video
-                          ref={(el) => {
-                            if (el) {
-                              el.currentTime = 0;
-                              el.muted = !audioPreviewEnabled;
-                              const p = el.play();
-                              if (p !== undefined) {
-                                p.catch(() => {
-                                  el.muted = true;
-                                  el.play().catch(() => {});
-                                });
-                              }
-                            }
-                          }}
-                          src={`/api/library/memes/search/video?id=${yt.id}`}
-                          autoPlay
-                          loop
-                          muted={!audioPreviewEnabled}
-                          playsInline
-                          preload="auto"
-                          draggable={false}
-                          onError={(e) => {
-                            (e.currentTarget as HTMLElement).style.display = "none";
-                          }}
-                          className="absolute inset-0 size-full object-cover z-0 pointer-events-none select-none"
-                        />
-                      )}
-
-                      <span className="absolute bottom-1.5 left-1.5 z-20 rounded bg-black/75 px-1 py-0.5 text-[9px] tabular-nums text-white shadow-xs pointer-events-none select-none">
-                        {formatTime(yt.duration)}
-                      </span>
-                      {yt.license === "cc" && (
-                        <span className="absolute top-1.5 left-1.5 z-20 rounded bg-emerald-600/90 px-1 text-[8px] font-bold text-white pointer-events-none select-none">
-                          CC
-                        </span>
-                      )}
-
-                      {/* Small plus button bottom right - no dark overlay */}
-                      <button
-                        type="button"
-                        disabled={busyId === yt.id || busyId === ("dyn_" + yt.id)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleImportYtItem(yt);
-                        }}
-                        className="pointer-events-auto absolute bottom-1.5 right-1.5 z-30 flex size-5 items-center justify-center rounded-full bg-primary text-white hover:scale-110 active:scale-95 transition-transform shadow-md cursor-pointer disabled:opacity-50"
-                        title="Add to timeline"
-                      >
-                        {busyId === yt.id || busyId === ("dyn_" + yt.id) ? (
-                          <span className="size-2 rounded-full border border-white border-t-transparent animate-spin" />
-                        ) : (
-                          <Icon name="plus" className="size-2.5" />
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="p-1.5 space-y-0.5 pointer-events-none select-none">
-                      <div className="truncate text-[11px] font-medium text-ink" title={yt.title}>
-                        {yt.title}
-                      </div>
-                      <div className="truncate text-[10px] text-muted">{yt.author}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 5. Audio & Music Tracks */}
         {(activeCategory === "all" || activeCategory === "audio") && audioItems.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
@@ -1354,10 +1089,11 @@ export function UnifiedLibraryPanel({
                     <button
                       type="button"
                       onClick={() => void handleInsertAudio(it)}
+                      disabled={audioBusyId === it.id}
                       className="flex size-6 shrink-0 items-center justify-center rounded bg-raised text-muted hover:bg-primary hover:text-white transition-colors cursor-pointer"
                       title="Add to timeline"
                     >
-                      <Icon name="plus" className="size-3.5" />
+                      {audioBusyId === it.id ? <Spinner size="xs" /> : <Icon name="plus" className="size-3.5" />}
                     </button>
                   )}
                 </div>

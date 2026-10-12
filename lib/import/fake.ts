@@ -16,7 +16,7 @@ export function fakeSearch(source: ImportSource, q: string, page: number): Searc
     const n = (page - 1) * 6 + i + 1;
     return {
       source,
-      id: source === "youtube" ? `fakeVid${String(n).padStart(4, "0")}` : String(1000 + n),
+      id: String(1000 + n),
       title: `${q || "Clip"} ${n}`,
       thumb: `/api/import/thumb?fake=${COLORS[n % COLORS.length]}`,
       duration: 4 + (n % 3),
@@ -25,15 +25,14 @@ export function fakeSearch(source: ImportSource, q: string, page: number): Searc
       author: `${source} author ${n}`,
       authorUrl: null,
       pageUrl: `https://example.invalid/${source}/${n}`,
-      // on YouTube, every second one is Creative Commons
-      license: source === "youtube" ? (n % 2 ? "cc" : "youtube") : "free",
+      license: "free",
     };
   });
   return { items, next: page < 2 ? String(page + 1) : null };
 }
 
 export function fakeItem(source: ImportSource, id: string): ImportItem {
-  const n = source === "youtube" ? Number(id.replace(/\D/g, "")) : Number(id) - 1000;
+  const n = Number(id) - 1000;
   const page = Math.floor((n - 1) / 6) + 1;
   return fakeSearch(source, "", page).items[(n - 1) % 6] ?? fakeSearch(source, "", 1).items[0];
 }

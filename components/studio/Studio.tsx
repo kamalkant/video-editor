@@ -92,11 +92,13 @@ import {
 } from "@/lib/editor/docReducer";
 import {
   addLocal,
+  adoptLocal,
   forgetLocal,
   installUploadGate,
   localItem,
   localItems,
   localSrc,
+  localThumb,
   localVersion,
   notOnServer,
   onLocalUploaded,
@@ -108,12 +110,20 @@ import {
   provisionalMeta,
   releaseLocalExcept,
   restoreLocal,
+  restorePending,
   setLocalAccount,
   subscribeLocal,
   uploadingItems,
   uploadLocal,
 } from "@/lib/media/localMedia";
+import { inOrder } from "@/lib/media/inOrder";
+import { EditorSkeleton } from "./EditorSkeleton";
+import { Spinner, SpinnerOverlay } from "@/components/ui/Spinner";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { newUuid } from "@/lib/storage/uuid";
+
+/** How long a new file may take to show its first frame here before it goes the upload-first way. */
+const PROBE_TIMEOUT_MS = 6_000;
 import { historyReducer, initHistory } from "@/lib/editor/history";
 import {
   LAST_SETTINGS_KEY,
@@ -322,117 +332,145 @@ import {
 
 export const LAST_SPEC_KEY = "VDO:v2:last";
 
+/** A dialog opened before its code has arrived: a spinner where it will appear. */
+function DialogLoading() {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-backdrop" data-testid="dialog-loading">
+      <span role="status" className="flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted shadow-lg">
+        <Spinner size="md" className="text-primary" /> Opening…
+      </span>
+    </div>
+  );
+}
+/** A side panel opened before its code has arrived: its outline. */
+function PanelLoading({ label }: { label: string }) {
+  return (
+    <div className="flex flex-1 flex-col gap-2.5 p-2.5" aria-busy="true" data-testid="panel-loading">
+      <span role="status" className="sr-only">
+        {label}
+      </span>
+      <Skeleton className="h-8" />
+      <div className="flex gap-1.5">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-6 w-14" />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {Array.from({ length: 8 }, (_, i) => (
+          <Skeleton key={i} className="aspect-video" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Lazy-loaded modal dialogs (loaded on-demand when opened to minimize initial JS bundle)
 const ExportDialog = dynamic(
   () => import("./ExportDialog").then((m) => m.ExportDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const HelpDialog = dynamic(
   () => import("./HelpDialog").then((m) => m.HelpDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const VersionsDialog = dynamic(
   () => import("./VersionsMenu").then((m) => m.VersionsDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const SilenceDialog = dynamic(
   () => import("./SilenceDialog").then((m) => m.SilenceDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const SearchPalette = dynamic(
   () => import("./SearchPalette").then((m) => m.SearchPalette),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const TtsDialog = dynamic(
   () => import("./TtsDialog").then((m) => m.TtsDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const VoiceoverStudioDialog = dynamic(
   () => import("./VoiceoverStudioDialog").then((m) => m.VoiceoverStudioDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const TextToVideoDialog = dynamic(
   () => import("./TextToVideoDialog").then((m) => m.TextToVideoDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const BRollDialog = dynamic(
   () => import("./BRollDialog").then((m) => m.BRollDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const SmartCropDialog = dynamic(
   () => import("./SmartCropDialog").then((m) => m.SmartCropDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const DubbingDialog = dynamic(
   () => import("./DubbingDialog").then((m) => m.DubbingDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const AiAvatarDialog = dynamic(
   () => import("./AiAvatarDialog").then((m) => m.AiAvatarDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const ExtendVideoDialog = dynamic(
   () => import("./ExtendVideoDialog").then((m) => m.ExtendVideoDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const ObjectRemoverDialog = dynamic(
   () => import("./ObjectRemoverDialog").then((m) => m.ObjectRemoverDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const UpscaleEnhanceDialog = dynamic(
   () => import("./UpscaleEnhanceDialog").then((m) => m.UpscaleEnhanceDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const GenerateImageDialog = dynamic(
   () => import("./GenerateImageDialog").then((m) => m.GenerateImageDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const GenerateVideoDialog = dynamic(
   () => import("./GenerateVideoDialog").then((m) => m.GenerateVideoDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const AiSettingsDialog = dynamic(
   () => import("./AiSettingsDialog").then((m) => m.AiSettingsDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const ImportDialog = dynamic(
   () => import("./ImportDialog").then((m) => m.ImportDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const TranscriptEditorDialog = dynamic(
   () =>
     import("./TranscriptEditorDialog").then((m) => m.TranscriptEditorDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const GrokImagineDialog = dynamic(
   () => import("./GrokImagineDialog").then((m) => m.GrokImagineDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const ShareDialog = dynamic(
   () => import("./ShareDialog").then((m) => m.ShareDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const RecordDialog = dynamic(
   () => import("@/components/record/RecordDialog").then((m) => m.RecordDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const TemplatesGallery = dynamic(
   () => import("./TemplatesGallery").then((m) => m.TemplatesGallery),
-  { ssr: false },
+  { ssr: false, loading: () => <PanelLoading label="Loading templates…" /> },
 );
 const HighlightsDialog = dynamic(
   () => import("./HighlightsDialog").then((m) => m.HighlightsDialog),
-  { ssr: false },
+  { ssr: false, loading: () => <DialogLoading /> },
 );
 const UnifiedLibraryPanel = dynamic(
   () => import("./UnifiedLibraryPanel").then((m) => m.UnifiedLibraryPanel),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex flex-1 items-center justify-center p-8 text-xs text-muted">
-        Loading Library...
-      </div>
-    ),
+    loading: () => <PanelLoading label="Loading the library…" />,
   },
 );
 
@@ -473,7 +511,7 @@ export function Studio(props: Props) {
     () => true,
     () => false,
   );
-  if (!hydrated) return <div className="min-h-dvh bg-app" aria-busy="true" />;
+  if (!hydrated) return <EditorSkeleton />;
   return <StudioInner {...props} />;
 }
 
@@ -590,11 +628,12 @@ async function resolveWorkspaceMedia(
           id: a.id,
           kind: a.type === "image" || a.type === "audio" ? a.type : "video",
           fileName: a.name,
-          width: 1920,
-          height: 1080,
-          fps: 30,
-          duration: 0,
-          hasAudio: true,
+          // (the package's own details of the file; the server's replace them once it has seen it)
+          width: a.width ?? 1920,
+          height: a.height ?? 1080,
+          fps: a.fps ?? 30,
+          duration: a.duration ?? 0,
+          hasAudio: a.type !== "image",
           suggestedKey: null,
           keyKind: null,
         };
@@ -828,7 +867,7 @@ function StudioInner(props: Props) {
   const [hasCopiedStyle, setHasCopiedStyle] = useState(() => !!copiedStyle);
   // the inspector's tab for video and picture clips (Basic · Remove BG · Color · Audio · Speed · More)
   const [inspTab, setInspTab] = useState<InspectorTab>("basic");
-  // Import (Add media): this computer, Pexels, Pixabay, YouTube
+  // Import (Add media): this computer, Pexels, Pixabay
   const [importTab, setImportTab] = useState<ImportTab | null>(null);
   // AI Tools → Settings (API keys); any "Open AI settings" button asks for it with an event
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
@@ -899,7 +938,8 @@ function StudioInner(props: Props) {
   // local-first media (lib/media/localMedia): imported files play from this computer while they upload
   const localVer = useSyncExternalStore(subscribeLocal, localVersion, () => 0);
   useEffect(() => installUploadGate(), []);
-  useEffect(() => setLocalAccount(workspace?.accountCode ?? null), [workspace]);
+  // (the account is known before its storage opens: the copies of a project's files are read back at once)
+  useEffect(() => setLocalAccount(accountCode ?? workspace?.accountCode ?? null), [accountCode, workspace]);
   const [deviceFolder, setDeviceFolder] = useState<string | null>("Documents/vdo");
 
   useEffect(() => {
@@ -1024,6 +1064,19 @@ function StudioInner(props: Props) {
   // If the server didn't find the project (e.g. newly imported or offline local project), check the local workspace
   // (once the account's storage is open: it opens a moment after the editor, so this runs again then)
   const loadedLocalProject = useRef(false);
+  /** Quick server work on a clip (freeze frame, key color, auto color): a small note over the stage meanwhile. */
+  const [working, setWorking] = useState<string | null>(null);
+  /** Opening a project, making one from a template…: said over the stage until it's there. */
+  const [stageBusy, setStageBusy] = useState<string | null>(null);
+  const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showStageBusy = useCallback((label: string | null, maxMs = 20_000) => {
+    if (busyTimer.current) clearTimeout(busyTimer.current);
+    busyTimer.current = null;
+    setStageBusy(label);
+    // (a navigation that never finishes must not leave the stage covered)
+    if (label) busyTimer.current = setTimeout(() => setStageBusy(null), maxMs);
+  }, []);
+  useEffect(() => () => void (busyTimer.current && clearTimeout(busyTimer.current)), []);
   useEffect(() => {
     if (props.initialProject || loadedLocalProject.current) return;
     if (typeof window === "undefined") return;
@@ -1035,6 +1088,7 @@ function StudioInner(props: Props) {
     loadedLocalProject.current = true;
 
     void (async () => {
+      showStageBusy("Opening the project…");
       try {
         const localProj = await ws.getProject(pid);
         if (localProj) {
@@ -1052,6 +1106,8 @@ function StudioInner(props: Props) {
         }
       } catch (err) {
         console.error("Failed to load local project on init", err);
+      } finally {
+        showStageBusy(null);
       }
     })();
   }, [props.initialProject, workspace]);
@@ -1073,27 +1129,34 @@ function StudioInner(props: Props) {
       }
     };
     const unknown = await restoreLocal(ids, async (id) => !!(await serverMeta(id)));
+    // files of an imported .vdo package are in the account's storage: they play from there too
+    const ws = localWorkspaceManager.getActiveWorkspace();
+    if (ws)
+      await Promise.all(
+        ids
+          .filter((id) => !localItem(id))
+          .map(async (id) => {
+            const [a, b] = await Promise.all([ws.getAsset(id).catch(() => null), ws.getAssetBlob(id).catch(() => null)]);
+            if (a && b) adoptLocal(id, b, a.name, a.type === "image" || a.type === "audio" ? a.type : "video");
+          }),
+      );
     // details of files on the server the editor doesn't have yet (a project reopened from this browser)
     const known = new Set(unknown.map((m) => m.id));
-    const fetched: VideoMeta[] = [];
-    for (const id of ids) {
-      if (known.has(id) || docMediaRef.current[id]) continue;
-      const m = await serverMeta(id);
-      if (m) fetched.push(m);
-    }
+    const fetched = (await Promise.all(ids.filter((id) => !known.has(id) && !docMediaRef.current[id]).map(serverMeta))).filter((m): m is VideoMeta => !!m);
     if (fetched.length) setMetas((x) => ({ ...x, ...Object.fromEntries(fetched.map((m) => [m.id, m])) }));
     const lites = [...unknown, ...fetched.map(mediaLiteOf)];
     if (lites.length) dispatchHistory({ type: "everywhere", update: (st) => withMediaKnown(st, lites) });
   }, []);
   // the open project's files, once the account's storage is open (and again when another project opens)
   const restoredFor = useRef<string | null>(null);
+  const localAccount = accountCode ?? workspace?.accountCode ?? null;
   useEffect(() => {
-    if (!workspace) return;
-    const key = `${workspace.accountCode}:${projectId ?? ""}`;
+    if (!localAccount) return;
+    const key = `${localAccount}:${projectId ?? ""}`;
     if (restoredFor.current === key) return;
     restoredFor.current = key;
     void restoreLocalFor(docRef.current);
-  }, [workspace, projectId, restoreLocalFor]);
+  }, [localAccount, projectId, restoreLocalFor]);
 
   // autosave: every change to the timeline goes into the project
   const firstDoc = useRef(true);
@@ -1515,8 +1578,11 @@ function StudioInner(props: Props) {
       !window.confirm(
         "An export is still running. Open another project anyway?",
       )
-    )
+    ) {
+      showStageBusy(null);
       return;
+    }
+    showStageBusy("Opening the project…");
     await sync.flush();
     const ws = localWorkspaceManager.getActiveWorkspace();
     if (ws) {
@@ -1534,12 +1600,14 @@ function StudioInner(props: Props) {
           );
           sync.attach({ id: localProj.id, name: localProj.name });
           window.history.pushState(null, "", `/?p=${id}`);
+          showStageBusy(null);
           return;
         }
       } catch {
         // Fall through to router push
       }
     }
+    // (the editor opens again with this project: the overlay stays until then)
     router.push(`/?p=${id}`);
   };
 
@@ -1714,36 +1782,38 @@ function StudioInner(props: Props) {
     if (!files.length) return;
     void (async () => {
       const later: File[] = [];
-      for (const f of files) {
-        // (a file of the wrong type or too big: the old way says why)
-        if (precheck(f)) {
-          later.push(f);
-          continue;
-        }
-        const url = URL.createObjectURL(f);
-        let probe: Awaited<ReturnType<typeof probeLocal>> = null;
-        try {
-          probe = await probeLocal(f, url);
-        } catch {
-          probe = null;
-        } finally {
-          URL.revokeObjectURL(url);
-        }
-        if (!probe) {
-          later.push(f);
-          continue;
-        }
-        const tooBig = overLimit(probe);
-        if (tooBig) {
-          setNotice(`“${f.name}”: ${tooBig}`);
-          continue;
-        }
-        const id = newUuid();
-        addLocal(id, f, probe.kind, probe.poster);
-        onUploaded.current(provisionalMeta(id, f, probe));
-        uploadLocal(id);
-        void persistLocal(id, f, { ...probe, name: f.name });
-      }
+      // (the files are looked at together; each lands on the timeline as soon as it and those before it are ready)
+      await inOrder(
+        files,
+        async (f) => {
+          // (a file of the wrong type or too big: the old way says why)
+          if (precheck(f)) return null;
+          const url = URL.createObjectURL(f);
+          try {
+            return await probeLocal(f, url, PROBE_TIMEOUT_MS);
+          } catch {
+            return null;
+          } finally {
+            URL.revokeObjectURL(url);
+          }
+        },
+        (f, probe) => {
+          if (!probe) {
+            later.push(f);
+            return;
+          }
+          const tooBig = overLimit(probe);
+          if (tooBig) {
+            setNotice(`“${f.name}”: ${tooBig}`);
+            return;
+          }
+          const id = newUuid();
+          addLocal(id, f, probe.kind, probe.poster);
+          onUploaded.current(provisionalMeta(id, f, probe));
+          uploadLocal(id);
+          void persistLocal(id, f, { ...probe, name: f.name });
+        },
+      );
       uploadFirst(later);
     })();
   };
@@ -3500,6 +3570,7 @@ function StudioInner(props: Props) {
     const start = clipStart(doc, clipId);
     const src = srcAt(c, Math.max(0, t - start));
     setNotice(null);
+    setWorking("Making the freeze frame…");
     try {
       const r = await fetch(`/api/videos/${c.mediaId}/freeze`, {
         method: "POST",
@@ -3540,6 +3611,8 @@ function StudioInner(props: Props) {
       });
     } catch (e) {
       setNotice((e as Error).message);
+    } finally {
+      setWorking(null);
     }
   };
   // ---------- transitions (Video 1 and Overlay tracks) ----------
@@ -4664,7 +4737,10 @@ function StudioInner(props: Props) {
     // an imported file plays from this computer (lib/media/localMedia); with proxies on, the server's
     // light copy once the file is there
     const local = localSrc(c.mediaId);
-    return local && !(proxyMode && !notOnServer(c.mediaId)) ? local : null;
+    if (local) return proxyMode && !notOnServer(c.mediaId) ? null : local;
+    // its copy in this browser is being read back: wait a moment for it ("" = no element yet), rather
+    // than start downloading the server's copy only to switch over
+    return restorePending(c.mediaId) ? "" : null;
   };
   const packedOf = (c: VideoClip) =>
     activeClip && c.id === activeClip.id && aiOn
@@ -4674,6 +4750,7 @@ function StudioInner(props: Props) {
   const onPick = async (pt: { x: number; y: number }, at: number) => {
     if (!video) return;
     setPicking(false);
+    setWorking("Reading the color…");
     try {
       const res = await fetch(
         `/api/videos/${video.id}/pick?x=${pt.x}&y=${pt.y}&t=${at.toFixed(3)}`,
@@ -4689,6 +4766,8 @@ function StudioInner(props: Props) {
       );
     } catch {
       setPickWarning("Couldn't read the color there. Try again.");
+    } finally {
+      setWorking(null);
     }
   };
 
@@ -5407,6 +5486,7 @@ function StudioInner(props: Props) {
       const pic = aiPicture;
       setSelectedId(pic.id);
       setAiOpen(false);
+      setWorking(id === "enhance" ? "Enhancing the colors…" : "Looking at the colors…");
       void fetch(`/api/videos/${pic.mediaId}/autocolor`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -5430,7 +5510,9 @@ function StudioInner(props: Props) {
             setNotice(
               "Enhanced: colors fixed, and a light sharpening that shows in the exported video.",
             );
-        });
+        })
+        .catch(() => setNotice("Couldn't read this clip's colors."))
+        .finally(() => setWorking(null));
       return;
     }
     if (id === "denoise") {
@@ -5648,6 +5730,7 @@ function StudioInner(props: Props) {
   };
   /** A new project from this timeline, opened (templates, Duplicate). */
   const createAndOpen = async (d: TimelineDoc, name: string) => {
+    showStageBusy("Making the project…");
     try {
       const r = await fetch("/api/projects", {
         method: "POST",
@@ -5663,6 +5746,7 @@ function StudioInner(props: Props) {
       refreshLists();
       await openProject(j.id);
     } catch (e) {
+      showStageBusy(null);
       setNotice((e as Error).message);
     }
   };
@@ -5733,6 +5817,7 @@ function StudioInner(props: Props) {
           : {}),
       };
 
+    showStageBusy(`Getting “${t.name}” ready…`, 60_000);
     let audioMeta: VideoMeta | null = null;
     let videoClipMeta: VideoMeta | null = null;
 
@@ -6277,7 +6362,7 @@ function StudioInner(props: Props) {
         label: "Import stock video (Pixabay)",
         group: "Add",
         icon: "download",
-        keywords: ["free", "web", "youtube"],
+        keywords: ["free", "web", "stock"],
         run: () => setImportTab("pixabay"),
       },
       {
@@ -7415,7 +7500,7 @@ function StudioInner(props: Props) {
               const effectiveClip = lookClip || currentMain;
               const thumbUrl =
                 effectiveClip && "mediaId" in effectiveClip
-                  ? `/api/videos/${effectiveClip.mediaId}/thumb`
+                  ? (localThumb(effectiveClip.mediaId) ?? `/api/videos/${effectiveClip.mediaId}/thumb`)
                   : null;
               return (
                 <EffectsPanel
@@ -7747,6 +7832,7 @@ function StudioInner(props: Props) {
       <PreviewPane
         toolbarStart={toolbar}
         proxyMode={proxyMode}
+        localSrc={localSrc(video.id) && !(proxyMode && !notOnServer(video.id)) ? localSrc(video.id) : null}
         sound={activeSound}
         key={activeClip.id}
         fit={wide}
@@ -7892,7 +7978,7 @@ function StudioInner(props: Props) {
   const previewArea = (
     <section
       aria-label="Preview"
-      className={`panel flex min-w-0 flex-col overflow-hidden ${wide ? "min-h-0 flex-1" : ""} ${dragging ? "ring-2 ring-primary" : ""}`}
+      className={`panel relative flex min-w-0 flex-col overflow-hidden ${wide ? "min-h-0 flex-1" : ""} ${dragging ? "ring-2 ring-primary" : ""}`}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
@@ -7949,6 +8035,12 @@ function StudioInner(props: Props) {
         uploadFiles([...e.dataTransfer.files]);
       }}
     >
+      {stageBusy && <SpinnerOverlay label={stageBusy} />}
+      {working && !stageBusy && (
+        <span role="status" className="pointer-events-none absolute left-1/2 top-12 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/75 px-3 py-1.5 text-xs text-white shadow-lg" data-testid="stage-working">
+          <Spinner size="xs" /> {working}
+        </span>
+      )}
       {notice && (
         <div className="p-2">
           <Notice

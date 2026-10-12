@@ -22,7 +22,7 @@ const TOOLS = [
 ] as const;
 
 const works = (bin: string, flag: string) => {
-  // (yt-dlp unpacks itself into TMPDIR: the site's own data folder, as lib/import/youtube runs it)
+  // (yt-dlp unpacks itself into TMPDIR: the site's own data folder, as lib/import/ytdlp runs it)
   const env = flag === "--version" && process.platform === "linux" ? { ...process.env, TMPDIR: tmpForTools() } : process.env;
   const r = spawnSync(bin, [flag], { stdio: "ignore", timeout: 60_000, env });
   return { ok: r.status === 0, why: r.error ? (r.error as NodeJS.ErrnoException).code ?? r.error.message : `exit ${r.status}` };
@@ -33,7 +33,7 @@ const works = (bin: string, flag: string) => {
  * - fetches them into vendor/ if they aren't there (scripts/fetch-ffmpeg.mjs)
  * - hosts that copy the built site elsewhere can drop the files' "executable" bit: put it back
  * - a folder that may not run programs: use a copy in the temp folder instead
- * The working path goes to FFMPEG_PATH / FFPROBE_PATH / YTDLP_PATH (lib/ffmpeg/run, lib/import/youtube read them).
+ * The working path goes to FFMPEG_PATH / FFPROBE_PATH / YTDLP_PATH (lib/ffmpeg/run, lib/import/ytdlp read them).
  */
 export function ensureFfmpeg(root: string = /*turbopackIgnore: true*/ process.cwd()): void {
   const script = join(root, "scripts", "fetch-ffmpeg.mjs");

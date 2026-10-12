@@ -29,7 +29,8 @@ import type { Bg, BgMedia } from "./BackgroundSwatches";
 import type { PlayerApi } from "./PreviewPane";
 import { VideoControls } from "./VideoControls";
 import { readPreviewMuted, writePreviewMuted } from "@/lib/editor/previewSound";
-import { localSrc, localThumb } from "@/lib/media/localMedia";
+import { localSrc, localThumb, restorePending, setFilmPaused } from "@/lib/media/localMedia";
+import { Spinner } from "@/components/ui/Spinner";
 import { Icon } from "@/components/ui/Icon";
 import { cornerPin, cornerResize, pivotFromPointer, pivotOnCanvas, radiusDotLocal, radiusFromPointer, sideStretch, skewDrag, textSideStretch, xyForCenter, type HandleBox } from "@/lib/player/handles";
 import { boxQuad, hasCorners, quadOk, type BoxLook, type CornerKey, type Corners, type Pt, type Quad } from "@/lib/player/quad";
@@ -86,7 +87,11 @@ function soundClips(doc: TimelineDoc, media: Record<string, MediaLite>): Sound[]
   const out: Sound[] = [];
   for (const t of doc.tracks)
     if (t.kind === "audio" && !t.muted)
-      for (const c of t.clips as AudioPlaced[]) out.push({ id: c.id, src: c.denoise ? cleanUrl(c.mediaId, c.denoise) : (localSrc(c.mediaId) ?? sourceUrl(c.mediaId)), in: c.in, start: c.start, len: clipLength(c), volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, duck: c.duck });
+      for (const c of t.clips as AudioPlaced[]) {
+        // (its copy in this browser is being read back: it plays from that in a moment, not from the server)
+        if (!c.denoise && !localSrc(c.mediaId) && restorePending(c.mediaId)) continue;
+        out.push({ id: c.id, src: c.denoise ? cleanUrl(c.mediaId, c.denoise) : (localSrc(c.mediaId) ?? sourceUrl(c.mediaId)), in: c.in, start: c.start, len: clipLength(c), volume: c.volume, fadeIn: c.fadeIn, fadeOut: c.fadeOut, duck: c.duck });
+      }
   const main = mainTrack(doc);
   const starts = mainStarts(main.clips);
   for (const t of doc.tracks) {
@@ -351,6 +356,9 @@ export function ProgramPlayer(p: {
   const slots = useRef<Slot[]>([]);
   const els = useRef<HTMLVideoElement[]>([]);
   const waitingSince = useRef(new Map<string, number>());
+  /** Since when the picture has been waiting for its file (the spinner over it shows after a moment). */
+  const stallSince = useRef<number | null>(null);
+  const bufferingRef = useRef<HTMLDivElement | null>(null);
   const aiWaitingRef = useRef(false);
   const [aiWaiting, setAiWaiting] = useState(false);
   const sounds = useRef(new Map<string, HTMLAudioElement>());
@@ -366,6 +374,9 @@ export function ProgramPlayer(p: {
   const playing = useRef(false);
   const startedAt = useRef<{ wall: number; t: number } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  // the browser-made timeline film waits while this plays (a second decoder of the same file would stutter it)
+  useEffect(() => setFilmPaused(isPlaying), [isPlaying]);
+  useEffect(() => () => setFilmPaused(false), []);
   const [time, setTime] = useState(() => p.clock.get());
   // sound on by default (a mute is remembered)
   const [muted, setMuted] = useState(readPreviewMuted);
@@ -433,6 +444,8 @@ export function ProgramPlayer(p: {
     // your logo (Brand Kit)
     if (doc.watermark) want.push(doc.watermark.mediaId);
     for (const id of want) {
+      // (a copy in this browser being read back: the picture comes from it in a moment)
+      if (!localSrc(id) && restorePending(id)) continue;
       const had = images.current.get(id);
       // (a picture that failed, e.g. asked for before its upload: again, from this computer if it's here)
       if (!had || (had.complete && !had.naturalWidth && localSrc(id))) {
@@ -454,6 +467,21 @@ export function ProgramPlayer(p: {
     return () => fonts.removeEventListener("loadingdone", onLoaded);
   }, []);
 
+  /** The frame taken in the browser at import (lib/media/localMedia), per file: a stand-in until its video shows. */
+  const posters = useRef(new Map<string, HTMLImageElement>());
+  const posterOf = (mediaId: string): HTMLImageElement | null => {
+    const url = localThumb(mediaId);
+    if (!url) return null;
+    let img = posters.current.get(mediaId);
+    if (!img || img.dataset.url !== url) {
+      img = new Image();
+      img.dataset.url = url;
+      img.onload = () => drawRef.current();
+      img.src = url;
+      posters.current.set(mediaId, img);
+    }
+    return img.complete && img.naturalWidth ? img : null;
+  };
   /** Put every video element where the timeline needs it, then draw one frame (called every animation frame). */
   const drawRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -506,7 +534,8 @@ export function ProgramPlayer(p: {
     const timeIn = (c: VideoClip, off: number) => (revOf(c) && !packedRef.current?.(c) ? 0 : c.in) + Math.max(0, off) * (c.speed ?? 1);
     const active = layers.filter((l) => l.clip.type === "video");
     const next = upcomingVideos(d, t, 2).filter((u) => !active.some((l) => l.clip.id === u.clip.id));
-    const wants: Want[] = [...active.map((l) => ({ clipId: l.clip.id, src: srcOf(l.clip as VideoClip) })), ...next.map((u) => ({ clipId: u.clip.id, src: srcOf(u.clip) }))];
+    // (src "": its copy in this browser is being read back, lib/media/localMedia: no element (download) yet)
+    const wants: Want[] = [...active.map((l) => ({ clipId: l.clip.id, src: srcOf(l.clip as VideoClip) })), ...next.map((u) => ({ clipId: u.clip.id, src: srcOf(u.clip) }))].filter((w) => w.src !== "");
     assignSlots(slots.current, wants, now, Math.min(MAX_VIDEO_ELEMENTS, wants.length + 1));
     const elOf = new Map<string, HTMLVideoElement>();
     slots.current.forEach((slot, i) => {
@@ -553,6 +582,16 @@ export function ProgramPlayer(p: {
     const trans = docTransitions(d);
     const chosen = new Set<HTMLVideoElement>();
     const ready = (el: HTMLVideoElement, want: number, rate = 1) => el.readyState >= 2 && !el.seeking && Math.abs(el.currentTime - want) <= 1.5 / fps;
+    /**
+     * A clip whose element hasn't shown a frame yet (just dropped on, just loaded) and that starts at the
+     * file's beginning: the frame taken in the browser when it was imported stands in, so the picture is
+     * there at once instead of a blank stage.
+     */
+    const standIn = (c: VideoClip, el: HTMLVideoElement | undefined, want: number): HTMLImageElement | null => {
+      if (el && (el.readyState >= 2 || el.dataset.shown === el.dataset.src)) return null;
+      if (c.reversed || want > 0.3 || packedRef.current?.(c)) return null;
+      return posterOf(c.mediaId);
+    };
     let blocking = false;
     // Identify master video clip (main track or first active video) to lock the timeline clock to
     const masterLayer = active.find((l) => l.trackIndex === d.tracks.indexOf(main)) ?? active[0];
@@ -614,7 +653,7 @@ export function ProgramPlayer(p: {
         else {
           const since = waitingSince.current.get(c.id) ?? now;
           waitingSince.current.set(c.id, since);
-          if (now - since < HOLD_MS) blocking = true;
+          if (now - since < HOLD_MS && !standIn(c, el, want)) blocking = true;
         }
       } else {
         waitingSince.current.delete(c.id);
@@ -635,6 +674,13 @@ export function ProgramPlayer(p: {
       silence(el);
       if (!el.paused) el.pause();
     }
+    // a spinner over the picture when it has waited a moment for its file (it holds the last frame meanwhile);
+    // set on the element itself: no re-render every frame
+    const waitingNow = blocking || (playing.current && !!masterEl && (masterEl.seeking || masterEl.readyState < 3) && !masterEl.ended);
+    if (!waitingNow) stallSince.current = null;
+    else stallSince.current ??= now;
+    const spin = stallSince.current !== null && now - stallSince.current > 300;
+    if (bufferingRef.current && bufferingRef.current.hidden === spin) bufferingRef.current.hidden = !spin;
     // Never abort rendering during active playback
     if (blocking && !playing.current) return;
     // draw
@@ -869,7 +915,7 @@ export function ProgramPlayer(p: {
     // Safari WebKit draws transparent pixels if drawImage is called while video is seeking!
     if (!playing.current && active.some((l) => {
       const el = elOf.get(l.clip.id);
-      return el && (el.seeking || el.readyState < 2);
+      return el && (el.seeking || el.readyState < 2) && !standIn(l.clip as VideoClip, el, timeIn(l.clip as VideoClip, t - l.start));
     })) {
       return;
     }
@@ -1052,7 +1098,17 @@ export function ProgramPlayer(p: {
         draw(img, img.naturalWidth, img.naturalHeight, img.naturalWidth, img.naturalHeight, renderClip, { x: r.x + (an?.dx ?? 0) * cv.width + tx, y: r.y + (an?.dy ?? 0) * cv.height + ty, w: r.w, h: r.h }, { rot: r.rot, into });
       } else if (renderClip.type === "video") {
         const el = elOf.get(renderClip.id);
-        if (!el || el.readyState < 2) continue;
+        if (!el || el.readyState < 2) {
+          const pic = standIn(renderClip as VideoClip, el, timeIn(renderClip as VideoClip, into));
+          if (pic) {
+            const m = p.media[(renderClip as VideoClip).mediaId];
+            const r = motionRect(m?.width || pic.naturalWidth, m?.height || pic.naturalHeight, cv.width, cv.height, renderClip as VideoClip, into);
+            draw(pic, pic.naturalWidth, pic.naturalHeight, pic.naturalWidth, pic.naturalHeight, renderClip, { x: r.x + tx, y: r.y + ty, w: r.w, h: r.h }, { rot: r.rot, into });
+          }
+          continue;
+        }
+        // (this element has shown a frame of its file: from now on it holds its last frame while it seeks)
+        el.dataset.shown = el.dataset.src ?? "";
         const packedSrc = packedRef.current?.(renderClip as VideoClip) ?? null;
         const packed = !!packedSrc && el.dataset.src === packedSrc;
         const vw = el.videoWidth;
@@ -2121,6 +2177,11 @@ export function ProgramPlayer(p: {
             {/* the shared video elements: tiny but "visible", so browsers don't pause them to save power */}
             <div ref={poolBox} aria-hidden="true" data-testid="video-pool" className="pointer-events-none absolute -top-[9999px] -left-[9999px] w-[320px] h-[180px] overflow-hidden opacity-[0.01]" />
             <canvas ref={canvasRef} data-testid="program-canvas" width={W} height={H} className="absolute inset-0 size-full" aria-label="Program: the whole timeline as it will be exported" role="img" />
+            <div ref={bufferingRef} hidden className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center" data-testid="preview-buffering">
+              <span role="status" className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-xs text-white">
+                <Spinner size="sm" /> Loading…
+              </span>
+            </div>
             {empty && <span className="absolute inset-0 flex items-center justify-center text-sm text-muted">Add a video or picture to the timeline</span>}
             {aiWaiting && (
               <span className="pointer-events-none absolute right-2 top-2 z-10 rounded-full bg-black/80 px-3 py-1 text-xs text-white" data-testid="ai-preparing">

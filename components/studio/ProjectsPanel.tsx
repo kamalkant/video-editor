@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
+import { SkeletonGrid, SkeletonRows } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
 import { toApiError } from "@/lib/api/types";
 import { formatAgo, formatTime } from "@/lib/format";
@@ -31,6 +33,8 @@ export function ProjectsPanel(p: {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** What is being done to a project now (duplicate, export, import…): said with a spinner. */
+  const [busy, setBusy] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [picked, setPicked] = useState<string | null>(null);
   const [menu, setMenu] = useState<{
@@ -117,6 +121,7 @@ export function ProjectsPanel(p: {
     const name = draft.trim();
     setEditing(null);
     if (!name) return;
+    setBusy("Renaming…");
     try {
       const res = await fetch(`/api/projects/${id}`, {
         method: "PUT",
@@ -127,10 +132,13 @@ export function ProjectsPanel(p: {
       p.onRenamed(id, ((await res.json()) as { name: string }).name);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setBusy(null);
     }
   };
 
   const duplicate = async (x: ProjectSummary) => {
+    setBusy(`Duplicating “${x.name}”…`);
     try {
       const res = await fetch(`/api/projects/${x.id}`);
       if (!res.ok) throw await toApiError(res);
@@ -148,6 +156,8 @@ export function ProjectsPanel(p: {
       p.onRenamed(created.id, created.name);
     } catch (e) {
       setError((e as Error).message || "Couldn't duplicate the project.");
+    } finally {
+      setBusy(null);
     }
   };
 
@@ -241,6 +251,7 @@ export function ProjectsPanel(p: {
       setError("Please sign in to access your local workspace.");
       return;
     }
+    setBusy(portable ? `Packing “${projectSummary.name}” with its media…` : `Saving “${projectSummary.name}”…`);
     try {
       let proj = await workspace.getProject(projectSummary.id);
       if (!proj) {
@@ -264,12 +275,15 @@ export function ProjectsPanel(p: {
       });
     } catch (err) {
       setError((err as Error).message || "Export failed.");
+    } finally {
+      setBusy(null);
     }
   };
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !workspace) return;
+    setBusy(`Importing “${file.name}”…`);
     try {
       const imported = await importVDO(file, workspace);
 
@@ -278,6 +292,7 @@ export function ProjectsPanel(p: {
     } catch (err) {
       setError((err as Error).message || "Import failed.");
     } finally {
+      setBusy(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
@@ -414,7 +429,7 @@ export function ProjectsPanel(p: {
             </button>
             <button
               type="button"
-              className="btn min-h-0 size-7 p-0 flex items-center justify-center bg-danger text-white hover:bg-danger/90 disabled:opacity-30 disabled:pointer-events-none"
+              className={`btn min-h-0 size-7 p-0 flex items-center justify-center bg-danger text-white hover:bg-danger/90 disabled:pointer-events-none ${deletingBatch ? "disabled:opacity-80" : "disabled:opacity-30"}`}
               onClick={() => void deleteBatch()}
               disabled={selected.size === 0 || deletingBatch}
               aria-label={
@@ -431,7 +446,7 @@ export function ProjectsPanel(p: {
               }
               data-testid="delete-selected-projects"
             >
-              <Icon name="trash" className="size-3.5" />
+              {deletingBatch ? <Spinner size="xs" /> : <Icon name="trash" className="size-3.5" />}
             </button>
           </div>
         </div>
@@ -455,9 +470,20 @@ export function ProjectsPanel(p: {
         </Notice>
       )}
       {p.listError && <Notice tone="error">{p.listError}</Notice>}
+      {busy && (
+        <div role="status" className="flex items-center gap-2 rounded-lg border border-line bg-raised/60 px-3 py-2 text-xs text-muted" data-testid="projects-busy">
+          <Spinner size="xs" className="text-primary" />
+          <span className="truncate">{busy}</span>
+        </div>
+      )}
 
       {p.projects === null && !p.listError ? (
-        <p className="text-sm text-muted">Loading…</p>
+        <div aria-busy="true" data-testid="projects-loading">
+          <span role="status" className="sr-only">
+            Loading your projects…
+          </span>
+          {view === "grid" ? <SkeletonGrid n={4} /> : <SkeletonRows n={4} thumb />}
+        </div>
       ) : sortedProjects && sortedProjects.length === 0 ? (
         <div
           className="flex flex-col items-center gap-1 px-3 py-6 text-center"

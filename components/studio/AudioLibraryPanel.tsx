@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { SkeletonRows } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 import type { VideoMeta } from "@/lib/api/types";
 import { formatTime } from "@/lib/format";
 import type { LibraryItem } from "@/lib/library";
@@ -129,6 +131,7 @@ export function AudioLibraryPanel({ onAdd, onRecordVoice, onTts }: { onAdd: (v: 
             <input className="field" value={path} onChange={(e) => setPath(e.target.value)} placeholder="/Users/you/Music/Library" aria-label="Music folder path" />
           </label>
           <button type="button" className="btn btn-secondary text-xs" onClick={() => void chooseFolder()} disabled={busy === "folder"}>
+            {busy === "folder" && <Spinner size="xs" />}
             {busy === "folder" ? "Reading the folder…" : folder ? "Read it again" : "Use this folder"}
           </button>
           <p className="text-[0.6875rem] text-muted">Only music you own or have a licence for. Files stay where they are; adding one copies it into My Assets.</p>
@@ -146,7 +149,12 @@ export function AudioLibraryPanel({ onAdd, onRecordVoice, onTts }: { onAdd: (v: 
       )}
       {error && <p className="text-xs text-danger">{error}</p>}
       {!items ? (
-        <p className="text-xs text-muted">Getting the sounds ready…</p>
+        <div aria-busy="true">
+          <span role="status" className="sr-only">
+            Getting the sounds ready…
+          </span>
+          <SkeletonRows n={5} thumb />
+        </div>
       ) : (
         <ul className="flex flex-col gap-1" aria-label="Sounds">
           {shown.map((x) => (
@@ -169,7 +177,7 @@ export function AudioLibraryPanel({ onAdd, onRecordVoice, onTts }: { onAdd: (v: 
                 </span>
               </span>
               <button type="button" onClick={() => void add(x.id)} disabled={busy === x.id} aria-label={`Add ${x.title} at the playhead`} className="flex size-8 shrink-0 items-center justify-center rounded-md text-link hover:bg-raised disabled:opacity-50">
-                <Icon name="plus" className="size-4" />
+                {busy === x.id ? <Spinner size="sm" /> : <Icon name="plus" className="size-4" />}
               </button>
             </li>
           ))}

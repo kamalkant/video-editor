@@ -3403,6 +3403,10 @@ function ClipBlock(p: {
           }
         }}
       />
+      {/* a sound still uploading has no waveform yet, a video no frame yet: a shimmer says it's coming */}
+      {((c.type === "audio" && uploading) || (c.type === "video" && !film && "mediaId" in c && !localThumb(c.mediaId) && uploading)) && (
+        <span aria-hidden="true" className="skeleton pointer-events-none absolute inset-0 rounded-md bg-transparent" data-testid="clip-pending" />
+      )}
       {film && (
         <span
           aria-hidden="true"

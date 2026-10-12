@@ -393,6 +393,39 @@ type Landing = {
   drop?: { trackId: string; at: number; index?: number };
 };
 
+/**
+ * The playhead time for what the timeline shows and does at the playhead (the editing tools, the time
+ * label, split / freeze / marker at the playhead): at most every 150 ms, so playback doesn't re-render the
+ * whole timeline every frame. The red needle itself follows the clock every frame (PlayheadNeedle).
+ */
+function useThrottledClock(clock: Clock, intervalMs = 150): number {
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let last = 0;
+      return clock.subscribe(() => {
+        const now = performance.now();
+        if (now - last > intervalMs) {
+          last = now;
+          if (timer) {
+            clearTimeout(timer);
+            timer = null;
+          }
+          onStoreChange();
+        } else if (!timer) {
+          timer = setTimeout(() => {
+            timer = null;
+            last = performance.now();
+            onStoreChange();
+          }, intervalMs);
+        }
+      });
+    },
+    [clock, intervalMs],
+  );
+  return useSyncExternalStore(subscribe, clock.get, () => 0);
+}
+
 function PlayheadNeedle({
   clock,
   total,
@@ -431,6 +464,7 @@ function PlayheadNeedle({
  */
 export function Timeline(p: TimelineProps) {
   const { doc, media } = p;
+  const t = useThrottledClock(p.clock, 150);
   const [dragTotal, setDragTotal] = useState<number | null>(null);
   const dragTotalRef = useRef<number | null>(null);
   const empty = doc.tracks.every((tr) => tr.clips.length === 0);

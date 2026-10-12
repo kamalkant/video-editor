@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { bppOf, STILL_BPP, type SizeBasis } from "../export/size";
+import { notOnServer } from "../media/localMedia";
 
 type Measured = { key: string; bpp: number; measuredAt: { width: number; height: number } };
 
@@ -19,6 +20,8 @@ export function useExportSize(basis: SizeBasis | null, enabled: boolean) {
     if (!enabled || !key) return;
     const b = JSON.parse(key) as SizeBasis;
     if (!b.samples.length) return;
+    // (files kept only on this computer aren't sent just to measure: the estimate uses the usual rate)
+    if (b.samples.some((x) => notOnServer(x.mediaId))) return;
     const ac = new AbortController();
     const timer = setTimeout(async () => {
       try {

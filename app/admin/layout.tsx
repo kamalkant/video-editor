@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
@@ -5,6 +6,12 @@ import { isAdmin } from "@/lib/auth/permissions";
 import { Icon } from "@/components/ui/Icon";
 import { AdminLayoutShell } from "./AdminLayoutShell";
 import { ChangePasswordGate } from "./ChangePasswordGate";
+import { NO_INDEX_ROBOTS } from "@/lib/seo/config";
+
+export const metadata: Metadata = {
+  title: "Super Admin",
+  robots: NO_INDEX_ROBOTS,
+};
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();

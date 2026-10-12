@@ -81,7 +81,6 @@ import {
 } from "@/lib/edit/spec";
 import { createClock } from "@/lib/editor/clock";
 import {
-  clipIdsUsing,
   clipStudioState,
   defaultVideoClip,
   docReducer,
@@ -93,9 +92,11 @@ import {
 import {
   addLocal,
   adoptLocal,
+  ensureOnServer,
   forgetLocal,
   installUploadGate,
   localItem,
+  listLocalFiles,
   localItems,
   localSrc,
   localThumb,
@@ -114,7 +115,6 @@ import {
   setLocalAccount,
   subscribeLocal,
   uploadingItems,
-  uploadLocal,
 } from "@/lib/media/localMedia";
 import { inOrder } from "@/lib/media/inOrder";
 import { EditorSkeleton } from "./EditorSkeleton";
@@ -994,7 +994,13 @@ function StudioInner(props: Props) {
     const mine = localItems()
       .filter((it) => !have.has(it.id) && metas[it.id])
       .map((it) => ({ ...metas[it.id]!, usedIn: [] }));
-    return server ? [...mine, ...server] : mine.length ? mine : null;
+    // files kept only on this computer (their copy in the browser), from any project
+    const shown = new Set([...have, ...mine.map((m) => m.id)]);
+    const kept = listLocalFiles()
+      .filter((m) => !shown.has(m.id))
+      .map((m) => ({ ...m, usedIn: [] }));
+    const local = [...mine, ...kept];
+    return server ? [...local, ...server] : local.length ? local : null;
     // (localVer: an upload started, moved on or finished)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assets.items, metas, localVer]);
@@ -1125,7 +1131,6 @@ function StudioInner(props: Props) {
   const restoreLocalFor = useCallback(async (d: TimelineDoc) => {
     const ids = mediaIdsOf(d);
     releaseLocalExcept(new Set(ids));
-    for (const id of ids) if (notOnServer(id) && localItem(id)?.state === "failed") uploadLocal(id);
     const serverMeta = async (id: string): Promise<VideoMeta | null> => {
       try {
         const r = await fetch(`/api/videos/${id}`);
@@ -1163,6 +1168,14 @@ function StudioInner(props: Props) {
     restoredFor.current = key;
     void restoreLocalFor(docRef.current);
   }, [localAccount, projectId, restoreLocalFor]);
+  // a file kept on this computer put on the timeline from My Assets (not open in this tab yet): it plays
+  // from its copy in the browser
+  const docMediaKey = mediaIdsOf(doc).join(",");
+  useEffect(() => {
+    if (!localAccount || !docMediaKey) return;
+    const missing = docMediaKey.split(",").filter((id) => !localItem(id));
+    if (missing.length) void restoreLocal(missing, async (id) => (await fetch(`/api/videos/${id}`).catch(() => null))?.ok ?? true);
+  }, [docMediaKey, localAccount]);
 
   // autosave: every change to the timeline goes into the project
   const firstDoc = useRef(true);
@@ -1227,13 +1240,10 @@ function StudioInner(props: Props) {
       refreshLists();
     });
     const offFail = onLocalUploadFailed(({ id, message, permanent }) => {
-      if (permanent) {
-        // the server can't use this file (it couldn't be exported either): it leaves the timeline
-        const ids = clipIdsUsing(live.current.doc, id);
-        if (ids.length) dispatchDoc({ type: "deleteClips", clipIds: ids }, `upload-refused:${id}`);
-        void forgetLocal(id);
-        setNotice(`A file couldn't be used: ${message}`);
-      } else setNotice(`An upload stopped (${message}). The clip plays here; the export waits for it. It is sent again when you reopen or reload the project.`);
+      const name = localItem(id)?.name ?? "A file";
+      // (it plays and edits here either way: only the server features can't use it)
+      if (permanent) setNotice(`“${name}” couldn't be sent to the server: ${message} It still plays and edits here; the export and AI tools can't use it.`);
+      else setNotice(`“${name}” couldn't be sent to the server (${message}). It still plays and edits here; it's sent again when you export or use an AI tool.`);
     });
     return () => {
       offDone();
@@ -1763,8 +1773,8 @@ function StudioInner(props: Props) {
   };
 
   const deleteAsset = async (a: Asset): Promise<string | null> => {
-    if (notOnServer(a.id) && localItem(a.id)?.state === "uploading")
-      return "This file is still uploading. Delete it once the upload is done.";
+    if (localItem(a.id)?.state === "uploading")
+      return "This file is being sent to the server. Delete it once that's done.";
     try {
       const res = await fetch(`/api/videos/${a.id}`, { method: "DELETE" });
       if (!res.ok && res.status !== 404) throw await toApiError(res);
@@ -1820,9 +1830,9 @@ function StudioInner(props: Props) {
             return;
           }
           const id = newUuid();
-          addLocal(id, f, probe.kind, probe.poster);
+          // kept on this computer: sent to the server only when a server feature needs it (ensureOnServer)
+          addLocal(id, f, probe.kind, probe.poster, "local");
           onUploaded.current(provisionalMeta(id, f, probe));
-          uploadLocal(id);
           void persistLocal(id, f, { ...probe, name: f.name });
         },
       );
@@ -4491,7 +4501,8 @@ function StudioInner(props: Props) {
     video?.id ?? "",
     clipSpecNow,
     pausedT ?? lastT,
-    !!video && clipShown && pausedT !== null,
+    // (the server's exact frame is for background removal: a file kept only here isn't sent just to show it)
+    !!video && clipShown && pausedT !== null && (removalOn(state) || !notOnServer(video.id)),
   );
   const seeThroughPct = preview.result?.stats.seeThroughPct ?? null;
   const seeThrough =
@@ -4840,6 +4851,15 @@ function StudioInner(props: Props) {
     setStartError(null);
     if (activeClip) writeLocal(LAST_SPEC_KEY, clipSpec(d, activeClip));
     try {
+      // the export runs on the server: files kept only on this computer are sent now (the top bar shows it)
+      const needed = s ? [s.mediaId] : mediaIdsOf(d);
+      if (pendingAmong(needed).length) {
+        const sent = await ensureOnServer(needed);
+        if (!sent.ok)
+          throw new Error(
+            `${sent.failed.length === 1 ? `“${localItem(sent.failed[0]!)?.name ?? "A file"}”` : `${sent.failed.length} files`} couldn't be sent to the server, so the export can't start. Check the connection and try again.`,
+          );
+      }
       // drawn pictures (FFmpeg can't draw text or our backdrops): made here like the preview, sent once
       const send = async (key: string, make: () => Promise<Blob | null>) => {
         let id = sentTexts.get(key);
@@ -5113,13 +5133,9 @@ function StudioInner(props: Props) {
       ),
   );
   /** Why a format can't be made now. MP4 and the other solid formats don't need background removal. */
-  const waitingUploads = pendingAmong(mediaIdsOf(doc));
+  // (files kept only on this computer don't block it: starting the export sends them first)
   const exportBlocked = (f: ExportFormat): string | null =>
-    waitingUploads.length
-      ? waitingUploads.some((u) => u.state === "failed")
-        ? `“${waitingUploads.find((u) => u.state === "failed")!.name}” didn't reach the server, so it can't be exported yet. Reload or reopen the project to send it again.`
-        : `Uploading ${waitingUploads.length === 1 ? `“${waitingUploads[0]!.name}”` : `${waitingUploads.length} files`} (${Math.round((100 * waitingUploads.reduce((n, u) => n + u.progress * u.size, 0)) / Math.max(1, waitingUploads.reduce((n, u) => n + u.size, 0)))}%): the export runs on the server, so it starts once the upload is done. You can keep editing.`
-      : !capability.ok
+    !capability.ok
       ? `Can't make videos yet: ${capability.message}`
       : !hasClips
         ? "Add a video or picture first."
@@ -5935,6 +5951,21 @@ function StudioInner(props: Props) {
     if (!sync.project) return;
     await sync.flush();
     const name = `${sync.project.name.slice(0, 75)} copy`;
+    // the copy is kept on this computer like the project (the server would leave out files it doesn't have)
+    const ws = localWorkspaceManager.getActiveWorkspace();
+    if (ws) {
+      showStageBusy("Making the copy…");
+      try {
+        const id = newUuid();
+        await ws.saveProject(newProject({ id, name, doc, now: Date.now(), jobId: null }));
+        refreshLists();
+        await openProject(id);
+      } catch (e) {
+        showStageBusy(null);
+        setNotice((e as Error).message || "Couldn't copy the project.");
+      }
+      return;
+    }
     await createAndOpen(doc, name);
   };
   /**

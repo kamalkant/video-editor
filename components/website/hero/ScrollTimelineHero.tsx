@@ -152,6 +152,7 @@ export function ScrollTimelineHero({ mousePos: given }: ScrollTimelineHeroProps)
             Video <br />
             Without <br />
             <span className="site-gradient-text">Limits.</span>
+            <span className="sr-only"> — AI Video Editor for Reels, Shorts &amp; YouTube</span>
           </h1>
 
           <p className="max-w-md text-base leading-relaxed text-site-muted sm:text-lg">

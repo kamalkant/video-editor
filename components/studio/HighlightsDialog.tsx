@@ -9,6 +9,7 @@ import { formatTime } from "@/lib/format";
 import type { Segment } from "@/lib/subtitles/segments";
 import type { VideoMeta } from "@/lib/videos";
 import { GeminiBadge } from "./GeminiBits";
+import { ensureOnServer, notOnServer } from "@/lib/media/localMedia";
 
 const CATEGORY_TAGS: Record<HighlightCategory, { label: string; icon: string; badge: string }> = {
   hook: { label: "Viral Hook", icon: "bolt", badge: "bg-red-500/15 text-red-400 border-red-500/30" },
@@ -66,9 +67,15 @@ export function HighlightsDialog({
     let isMounted = true;
 
     async function load() {
-      setBusy("Analyzing speech and detecting high-impact moments…");
       setError(null);
       try {
+        // (a file kept only on this computer goes to the server first: the analysis happens there)
+        if (notOnServer(videoId!)) {
+          setBusy("Sending the video…");
+          if (!(await ensureOnServer([videoId!])).ok) throw new Error("The video couldn't be sent to the server. Check the connection and try again.");
+          if (!isMounted) return;
+        }
+        setBusy("Analyzing speech and detecting high-impact moments…");
         const res = await fetch("/api/ai/highlights", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import type { EditSpec } from "../edit/spec";
 import type { SizeEstimate } from "../ffmpeg/estimate";
+import { notOnServer } from "../media/localMedia";
 
 /** Debounced size estimate; only runs while `enabled` (the Export panel is open). */
-export function useEstimate(videoId: string, spec: EditSpec, enabled: boolean) {
+export function useEstimate(videoId: string, spec: EditSpec, on: boolean) {
+  // (a file kept only on this computer: measured once it's sent for the export, not just for an estimate)
+  const enabled = on && !notOnServer(videoId);
   const key = JSON.stringify(spec);
   const [result, setResult] = useState<{ key: string; est: SizeEstimate } | null>(null);
   const [failedKey, setFailedKey] = useState<string | null>(null);

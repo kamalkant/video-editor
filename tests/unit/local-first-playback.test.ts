@@ -14,6 +14,7 @@ vi.mock("@/lib/storage/opfs", () => ({
 
 import * as L from "@/lib/media/localMedia";
 import { inOrder } from "@/lib/media/inOrder";
+import { ApiError } from "@/lib/api/types";
 import type { VideoMeta } from "@/lib/api/types";
 
 let n = 0;
@@ -74,14 +75,15 @@ describe("reopening a project: the files play from this computer at once", () =>
     expect(L.localSrc(i)).toMatch(/^blob:/);
   });
 
-  it("a file the server lost is sent again; one it has is not", async () => {
+  it("a file the server lost is kept here again (not re-sent until needed)", async () => {
     const lost = await keptThenReload({ uploaded: true });
     const sent: string[] = [];
     L.setTransport(async (x) => (sent.push(x), meta(x)));
     const unknown = await L.restoreLocal([lost], async () => false);
     expect(unknown.map((m) => m.id)).toEqual([lost]);
     await tick();
-    expect(sent).toEqual([lost]);
+    expect(sent).toEqual([]);
+    expect(L.localItem(lost)?.state).toBe("local");
   });
 
   it("the frame taken at import is kept with the copy: thumbnails need no server request after a reload", async () => {
@@ -183,5 +185,79 @@ describe("importing several files", () => {
       (_x, r) => taken.push(r),
     );
     expect(taken).toEqual(["a", "c"]);
+  });
+});
+
+describe("kept on this computer: sent only when a server feature needs it", () => {
+  it("an imported file is never sent on its own", async () => {
+    const transport = vi.fn(async (x: string) => meta(x));
+    L.setTransport(transport);
+    const i = id();
+    L.addLocal(i, file(), "video", null, "local");
+    await tick();
+    expect(transport).not.toHaveBeenCalled();
+    expect(L.notOnServer(i)).toBe(true);
+    expect(L.uploadingItems()).toEqual([]); // (not a running task)
+    expect(L.pendingAmong([i]).map((x) => x.id)).toEqual([i]); // (the export knows to send it)
+  });
+
+  it("ensureOnServer sends the local and failed files (once each), and resolves when they're there", async () => {
+    const sent: string[] = [];
+    L.setTransport(async (x) => (sent.push(x), meta(x)));
+    const [a, b, c] = [id(), id(), id()];
+    L.addLocal(a, file(), "video", null, "local");
+    L.addLocal(b, file(), "video", null, "failed");
+    L.addLocal(c, file(), "video", null, "uploaded");
+    expect(await L.ensureOnServer([a, b, c, a])).toEqual({ ok: true, failed: [] });
+    expect(sent.sort()).toEqual([a, b].sort());
+    expect(L.localItem(a)?.state).toBe("uploaded");
+  });
+
+  it("ensureOnServer says which files couldn't be sent", async () => {
+    vi.useFakeTimers();
+    L.setTransport(async () => {
+      throw new ApiError(413, "too_big", "Too big.");
+    });
+    const a = id();
+    L.addLocal(a, file(), "video", null, "local");
+    const run = L.ensureOnServer([a]);
+    await vi.runAllTimersAsync();
+    expect(await run).toEqual({ ok: false, failed: [a] });
+    // (it still plays here)
+    expect(L.localSrc(a)).toMatch(/^blob:/);
+  });
+
+  it("the upload gate sends a local file for server work, but not for its details or pictures", async () => {
+    const sent: string[] = [];
+    L.setTransport(async (x) => (sent.push(x), meta(x)));
+    const realFetch = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", realFetch);
+    const uninstall = L.installUploadGate();
+    try {
+      const i = id();
+      L.addLocal(i, file(), "video", null, "local");
+      await fetch(`/api/videos/${i}`);
+      await fetch(`/api/videos/${i}/thumb`);
+      expect(sent).toEqual([]);
+      await fetch(`/api/videos/${i}/derived`, { method: "POST" });
+      expect(sent).toEqual([i]);
+      expect(realFetch).toHaveBeenCalledTimes(3);
+    } finally {
+      uninstall();
+    }
+  });
+
+  it("a local file whose copy couldn't be kept in the browser is never let go (it would be gone)", async () => {
+    const i = id();
+    L.addLocal(i, file(), "video", null, "local");
+    L.releaseLocalExcept(new Set());
+    expect(L.localSrc(i)).toMatch(/^blob:/);
+    L.setLocalAccount("acct1");
+    await L.persistLocal(i, file(), { ...probe, name: "clip.mp4" });
+    L.releaseLocalExcept(new Set());
+    expect(L.localSrc(i)).toBeNull();
+    // (and My Assets still lists it, from its copy)
+    expect(L.listLocalFiles().map((m) => m.id)).toEqual([i]);
+    expect(L.keptHereOnly(i)).toBe(true);
   });
 });

@@ -44,7 +44,7 @@ import { elementName } from "@/lib/elements/catalog";
 import { filmOpsParam, filmTiles } from "@/lib/editor/film";
 import { getEditingTools } from "@/lib/editor/editingTools";
 import { useTheme } from "@/lib/editor/theme";
-import { localFilm, localSrc, localThumb, notOnServer } from "@/lib/media/localMedia";
+import { localFilm, localItem, localSrc, localThumb, notOnServer } from "@/lib/media/localMedia";
 import type { MemeClipItem } from "@/lib/library/memeCatalog";
 
 export { MEDIA_DRAG, MEME_DRAG } from "@/lib/editor/mediaDrag";
@@ -3313,6 +3313,8 @@ function ClipBlock(p: {
   // a file still uploading (lib/media/localMedia): the server has no filmstrip or waveform for it yet;
   // a frame taken in the browser stands in, then the server's follow
   const uploading = "mediaId" in c && notOnServer(c.mediaId);
+  // (on its way to the server right now: its waveform / frames come after; a file kept only here shows none)
+  const sending = "mediaId" in c && localItem(c.mediaId)?.state === "uploading";
   // a file from this computer: its film is made in the browser at once (with background removal on, the
   // server's keyed film is needed, once the file is there)
   const ownFilm = c.type === "video" && m && !opsParam ? localFilm(c.mediaId, m) : null;
@@ -3404,7 +3406,7 @@ function ClipBlock(p: {
         }}
       />
       {/* a sound still uploading has no waveform yet, a video no frame yet: a shimmer says it's coming */}
-      {((c.type === "audio" && uploading) || (c.type === "video" && !film && "mediaId" in c && !localThumb(c.mediaId) && uploading)) && (
+      {sending && ((c.type === "audio") || (c.type === "video" && !film && !localThumb(c.mediaId))) && (
         <span aria-hidden="true" className="skeleton pointer-events-none absolute inset-0 rounded-md bg-transparent" data-testid="clip-pending" />
       )}
       {film && (

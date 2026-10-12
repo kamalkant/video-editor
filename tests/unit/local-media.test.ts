@@ -106,7 +106,7 @@ describe("local-first import", () => {
 });
 
 describe("a copy in the browser (survives a reload)", () => {
-  it("kept, then after a reload the file plays from it again and an unfinished upload resumes", async () => {
+  it("kept, then after a reload the file plays from it again; it isn't sent until a server feature needs it", async () => {
     L.setLocalAccount("acct1");
     const i = id();
     const f = file("holiday.mp4");
@@ -122,6 +122,10 @@ describe("a copy in the browser (survives a reload)", () => {
     expect(L.localSrc(i)).toMatch(/^blob:/);
     expect(unknown).toEqual([expect.objectContaining({ id: i, fileName: "holiday.mp4", duration: 6.5 })]);
     await tick();
+    expect(sent).toEqual([]);
+    expect(L.localItem(i)?.state).toBe("local");
+    // the export (or an AI tool) needs it: now it's sent
+    expect(await L.ensureOnServer([i])).toEqual({ ok: true, failed: [] });
     expect(sent).toEqual([i]);
   });
 

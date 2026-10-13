@@ -1,6 +1,6 @@
 				"use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
 import { Spinner } from "@/components/ui/Spinner";
@@ -14,7 +14,7 @@ import type { Asset } from "@/lib/media/useLibrary";
 import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
 import { LIMITS, limitSizeLabel } from "@/lib/settings";
 import type { UploadState } from "@/lib/upload/useUpload";
-import { keptHereOnly, localItem, localSrc, localThumb } from "@/lib/media/localMedia";
+import { keptHereOnly, localItem, localSrc, localThumb, subscribeLocal, localVersion } from "@/lib/media/localMedia";
 
 /** A file still uploading shows the frame taken in the browser (lib/media/localMedia). */
 const thumbOf = (id: string) => localThumb(id) ?? `/api/videos/${id}/thumb`;
@@ -129,6 +129,7 @@ export function MediaPanel(p: {
   onImport: (tab: "pexels" | "pixabay") => void;
   onOpenLibrary?: () => void;
 }) {
+  useSyncExternalStore(subscribeLocal, localVersion, () => 0);
   const [dragging, setDragging] = useState(false);
   const [panelDragging, setPanelDragging] = useState(false);
   const dragDepthRef = useRef(0);

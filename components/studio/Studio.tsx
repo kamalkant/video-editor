@@ -7602,7 +7602,13 @@ function StudioInner(props: Props) {
           </button>
         )}
       </div>
-      <div className="relative min-h-0 flex-1 overflow-y-auto p-3">
+      <div
+        className={`relative min-h-0 flex-1 ${
+          sidePanel === "library"
+            ? "flex flex-col overflow-hidden p-0"
+            : "overflow-y-auto p-3"
+        }`}
+      >
         {sidePanel === "edit" ? (
           <EditPanel
             doc={doc}

@@ -334,7 +334,7 @@ export function UnifiedLibraryPanel({
       }
       audioRef.current.src = `/api/library/${it.id}/audio`;
       audioRef.current.volume = audioMuted ? 0 : audioVolume;
-      audioRef.current.play().catch(() => setPlayingAudioId(null));
+      audioRef.current.play()?.catch(() => setPlayingAudioId(null));
       setPlayingAudioId(it.id);
     }
   };
@@ -388,9 +388,9 @@ export function UnifiedLibraryPanel({
     ((activeCategory === "all" || activeCategory === "photos") && isSearchingPhotos);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden text-xs">
-      {/* Search Input Bar & Top Controls */}
-      <div className="border-b border-line p-2.5 space-y-2 bg-surface">
+    <div className="flex flex-1 flex-col overflow-hidden text-xs min-h-0">
+      {/* Search Input Bar & Top Controls (Sticky on top) */}
+      <div className="sticky top-0 z-20 shrink-0 border-b border-line p-2.5 space-y-2 bg-surface shadow-xs">
         <div className="flex items-center gap-1.5">
           <div className="relative flex-1 flex items-center">
             {searching ? (
@@ -477,7 +477,7 @@ export function UnifiedLibraryPanel({
 
       {/* Progress / Status banner */}
       {progressMsg && (
-        <div className="bg-primary/10 border-b border-primary/20 px-3 py-1.5 text-[11px] text-primary flex items-center gap-2 shrink-0">
+        <div className="shrink-0 bg-primary/10 border-b border-primary/20 px-3 py-1.5 text-[11px] text-primary flex items-center gap-2">
           <Spinner size="xs" />
           <span>{progressMsg}</span>
         </div>
@@ -720,92 +720,60 @@ export function UnifiedLibraryPanel({
               </div>
             </div>
 
-            {/* Currently Playing Track Active Bar with Volume Controls */}
-            {playingAudioId && (
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/40 bg-primary/10 p-2 shadow-xs mb-1">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      audioRef.current?.pause();
-                      setPlayingAudioId(null);
-                    }}
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-white hover:scale-105 transition-transform"
-                    title="Pause"
-                  >
-                    <Icon name="pause" className="size-3" />
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[11px] font-semibold text-ink truncate">
-                      {audioItems.find((a) => a.id === playingAudioId)?.title || "Playing Preview"}
-                    </div>
-                    <div className="text-[10px] text-primary flex items-center gap-1">
-                      <span className="inline-block size-1.5 rounded-full bg-primary animate-pulse" />
-                      Playing Preview
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setAudioMuted(!audioMuted)}
-                    className="text-muted hover:text-ink cursor-pointer"
-                  >
-                    <Icon name={audioMuted ? "mute" : "volume"} className="size-3" />
-                  </button>
-                  <input
-                    type="range"
-                    min={0}
-                    max={1}
-                    step={0.05}
-                    value={audioMuted ? 0 : audioVolume}
-                    onChange={(e) => {
-                      const val = parseFloat(e.target.value);
-                      setAudioVolume(val);
-                      if (audioMuted && val > 0) setAudioMuted(false);
-                    }}
-                    className="w-12 h-1.5 accent-primary cursor-pointer"
-                  />
-                  <span className="text-[10px] tabular-nums text-muted w-6 text-right">
-                    {Math.round((audioMuted ? 0 : audioVolume) * 100)}%
-                  </span>
-                </div>
-              </div>
-            )}
-
             <div className="space-y-1">
-              {audioItems.slice(0, activeCategory === "audio" ? undefined : 6).map((it) => (
-                <div
-                  key={it.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface p-2 hover:bg-raised/40 transition-colors"
-                >
-                  <button
-                    type="button"
-                    onClick={() => handleToggleAudio(it)}
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white transition-colors"
-                    title={playingAudioId === it.id ? "Pause" : "Play preview"}
+              {audioItems.slice(0, activeCategory === "audio" ? undefined : 6).map((it) => {
+                const isPlaying = playingAudioId === it.id;
+                return (
+                  <div
+                    key={it.id}
+                    className={`flex items-center justify-between gap-2 rounded-lg border p-2 transition-colors ${
+                      isPlaying
+                        ? "border-primary/50 bg-primary/10 shadow-xs"
+                        : "border-line bg-surface hover:bg-raised/40"
+                    }`}
                   >
-                    <Icon name={playingAudioId === it.id ? "pause" : "play"} className="size-3" />
-                  </button>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[11px] font-medium text-ink">{it.title}</div>
-                    <div className="text-[10px] text-muted">{it.mood || it.kind} · {formatTime(it.duration)}</div>
-                  </div>
-
-                  {onInsertAudio && (
                     <button
                       type="button"
-                      onClick={() => void handleInsertAudio(it)}
-                      disabled={audioBusyId === it.id}
-                      className="flex size-6 shrink-0 items-center justify-center rounded bg-raised text-muted hover:bg-primary hover:text-white transition-colors cursor-pointer"
-                      title="Add to timeline"
+                      onClick={() => handleToggleAudio(it)}
+                      className={`flex size-6 shrink-0 items-center justify-center rounded-full transition-colors cursor-pointer ${
+                        isPlaying
+                          ? "bg-primary text-white hover:scale-105"
+                          : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                      }`}
+                      title={isPlaying ? "Pause" : "Play preview"}
                     >
-                      {audioBusyId === it.id ? <Spinner size="xs" /> : <Icon name="plus" className="size-3.5" />}
+                      <Icon name={isPlaying ? "pause" : "play"} className="size-3" />
                     </button>
-                  )}
-                </div>
-              ))}
+
+                    <div className="min-w-0 flex-1">
+                      <div className={`truncate text-[11px] font-medium ${isPlaying ? "text-primary font-semibold" : "text-ink"}`}>
+                        {it.title}
+                      </div>
+                      <div className="text-[10px] text-muted flex items-center gap-1.5">
+                        {isPlaying && (
+                          <span className="flex items-center gap-1 text-primary text-[10px] font-medium">
+                            <span className="inline-block size-1.5 rounded-full bg-primary animate-pulse" />
+                            Playing ·
+                          </span>
+                        )}
+                        <span>{it.mood || it.kind} · {formatTime(it.duration)}</span>
+                      </div>
+                    </div>
+
+                    {onInsertAudio && (
+                      <button
+                        type="button"
+                        onClick={() => void handleInsertAudio(it)}
+                        disabled={audioBusyId === it.id}
+                        className="flex size-6 shrink-0 items-center justify-center rounded bg-raised text-muted hover:bg-primary hover:text-white transition-colors cursor-pointer"
+                        title="Add to timeline"
+                      >
+                        {audioBusyId === it.id ? <Spinner size="xs" /> : <Icon name="plus" className="size-3.5" />}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

@@ -25,10 +25,10 @@ export const ytDlpBin = () => {
  */
 /** YouTube pages need a JavaScript runtime; servers have Node (this process), not deno: yt-dlp may use it. */
 export const YTDLP_JS = ["--js-runtimes", `node:${process.execPath}`];
-/** Player client preferences: android client bypasses 403 Forbidden throttling on datacenter IPs */
+/** Player client preferences: tv, android, web bypass SABR-only streaming and 403 Forbidden errors */
 export const YTDLP_CLIENT_ARGS = [
   "--extractor-args",
-  "youtube:player_client=android,web",
+  "youtube:player_client=tv,tv_embedded,android,web",
 ];
 
 export function ytDlpEnv(): NodeJS.ProcessEnv {
@@ -50,20 +50,20 @@ export const ytDlpFfmpegArgs = (ffmpeg: string): string[] => (/[\\/]/.test(ffmpe
 
 export const NO_YTDLP =
   process.platform === "darwin"
-    ? "The YouTube downloader (yt-dlp) isn't installed. Install it with: brew install yt-dlp"
-    : "The YouTube downloader isn't available on this server right now. Download the clip on your computer and upload it.";
+    ? "The meme downloader tool isn't installed."
+    : "This online meme clip isn't available from this server right now. Try another clip or upload your own file.";
 
 /** What to tell people when yt-dlp fails, from its error output. */
 export function ytDlpFailure(stderr: string): string {
-  // YouTube often refuses servers in data centers (hosting): "Sign in to confirm you're not a bot", HTTP 429
+  // Cloud servers in data centers (hosting): "Sign in to confirm you're not a bot", HTTP 429
   if (/not a bot|HTTP Error 429|Too Many Requests/i.test(stderr))
-    return "YouTube is blocking downloads from this server right now. Download the clip on your computer and upload it.";
-  if (/Sign in|age/i.test(stderr)) return "YouTube asks to sign in for this video, so it can't be imported.";
-  if (/unavailable|private/i.test(stderr)) return "This video is private or unavailable.";
-  // (anything else: yt-dlp's own last error line, without the server's folders, so it can be fixed)
+    return "This online meme clip is temporarily blocked or unavailable for download. Try another clip or upload your own file.";
+  if (/Sign in|age/i.test(stderr)) return "This online clip requires age verification or sign-in, so it cannot be imported.";
+  if (/unavailable|private/i.test(stderr)) return "This clip is private or unavailable.";
+  // (anything else: last error line, without the server's folders, so it can be fixed)
   const lines = stderr.split("\n").map((l) => l.trim()).filter(Boolean);
   const last = (lines.filter((l) => /ERROR|error/.test(l)).pop() ?? lines.pop())?.replace(/\/[^\s:'"]+/g, "…").slice(0, 160);
-  return last ? `YouTube didn't answer as expected (${last}).` : "YouTube's video couldn't be downloaded. Try another one.";
+  return last ? `Could not download online meme clip (${last}).` : "Could not download this meme clip. Try another one.";
 }
 
 /** Can the YouTube downloader run here, and if not why (ENOENT: not there; EACCES: not allowed to run…). */

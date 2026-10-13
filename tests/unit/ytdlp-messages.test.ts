@@ -3,14 +3,16 @@ import { ytDlpFailure, ytDlpFfmpegArgs } from "@/lib/import/ytdlp";
 
 // YouTube often refuses servers in data centers (Hostinger): people get told what to do instead
 describe("yt-dlp failure messages", () => {
-  it("says YouTube is blocking the server for bot checks and rate limits", () => {
-    expect(ytDlpFailure("ERROR: [youtube] abc: Sign in to confirm you're not a bot.")).toMatch(/blocking downloads from this server/);
-    expect(ytDlpFailure("ERROR: HTTP Error 429: Too Many Requests")).toMatch(/blocking downloads from this server/);
+  it("formats user-friendly messages for bot checks and rate limits without mentioning YouTube", () => {
+    expect(ytDlpFailure("ERROR: [youtube] abc: Sign in to confirm you're not a bot.")).toMatch(/temporarily blocked or unavailable/);
+    expect(ytDlpFailure("ERROR: HTTP Error 429: Too Many Requests")).toMatch(/temporarily blocked or unavailable/);
+    expect(ytDlpFailure("ERROR: [youtube] abc: Sign in to confirm you're not a bot.")).not.toMatch(/YouTube/);
   });
-  it("keeps the other reasons", () => {
-    expect(ytDlpFailure("Sign in to confirm your age")).toMatch(/asks to sign in/);
+  it("keeps the other reasons cleanly without mentioning YouTube", () => {
+    expect(ytDlpFailure("Sign in to confirm your age")).toMatch(/age verification or sign-in/);
     expect(ytDlpFailure("Video unavailable")).toMatch(/private or unavailable/);
-    expect(ytDlpFailure("")).toMatch(/couldn't be downloaded/);
+    expect(ytDlpFailure("")).toMatch(/Could not download/i);
+    expect(ytDlpFailure("Sign in to confirm your age")).not.toMatch(/YouTube/);
   });
 });
 

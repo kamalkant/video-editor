@@ -97,6 +97,7 @@ type ClipCheck = {
   works: boolean;
   verdict: string;
   ytdlp: string | null;
+  jsRuntimes?: { deno: string; node: string };
   cookies: { active: boolean; updatedAt: string | null };
   proxy: boolean;
   results: { way: string; ok: boolean; timedOut: boolean; said: string }[];
@@ -143,7 +144,8 @@ function OnlineClipCheck() {
         <div className="mt-3 space-y-2 text-xs">
           <p className={`font-semibold ${res.works ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{res.verdict}</p>
           <p className="text-muted">
-            yt-dlp {res.ytdlp ?? "not found"} · cookies {res.cookies.active ? `on${res.cookies.updatedAt ? ` (updated ${new Date(res.cookies.updatedAt).toLocaleString()})` : ""}` : "off"} · proxy {res.proxy ? "on" : "off"}
+            yt-dlp {res.ytdlp ?? "not found"}
+            {res.jsRuntimes && ` · deno ${res.jsRuntimes.deno} · node ${res.jsRuntimes.node}`} · cookies {res.cookies.active ? `on${res.cookies.updatedAt ? ` (updated ${new Date(res.cookies.updatedAt).toLocaleString()})` : ""}` : "off"} · proxy {res.proxy ? "on" : "off"}
           </p>
           <ul className="space-y-1.5">
             {res.results.map((r) => (

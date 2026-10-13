@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Spinner } from "@/components/ui/Spinner";
 import { apiMessage } from "../admin-client";
 import type { HealthCheck, HealthLevel } from "@/lib/admin/health";
 
@@ -87,6 +88,76 @@ export default function AdminHealthPage() {
             })}
         </ul>
       )}
+      <OnlineClipCheck />
     </div>
+  );
+}
+
+type ClipCheck = {
+  works: boolean;
+  verdict: string;
+  ytdlp: string | null;
+  cookies: { active: boolean; updatedAt: string | null };
+  proxy: boolean;
+  results: { way: string; ok: boolean; timedOut: boolean; said: string }[];
+};
+
+/** Can this server download online meme clips? What YouTube answers each way the editor tries (no download). */
+function OnlineClipCheck() {
+  const [res, setRes] = useState<ClipCheck | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const r = await fetch("/api/admin/ytdlp-check");
+      const data = await r.json();
+      if (!r.ok) throw new Error(apiMessage(data, "Couldn't run the check"));
+      setRes(data as ClipCheck);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't run the check");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="rounded-xl border border-line bg-surface p-4" data-testid="online-clip-check">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">Online meme clips</h2>
+          <p className="text-xs text-muted">Asks YouTube for one public clip the ways the editor does (nothing is downloaded). Takes up to a minute.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void run()}
+          disabled={busy}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-raised/50 px-3 py-1.5 text-xs font-semibold text-ink hover:bg-raised disabled:opacity-50"
+        >
+          {busy ? <Spinner size="xs" /> : <Icon name="play" className="size-3.5" />}
+          {busy ? "Checking…" : "Test online clip download"}
+        </button>
+      </div>
+      {error && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {res && (
+        <div className="mt-3 space-y-2 text-xs">
+          <p className={`font-semibold ${res.works ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>{res.verdict}</p>
+          <p className="text-muted">
+            yt-dlp {res.ytdlp ?? "not found"} · cookies {res.cookies.active ? `on${res.cookies.updatedAt ? ` (updated ${new Date(res.cookies.updatedAt).toLocaleString()})` : ""}` : "off"} · proxy {res.proxy ? "on" : "off"}
+          </p>
+          <ul className="space-y-1.5">
+            {res.results.map((r) => (
+              <li key={r.way} className="rounded-lg border border-line bg-raised/30 p-2">
+                <span className={`font-semibold ${r.ok ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>
+                  {r.ok ? "✓" : "✗"} {r.way}
+                  {r.timedOut ? " (timed out)" : ""}
+                </span>
+                {r.said && <pre className="mt-1 whitespace-pre-wrap break-words font-mono text-[0.6875rem] text-muted">{r.said}</pre>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }

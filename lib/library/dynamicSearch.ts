@@ -8,13 +8,16 @@ import { FFMPEG, runFfmpeg } from "@/lib/ffmpeg/run";
 import {
   NO_YTDLP,
   YTDLP_JS,
-  YTDLP_CLIENT_ARGS,
   ytDlpBin,
+  ytDlpClientArgs,
   ytDlpCookiesArgs,
   ytDlpEnv,
   ytDlpFailure,
+  ytDlpFailureOf,
   ytDlpFfmpegArgs,
   ytDlpProxyArgs,
+  ytDlpTail,
+  type YtAttempt,
 } from "@/lib/import/ytdlp";
 import type { MemeClipItem } from "./memeCatalog";
 import { dataRoot } from "@/lib/dataRoot";
@@ -64,7 +67,7 @@ export async function searchOnlineMemesWhy(query: string, limit = 4): Promise<{ 
       ytDlpBin(),
       [
         ...YTDLP_JS,
-        ...YTDLP_CLIENT_ARGS,
+        ...ytDlpClientArgs(ytDlpCookiesArgs()),
         ...ytDlpCookiesArgs(),
         ...ytDlpProxyArgs(),
         "--flat-playlist",
@@ -144,78 +147,32 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
   }
 
   const tempRaw = join(tmpdir(), `raw_dyn_${cleanId}.mp4`);
+  const videoUrl = `https://www.youtube.com/watch?v=${cleanId}`;
+  const formattedDuration = String(Math.floor(maxDuration)).padStart(2, "0");
+  const cookies = ytDlpCookiesArgs();
+  const common = [...YTDLP_JS, ...ytDlpProxyArgs(), "-f", "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best", ...ytDlpFfmpegArgs(FFMPEG), "--force-overwrites", "-o", tempRaw];
+  // the tries, in order: the first part only (fast), the whole clip, then the embedded player (some clips
+  // only play there); every try's answer is kept, so the reason shown is the real one
+  const tries: { label: string; args: string[]; timeout: number }[] = [
+    { label: "section", args: [...ytDlpClientArgs(cookies), ...cookies, "--download-sections", `*00:00:00-00:00:${formattedDuration}`, ...common], timeout: 45000 },
+    { label: "full", args: [...ytDlpClientArgs(cookies), ...cookies, ...common], timeout: 60000 },
+    { label: "embedded", args: ["--extractor-args", "youtube:player_client=web_embedded,mweb", "--geo-bypass", ...cookies, ...common], timeout: 60000 },
+  ];
+  const attempts: YtAttempt[] = [];
   try {
-    const videoUrl = `https://www.youtube.com/watch?v=${cleanId}`;
-    const formattedDuration = String(Math.floor(maxDuration)).padStart(2, "0");
-    const baseArgs = [
-      ...YTDLP_JS,
-      ...YTDLP_CLIENT_ARGS,
-      ...ytDlpCookiesArgs(),
-      ...ytDlpProxyArgs(),
-      "-f",
-      "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best",
-      ...ytDlpFfmpegArgs(FFMPEG),
-      "--force-overwrites",
-      "-o",
-      tempRaw,
-      "--",
-      videoUrl,
-    ];
-
-    try {
-      // 1. Try segmented download first for fast fetch
-      await execFilePromise(
-        ytDlpBin(),
-        [
-          ...YTDLP_JS,
-          ...YTDLP_CLIENT_ARGS,
-          ...ytDlpCookiesArgs(),
-          ...ytDlpProxyArgs(),
-          "--download-sections",
-          `*00:00:00-00:00:${formattedDuration}`,
-          "-f",
-          "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best",
-          ...ytDlpFfmpegArgs(FFMPEG),
-          "--force-overwrites",
-          "-o",
-          tempRaw,
-          "--",
-          videoUrl,
-        ],
-        { timeout: 45000, env: ytDlpEnv() },
-      );
-    } catch {
+    let got = false;
+    for (const t of tries) {
       try {
-        // 2. Fallback: full download without sections (ffmpeg normalizes up to maxDuration below)
-        await execFilePromise(
-          ytDlpBin(),
-          baseArgs,
-          { timeout: 60000, env: ytDlpEnv() },
-        );
-      } catch {
-        // 3. Fallback for age-gated/restricted clips: specifically use web_embedded client
-        await execFilePromise(
-          ytDlpBin(),
-          [
-            ...YTDLP_JS,
-            "--extractor-args",
-            "youtube:player_client=web_embedded,mweb",
-            "--geo-bypass",
-            ...ytDlpCookiesArgs(),
-            ...ytDlpProxyArgs(),
-            "-f",
-            "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best",
-            ...ytDlpFfmpegArgs(FFMPEG),
-            "--force-overwrites",
-            "-o",
-            tempRaw,
-            "--",
-            videoUrl,
-          ],
-          { timeout: 60000, env: ytDlpEnv() },
-        );
+        await execFilePromise(ytDlpBin(), [...t.args, "--", videoUrl], { timeout: t.timeout, env: ytDlpEnv() });
+        got = true;
+        break;
+      } catch (err) {
+        const e = err as { code?: string | number; stderr?: string; killed?: boolean };
+        attempts.push({ label: t.label, stderr: String(e.stderr ?? (err as Error)?.message ?? ""), code: e.code ?? null, killed: e.killed });
+        if (e.code === "ENOENT") break;
       }
     }
+    if (!got) throw new Error("download failed");
 
     // Normalize with ffmpeg up to maxDuration
     await runFfmpeg(["-i", tempRaw, "-t", String(maxDuration), "-vf", "scale='min(640,iw)':-2", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-movflags", "+faststart", "-y", outMp4], { timeoutMs: 60000 });
@@ -225,18 +182,12 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
 
     return outMp4;
   } catch (err) {
-    console.error("Failed to download dynamic video:", cleanId, err);
-    const e = err as { code?: string | number; stderr?: string; killed?: boolean };
-    const stderr = String(e.stderr ?? "").trim();
+    // (what each try said, for the server's log: the reason shown to people is picked from all of them)
+    for (const a of attempts) console.error(`Online clip ${cleanId}: yt-dlp ${a.label}${cookies.length ? " (cookies)" : ""} failed:\n${ytDlpTail(a.stderr)}`);
+    if (!attempts.length) console.error("Failed to make online clip:", cleanId, err);
     lastFailure.set(
       cleanId,
-      e.code === "ENOENT"
-        ? NO_YTDLP
-        : e.killed
-          ? "Online clip took too long to download. Try again."
-          : stderr
-            ? ytDlpFailure(stderr)
-            : `The clip couldn't be made: ${String((err as Error)?.message ?? err).replace(/\/[^\s:'"]+/g, "…").slice(0, 160)}`,
+      attempts.length ? ytDlpFailureOf(attempts) : `The clip couldn't be made: ${String((err as Error)?.message ?? err).replace(/\/[^\s:'"]+/g, "…").slice(0, 160)}`,
     );
     return null;
   }

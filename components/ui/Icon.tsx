@@ -62,6 +62,8 @@ export const PATHS = {
   pencil: "M4 20h4L19 9l-4-4L4 16z",
   plus: "M12 5v14M5 12h14",
   chevronDown: "m6 9 6 6 6-6",
+  chevronUp: "m18 15-6-6-6 6",
+  chevronLeft: "m15 18-6-6 6-6",
   chevronRight: "m9 6 6 6-6 6",
   search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.35-4.35",
   sun: "M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4",

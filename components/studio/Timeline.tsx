@@ -332,6 +332,8 @@ export type TimelineProps = {
   /** Motion Tracking tool trigger and active state */
   onMotionTracking?: (clipId: string) => void;
   isMotionTrackingOpen?: boolean;
+  /** When true, renders compact mobile track headers and touch-optimized controls */
+  mobile?: boolean;
 };
 
 export interface TimelineApi {
@@ -465,6 +467,7 @@ function PlayheadNeedle({
  */
 export function Timeline(p: TimelineProps) {
   const { doc, media } = p;
+  const isMobile = !!p.mobile;
   const t = useThrottledClock(p.clock, 150);
   const [dragTotal, setDragTotal] = useState<number | null>(null);
   const dragTotalRef = useRef<number | null>(null);
@@ -474,6 +477,39 @@ export function Timeline(p: TimelineProps) {
     : Math.max(1, docDuration(doc), dragTotal ?? dragTotalRef.current ?? 0);
   const fps = doc.canvas.fps;
   const names = useMemo(() => trackNames(doc), [doc]);
+
+  // Touch Pinch-to-zoom on mobile timeline
+  const initialPinchDist = useRef<number | null>(null);
+  const initialPinchScale = useRef<number | null>(null);
+
+  const onPinchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      initialPinchDist.current = Math.hypot(dx, dy);
+      initialPinchScale.current = scale;
+    }
+  };
+
+  const onPinchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && initialPinchDist.current && initialPinchScale.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = dist / initialPinchDist.current;
+      const newScale = Math.max(minZoom, Math.min(maxZoom, initialPinchScale.current * ratio));
+      setScale(newScale);
+      setUserZoomed(true);
+    }
+  };
+
+  const onPinchEnd = (e: React.TouchEvent) => {
+    if (e.touches.length < 2) {
+      initialPinchDist.current = null;
+      initialPinchScale.current = null;
+    }
+  };
+
   // pixels per second: auto-fitted to window, or manual if user zoomed
   const [userZoomed, setUserZoomed] = useState(false);
   const [scale, setScale] = useState<number>(DEFAULT_FIT_PX_PER_SEC);
@@ -1839,12 +1875,63 @@ export function Timeline(p: TimelineProps) {
       aria-label="Timeline"
       className="panel flex h-full min-h-0 flex-col overflow-hidden"
     >
-      <div className="flex items-center border-b border-line px-1.5 py-1">
-        <div
-          role="toolbar"
-          aria-label="Editing tools"
-          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-0.5"
-        >
+      {isMobile ? (
+        <div className="flex h-8 shrink-0 items-center justify-between border-b border-line bg-surface px-2.5">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold tabular-nums text-muted">
+            <span className="text-ink">{formatTenths(t)}</span>
+            <span>/</span>
+            <span>{formatTenths(docDuration(doc))}</span>
+          </div>
+
+          <div className="flex items-center gap-1 text-xs">
+            <button
+              type="button"
+              className="flex size-6 items-center justify-center rounded text-muted hover:text-ink hover:bg-raised"
+              onClick={() => zoomStep(-1)}
+              disabled={empty || pxPerSec <= minZoom + 0.1}
+              aria-label="Zoom out"
+            >
+              −
+            </button>
+            <input
+              type="range"
+              className="w-16 accent-[var(--color-primary)] h-1"
+              min={0}
+              max={100}
+              step={1}
+              value={scaleToSlider(pxPerSec, minZoom, maxZoom)}
+              onChange={(e) =>
+                zoomTo(sliderToScale(Number(e.target.value), minZoom, maxZoom))
+              }
+              disabled={empty}
+              aria-label="Timeline zoom"
+            />
+            <button
+              type="button"
+              className="flex size-6 items-center justify-center rounded text-muted hover:text-ink hover:bg-raised"
+              onClick={() => zoomStep(1)}
+              disabled={empty || pxPerSec >= maxZoom - 0.1}
+              aria-label="Zoom in"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-link hover:bg-raised"
+              onClick={fit}
+              disabled={empty}
+            >
+              Fit
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center border-b border-line px-1.5 py-1">
+          <div
+            role="toolbar"
+            aria-label="Editing tools"
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-0.5"
+          >
           {tool(
             "Split",
             "split",
@@ -2200,57 +2287,62 @@ export function Timeline(p: TimelineProps) {
             Fit
           </button>
         </span>
-      </div>
+        </div>
+      )}
 
       <div className="relative flex min-h-0 flex-1">
         {/* track headers: their own column, so the sideways scrollbar runs under the lanes only */}
         <div
           className="relative z-40 flex shrink-0 flex-col border-r border-line bg-surface rounded-bl-xl"
-          style={{ width: headW }}
+          style={{ width: isMobile ? 36 : headW }}
         >
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Track names width"
-            aria-valuemin={HEAD_MIN}
-            aria-valuemax={HEAD_MAX}
-            aria-valuenow={headW}
-            tabIndex={0}
-            data-testid="track-head-resizer"
-            className="absolute inset-y-0 -right-1 z-40 w-2 cursor-col-resize hover:bg-primary/40 focus-visible:bg-primary/60"
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const x0 = e.clientX;
-              const w0 = headW;
-              const move = (ev: PointerEvent) => setHead(w0 + ev.clientX - x0);
-              const up = () => {
-                window.removeEventListener("pointermove", move);
-                window.removeEventListener("pointerup", up);
-              };
-              window.addEventListener("pointermove", move);
-              window.addEventListener("pointerup", up);
-            }}
-            onKeyDown={(e) => {
-              if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-              e.preventDefault();
-              e.stopPropagation();
-              setHead(headW + (e.key === "ArrowRight" ? 16 : -16));
-            }}
-          />
-          <div className="flex h-6 shrink-0 items-center gap-0.5 border-b border-line bg-surface px-1">
+          {!isMobile && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Track names width"
+              aria-valuemin={HEAD_MIN}
+              aria-valuemax={HEAD_MAX}
+              aria-valuenow={headW}
+              tabIndex={0}
+              data-testid="track-head-resizer"
+              className="absolute inset-y-0 -right-1 z-40 w-2 cursor-col-resize hover:bg-primary/40 focus-visible:bg-primary/60"
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const x0 = e.clientX;
+                const w0 = headW;
+                const move = (ev: PointerEvent) => setHead(w0 + ev.clientX - x0);
+                const up = () => {
+                  window.removeEventListener("pointermove", move);
+                  window.removeEventListener("pointerup", up);
+                };
+                window.addEventListener("pointermove", move);
+                window.addEventListener("pointerup", up);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+                e.preventDefault();
+                e.stopPropagation();
+                setHead(headW + (e.key === "ArrowRight" ? 16 : -16));
+              }}
+            />
+          )}
+          <div className="flex h-6 shrink-0 items-center justify-center gap-0.5 border-b border-line bg-surface px-1">
             <TrackAdd
               icon="layers"
               label="Add an overlay track"
               hint="Add an overlay track (pictures, text, elements)"
               onClick={() => p.onAddTrack("overlay")}
             />
-            <TrackAdd
-              icon="audio"
-              label="Add an audio track"
-              hint="Add an audio track (music, voiceover)"
-              onClick={() => p.onAddTrack("audio")}
-            />
+            {!isMobile && (
+              <TrackAdd
+                icon="audio"
+                label="Add an audio track"
+                hint="Add an audio track (music, voiceover)"
+                onClick={() => p.onAddTrack("audio")}
+              />
+            )}
           </div>
           {/* scrolled by the lanes (a wheel here scrolls them too) */}
           <div
@@ -2289,7 +2381,7 @@ export function Timeline(p: TimelineProps) {
                       track: tr,
                     });
                   }}
-                  className={`relative flex items-center gap-1 border-b border-line px-1.5 text-[0.6875rem] transition-colors ${
+                  className={`relative flex items-center ${isMobile ? "justify-center px-0.5" : "gap-1 px-1.5"} border-b border-line text-[0.6875rem] transition-colors ${
                     tr.kind === "main"
                       ? "h-16"
                       : tr.kind === "overlay"
@@ -2297,95 +2389,106 @@ export function Timeline(p: TimelineProps) {
                         : "h-9"
                   } ${isDraggingThis ? "opacity-40 bg-raised/50" : ""}`}
                 >
-                  {/* Drop indicator lines */}
-                  {isTargetBefore && (
+                  {isMobile ? (
                     <div
-                      aria-hidden="true"
-                      className="absolute -top-0.5 inset-x-0 h-1 bg-primary z-50 rounded-full shadow-xs pointer-events-none"
-                    />
-                  )}
-                  {isTargetAfter && (
-                    <div
-                      aria-hidden="true"
-                      className="absolute -bottom-0.5 inset-x-0 h-1 bg-primary z-50 rounded-full shadow-xs pointer-events-none"
-                    />
-                  )}
-
-                  {/* Drag Grip Handle (Overlay and Audio tracks only) */}
-                  {tr.kind !== "main" ? (
-                    <button
-                      type="button"
-                      data-track-drag-handle={tr.id}
-                      aria-label={`Drag to reorder ${names[tr.id]}`}
-                      title={`Drag to reorder ${names[tr.id]}`}
-                      className="flex size-4 shrink-0 items-center justify-center rounded cursor-grab active:cursor-grabbing text-muted/60 hover:text-ink hover:bg-raised transition-colors focus:outline-none"
-                      onPointerDown={(e) => onStartTrackDrag(e, tr.id)}
+                      className="size-7 rounded-md bg-raised/80 border border-line flex items-center justify-center text-muted shrink-0"
+                      title={names[tr.id]}
                     >
-                      <Icon name="grip" className="size-3" />
-                    </button>
+                      <Icon name={trackIcon(tr)} className="size-3.5 text-ink/80" />
+                    </div>
                   ) : (
-                    <div className="w-1 shrink-0" />
-                  )}
+                    <>
+                      {/* Drop indicator lines */}
+                      {isTargetBefore && (
+                        <div
+                          aria-hidden="true"
+                          className="absolute -top-0.5 inset-x-0 h-1 bg-primary z-50 rounded-full shadow-xs pointer-events-none"
+                        />
+                      )}
+                      {isTargetAfter && (
+                        <div
+                          aria-hidden="true"
+                          className="absolute -bottom-0.5 inset-x-0 h-1 bg-primary z-50 rounded-full shadow-xs pointer-events-none"
+                        />
+                      )}
 
-                  <Icon
-                    name={trackIcon(tr)}
-                    className="size-3.5 shrink-0 text-muted"
-                  />
-                  <TrackName
-                    name={names[tr.id]}
-                    onRename={(n) => p.onSetTrack(tr.id, { name: n })}
-                  />
-                  {(tr.kind === "overlay" || tr.kind === "main") && (
-                    <HeadBtn
-                      on={"hidden" in tr && !!tr.hidden}
-                      icon={"hidden" in tr && tr.hidden ? "eyeOff" : "eye"}
-                      label={
-                        "hidden" in tr && tr.hidden
-                          ? `Show ${names[tr.id]}`
-                          : `Hide ${names[tr.id]}`
-                      }
-                      onClick={() =>
-                        p.onSetTrack(tr.id, {
-                          hidden: !("hidden" in tr && tr.hidden),
-                        })
-                      }
-                    />
-                  )}
-                  {(tr.kind === "main" ||
-                    tr.kind === "audio" ||
-                    (tr.kind === "overlay" &&
-                      tr.clips.some((c) => c.type === "video"))) && (
-                    <HeadBtn
-                      on={"muted" in tr && !!tr.muted}
-                      icon={"muted" in tr && tr.muted ? "mute" : "volume"}
-                      label={
-                        "muted" in tr && tr.muted
-                          ? `Unmute ${names[tr.id]}`
-                          : `Mute ${names[tr.id]}`
-                      }
-                      onClick={() =>
-                        p.onSetTrack(tr.id, {
-                          muted: !("muted" in tr && tr.muted),
-                        })
-                      }
-                    />
-                  )}
-                  <HeadBtn
-                    on={tr.locked}
-                    icon="lock"
-                    label={
-                      tr.locked
-                        ? `Unlock ${names[tr.id]}`
-                        : `Lock ${names[tr.id]}`
-                    }
-                    onClick={() => p.onSetTrack(tr.id, { locked: !tr.locked })}
-                  />
-                  {tr.kind !== "main" && tr.clips.length === 0 && (
-                    <HeadBtn
-                      icon="close"
-                      label={`Remove ${names[tr.id]}`}
-                      onClick={() => p.onRemoveTrack(tr.id)}
-                    />
+                      {/* Drag Grip Handle (Overlay and Audio tracks only) */}
+                      {tr.kind !== "main" ? (
+                        <button
+                          type="button"
+                          data-track-drag-handle={tr.id}
+                          aria-label={`Drag to reorder ${names[tr.id]}`}
+                          title={`Drag to reorder ${names[tr.id]}`}
+                          className="flex size-4 shrink-0 items-center justify-center rounded cursor-grab active:cursor-grabbing text-muted/60 hover:text-ink hover:bg-raised transition-colors focus:outline-none"
+                          onPointerDown={(e) => onStartTrackDrag(e, tr.id)}
+                        >
+                          <Icon name="grip" className="size-3" />
+                        </button>
+                      ) : (
+                        <div className="w-1 shrink-0" />
+                      )}
+
+                      <Icon
+                        name={trackIcon(tr)}
+                        className="size-3.5 shrink-0 text-muted"
+                      />
+                      <TrackName
+                        name={names[tr.id]}
+                        onRename={(n) => p.onSetTrack(tr.id, { name: n })}
+                      />
+                      {(tr.kind === "overlay" || tr.kind === "main") && (
+                        <HeadBtn
+                          on={"hidden" in tr && !!tr.hidden}
+                          icon={"hidden" in tr && tr.hidden ? "eyeOff" : "eye"}
+                          label={
+                            "hidden" in tr && tr.hidden
+                              ? `Show ${names[tr.id]}`
+                              : `Hide ${names[tr.id]}`
+                          }
+                          onClick={() =>
+                            p.onSetTrack(tr.id, {
+                              hidden: !("hidden" in tr && tr.hidden),
+                            })
+                          }
+                        />
+                      )}
+                      {(tr.kind === "main" ||
+                        tr.kind === "audio" ||
+                        (tr.kind === "overlay" &&
+                          tr.clips.some((c) => c.type === "video"))) && (
+                        <HeadBtn
+                          on={"muted" in tr && !!tr.muted}
+                          icon={"muted" in tr && tr.muted ? "mute" : "volume"}
+                          label={
+                            "muted" in tr && tr.muted
+                              ? `Unmute ${names[tr.id]}`
+                              : `Mute ${names[tr.id]}`
+                          }
+                          onClick={() =>
+                            p.onSetTrack(tr.id, {
+                              muted: !("muted" in tr && tr.muted),
+                            })
+                          }
+                        />
+                      )}
+                      <HeadBtn
+                        on={tr.locked}
+                        icon="lock"
+                        label={
+                          tr.locked
+                            ? `Unlock ${names[tr.id]}`
+                            : `Lock ${names[tr.id]}`
+                        }
+                        onClick={() => p.onSetTrack(tr.id, { locked: !tr.locked })}
+                      />
+                      {tr.kind !== "main" && tr.clips.length === 0 && (
+                        <HeadBtn
+                          icon="close"
+                          label={`Remove ${names[tr.id]}`}
+                          onClick={() => p.onRemoveTrack(tr.id)}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -2398,6 +2501,9 @@ export function Timeline(p: TimelineProps) {
         <div
           ref={scroller}
           data-testid="timeline-scroller"
+          onTouchStart={isMobile ? onPinchStart : undefined}
+          onTouchMove={isMobile ? onPinchMove : undefined}
+          onTouchEnd={isMobile ? onPinchEnd : undefined}
           className={`relative flex min-h-0 min-w-0 flex-1 ${empty ? "overflow-hidden" : "overflow-auto"}`}
         >
           {/* lanes */}

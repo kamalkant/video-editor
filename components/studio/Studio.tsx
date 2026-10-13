@@ -23,6 +23,7 @@ import {
 } from "@/components/editor/PreviewPane";
 import { ProgramPlayer } from "@/components/editor/ProgramPlayer";
 import { VideoInfoCard } from "@/components/upload/VideoInfoCard";
+import { MobileStudioLayout } from "./mobile/MobileStudioLayout";
 import { Icon } from "@/components/ui/Icon";
 import { SliderDensity } from "@/components/ui/LabeledSlider";
 import { Notice } from "@/components/ui/Notice";
@@ -702,6 +703,7 @@ function StudioInner(props: Props) {
   const xwide = useMedia("(min-width: 1536px)");
   // short screens: the Export & Share box moves into the inspector column and templates start folded
   const tall = useMedia("(min-height: 820px)");
+  const isMobile = useMedia("(max-width: 767px)");
 
   const [hist, dispatchHistory] = useReducer(reducer, null, () =>
     initHistory(initialDocState(props)),
@@ -8277,7 +8279,7 @@ function StudioInner(props: Props) {
   const previewArea = (
     <section
       aria-label="Preview"
-      className={`panel relative flex min-w-0 flex-col overflow-hidden ${wide ? "min-h-0 flex-1" : ""} ${dragging ? "ring-2 ring-primary" : ""}`}
+      className={`panel relative flex min-w-0 flex-col overflow-hidden ${wide || isMobile ? "min-h-0 flex-1" : ""} ${dragging ? "ring-2 ring-primary" : ""}`}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
@@ -9497,6 +9499,7 @@ function StudioInner(props: Props) {
       media={ds.media}
       clock={clock}
       selectedId={selectedId}
+      mobile={isMobile}
       onSelect={selectClip}
       onSeek={seekTimeline}
       onSplit={(clipId, t) => dispatchDoc({ type: "split", clipId, t })}
@@ -9638,6 +9641,109 @@ function StudioInner(props: Props) {
         </div>
         {dialogs}
       </div>
+    );
+  }
+
+  if (isMobile) {
+    return (
+      <MobileStudioLayout
+        doc={doc}
+        clock={clock}
+        selectedId={selectedId}
+        onSelectClip={selectClip}
+        media={ds.media}
+        project={sync.project}
+        saveState={sync.saveState}
+        canUndo={hist.past.length > 0}
+        canRedo={hist.future.length > 0}
+        onUndo={() => dispatchHistory({ type: "undo" })}
+        onRedo={() => dispatchHistory({ type: "redo" })}
+        onHome={startOver}
+        onExport={() => setExportOpen(true)}
+        previewArea={previewArea}
+        timeline={timeline}
+        dialogs={dialogs}
+        onSplit={(clipId, t) => dispatchDoc({ type: "split", clipId, t })}
+        onTrim={(clipId, edge, to) => dispatchDoc({ type: "trim", clipId, edge, to })}
+        onDelete={(clipId) => {
+          const nextDoc = deleteClip(doc, clipId);
+          const nextDur = docDuration(nextDoc);
+          dispatchDoc({ type: "deleteClip", clipId });
+          if (clipId === selectedId) setSelectedId(null);
+          if (clock.get() > nextDur) clock.set(Math.max(0, nextDur));
+        }}
+        onDuplicate={(clipId) => dispatchDoc({ type: "duplicate", clipId })}
+        onCrop={startCrop}
+        onSpeed={(clipId) => {
+          setSelectedId(clipId);
+          setInspTab("speed");
+        }}
+        onReverse={(clipId) => {
+          const c = findClip(doc, clipId);
+          if (c && c.clip.type === "video") {
+            const cur = (c.clip as VideoClip).reversed ?? false;
+            dispatchDoc({ type: "setClip", clipId, patch: { reversed: !cur } });
+          }
+        }}
+        onFreeze={(clipId, t) => void freezeAt(clipId, t)}
+        onDetachAudio={(clipId) =>
+          dispatchDoc({ type: "toggleAudioDetach", clipId, media: ds.media })
+        }
+        onAddText={(presetId) => addTextAt(presetId)}
+        onOpenLibraryAudio={() => {
+          setRailActive("library");
+          setSideTab("audio");
+        }}
+        onApplyTransition={applyTransition}
+        onRemoveTransition={removeTransition}
+        onApplyEffect={(effectName) => {
+          if (selectedId) {
+            dispatchDoc({
+              type: "setClip",
+              clipId: selectedId,
+              patch: { anim: { in: effectName as any, out: effectName as any } },
+            });
+          } else {
+            setNotice("Select a clip on the timeline first to apply effect.");
+          }
+        }}
+        onRemoveBackground={(clipId) => {
+          setSelectedId(clipId);
+          setInspTab("removal");
+        }}
+        onAutoSubtitles={() => {
+          showPanel("subtitles");
+        }}
+        onGenerateScript={() => {
+          setAiOpen(true);
+        }}
+        onSetAspectRatio={(ratio) => {
+          const ratios = {
+            "16:9": { width: 1920, height: 1080 },
+            "9:16": { width: 1080, height: 1920, fit: "fill" },
+            "1:1": { width: 1080, height: 1080 },
+            "4:5": { width: 1080, height: 1350 },
+            "21:9": { width: 2560, height: 1080 },
+          };
+          const patch = ratios[ratio];
+          if (patch) {
+            dispatchDoc({ type: "setCanvas", patch }, "canvas");
+          }
+        }}
+        onOpenPanel={(panel) => {
+          if (panel === "templates") {
+            setWorkspaceView("templates");
+          } else {
+            showPanel(panel as SidePanel);
+          }
+        }}
+        onPatchClip={(clipId, patch) => {
+          dispatchDoc(
+            { type: "setClip", clipId, patch },
+            `clip:${++editSeq.current}`,
+          );
+        }}
+      />
     );
   }
 

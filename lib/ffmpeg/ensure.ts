@@ -19,6 +19,8 @@ const TOOLS = [
   { name: "ffmpeg", key: "FFMPEG_PATH", path: ["vendor", "ffmpeg", "ffmpeg"], flag: "-version" },
   { name: "ffprobe", key: "FFPROBE_PATH", path: ["vendor", "ffmpeg", "ffprobe"], flag: "-version" },
   { name: "yt-dlp", key: "YTDLP_PATH", path: ["vendor", "yt-dlp", "yt-dlp"], flag: "--version" },
+  // (solves YouTube's JavaScript challenges for yt-dlp: lib/import/ytdlp ytDlpJsArgs)
+  { name: "deno", key: "DENO_PATH", path: ["vendor", "deno", "deno"], flag: "--version" },
 ] as const;
 
 const works = (bin: string, flag: string) => {
@@ -33,7 +35,7 @@ const works = (bin: string, flag: string) => {
  * - fetches them into vendor/ if they aren't there (scripts/fetch-ffmpeg.mjs)
  * - hosts that copy the built site elsewhere can drop the files' "executable" bit: put it back
  * - a folder that may not run programs: use a copy in the temp folder instead
- * The working path goes to FFMPEG_PATH / FFPROBE_PATH / YTDLP_PATH (lib/ffmpeg/run, lib/import/ytdlp read them).
+ * The working path goes to FFMPEG_PATH / FFPROBE_PATH / YTDLP_PATH / DENO_PATH (lib/ffmpeg/run, lib/import/ytdlp read them).
  */
 export function ensureFfmpeg(root: string = /*turbopackIgnore: true*/ process.cwd()): void {
   const script = join(root, "scripts", "fetch-ffmpeg.mjs");

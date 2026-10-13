@@ -23,8 +23,26 @@ export const ytDlpBin = () => {
  * The Linux yt-dlp is one file that unpacks itself into the temp folder each time it starts; shared
  * hosting often doesn't let programs run from /tmp, so it unpacks into the site's own data folder.
  */
-/** YouTube pages need a JavaScript runtime; servers have Node (this process), not deno: yt-dlp may use it. */
-export const YTDLP_JS = ["--js-runtimes", `node:${process.execPath}`];
+/**
+ * Deno for YouTube's JavaScript challenges: DENO_PATH, else the copy scripts/fetch-ffmpeg.mjs put in
+ * vendor/deno (Linux hosts), else none (yt-dlp then finds a deno on the PATH itself, as on a Mac).
+ */
+export const denoBin = (): string | null => {
+  if (process.env.DENO_PATH) return process.env.DENO_PATH;
+  const vendored = join(/*turbopackIgnore: true*/ process.cwd(), "vendor", "deno", "deno");
+  return existsSync(vendored) ? vendored : null;
+};
+/**
+ * How yt-dlp solves YouTube's JavaScript challenges (without them it finds no formats):
+ *  - deno first, yt-dlp's recommended runtime (on viplay.in the "node" provider failed with KeyError('type'))
+ *  - Node (this process) as the fallback
+ *  - its own cache folder in the site's data: an older cache from another yt-dlp (its challenge scripts)
+ *    can break solving
+ */
+export function ytDlpJsArgs(): string[] {
+  const deno = denoBin();
+  return [...(deno ? ["--js-runtimes", `deno:${deno}`] : []), "--js-runtimes", `node:${process.execPath}`, "--cache-dir", join(dataRoot(), "tmp", "yt-dlp-cache")];
+}
 /** Player client preferences: android, web_embedded, ios, mweb bypass SABR experiments and embed age-gates */
 export const YTDLP_CLIENT_ARGS = [
   "--extractor-args",
@@ -141,7 +159,8 @@ export function ytDlpEnv(): NodeJS.ProcessEnv {
   } catch {
     return process.env;
   }
-  return { ...process.env, TMPDIR: tmp };
+  // (deno, which yt-dlp starts for YouTube's challenges, keeps its own files there too, and never checks for updates)
+  return { ...process.env, TMPDIR: tmp, DENO_DIR: join(tmp, "deno"), DENO_NO_UPDATE_CHECK: "1" };
 }
 
 /**

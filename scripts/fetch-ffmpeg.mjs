@@ -5,17 +5,19 @@
 //   - not Linux: nothing to do
 //   - a tool already on the PATH, or its *_PATH variable set: that one is skipped
 //   - else downloads the release file, checks its SHA-256, and puts it in vendor/
-//     (FFmpeg 7.0.2 static: x264, x265, VP9, AV1, Opus, from the ffmpeg-static project; yt-dlp 2026.08.19)
+//     (FFmpeg 7.0.2 static: x264, x265, VP9, AV1, Opus, from the ffmpeg-static project; yt-dlp 2026.08.19;
+//     Deno 2.9.7, which yt-dlp uses to solve YouTube's JavaScript challenges)
 //
 // It never fails the install: on a problem it says so and the site still builds (those features then report it).
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, inflateRawSync } from "node:zlib";
 
 const FF = "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1";
 const YT = "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19";
+const DENO = "https://github.com/denoland/deno/releases/download/v2.9.7";
 // per tool: the file for each CPU, and its SHA-256 (of the file as downloaded)
 const TOOLS = [
   {
@@ -33,9 +35,47 @@ const TOOLS = [
     x64: [`${YT}/yt-dlp_linux`, "58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a"],
     arm64: [`${YT}/yt-dlp_linux_aarch64`, "b16e4dab368a816cd05d477d698a605a6ae87ccee1c8ffd38fa21d7254141fcc"],
   },
+  {
+    // (a .zip with the one program inside)
+    name: "deno", env: "DENO_PATH", out: "vendor/deno/deno", gz: false, zip: "deno",
+    x64: [`${DENO}/deno-x86_64-unknown-linux-gnu.zip`, "c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490"],
+    arm64: [`${DENO}/deno-aarch64-unknown-linux-gnu.zip`, "c832298b1ad4422481334855f6003e0f54145762c5a134f20a489511d2f65bbf"],
+  },
 ];
+
+/** One file out of a .zip (stored or deflated), found through the zip's own directory at its end. */
+export function unzipOne(zip, name) {
+  let eocd = -1;
+  for (let i = zip.length - 22; i >= Math.max(0, zip.length - 65557); i--)
+    if (zip.readUInt32LE(i) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  if (eocd < 0) throw new Error("not a zip file");
+  const count = zip.readUInt16LE(eocd + 10);
+  let p = zip.readUInt32LE(eocd + 16);
+  for (let k = 0; k < count; k++) {
+    if (zip.readUInt32LE(p) !== 0x02014b50) throw new Error("broken zip directory");
+    const method = zip.readUInt16LE(p + 10);
+    const csize = zip.readUInt32LE(p + 20);
+    const nameLen = zip.readUInt16LE(p + 28);
+    const extraLen = zip.readUInt16LE(p + 30);
+    const commentLen = zip.readUInt16LE(p + 32);
+    const local = zip.readUInt32LE(p + 42);
+    const entry = zip.subarray(p + 46, p + 46 + nameLen).toString("utf8");
+    if (entry === name) {
+      const start = local + 30 + zip.readUInt16LE(local + 26) + zip.readUInt16LE(local + 28);
+      const data = zip.subarray(start, start + csize);
+      if (method === 0) return Buffer.from(data);
+      if (method === 8) return inflateRawSync(data);
+      throw new Error(`zip method ${method} not supported`);
+    }
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  throw new Error(`${name} isn't in the zip`);
+}
 const say = (msg) => console.log(`[fetch-tools] ${msg}`);
-const onPath = (bin) => spawnSync(bin, [bin === "yt-dlp" ? "--version" : "-version"], { stdio: "ignore" }).status === 0;
+const onPath = (bin) => spawnSync(bin, [bin === "yt-dlp" || bin === "deno" ? "--version" : "-version"], { stdio: "ignore" }).status === 0;
 
 async function fetchTool(tool, [url, sha256]) {
   const out = join(process.cwd(), tool.out);
@@ -48,7 +88,7 @@ async function fetchTool(tool, [url, sha256]) {
   if (sum !== sha256) throw new Error(`${tool.name}: checksum mismatch (got ${sum})`);
   mkdirSync(dirname(out), { recursive: true });
   const tmp = `${out}.${process.pid}.tmp`;
-  writeFileSync(tmp, tool.gz ? gunzipSync(body) : body);
+  writeFileSync(tmp, tool.gz ? gunzipSync(body) : tool.zip ? unzipOne(body, tool.zip) : body);
   chmodSync(tmp, 0o755);
   renameSync(tmp, out);
   writeFileSync(stamp, sha256);
@@ -70,4 +110,5 @@ async function main() {
   }
 }
 
-await main();
+// (run as a script; importing it, e.g. in a test, only defines unzipOne)
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop())) await main();

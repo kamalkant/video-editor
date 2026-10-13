@@ -460,7 +460,7 @@ export function MediaPanel(p: {
           <span className="block font-medium text-ink">
             Stock &amp; Web Library
           </span>
-          <span className="text-muted">Videos, photos, memes &amp; audio</span>
+          <span className="text-muted">Videos, photos &amp; audio</span>
         </span>
         <Icon name="chevronRight" className="size-4 text-muted" />
       </button>

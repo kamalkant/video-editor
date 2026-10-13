@@ -112,8 +112,8 @@ export const DEFAULT_FEATURES: Array<{
 }> = [
   {
     tool_id: "library",
-    title: "Meme & Video Library",
-    description: "Curated Bollywood/Hollywood meme clips and on-demand dynamic search",
+    title: "Stock & Media Library",
+    description: "Curated stock videos, photos, and royalty-free audio tracks",
     enabled_global: 1,
     allowed_roles: ["super_admin", "admin", "user"],
   },

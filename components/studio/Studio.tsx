@@ -264,8 +264,8 @@ import {
   memeDrag,
   TEXT_DRAG,
   textDrag,
+  type LibraryClipDragItem,
 } from "@/lib/editor/mediaDrag";
-import type { MemeClipItem } from "@/lib/library/memeCatalog";
 import { sizeBasisOf } from "@/lib/export/size";
 import {
   hasKeys,
@@ -1348,12 +1348,12 @@ function StudioInner(props: Props) {
         }
       }
     }
-    // 3. Meme clip dropped directly onto canvas
+    // 3. Library clip dropped directly onto canvas
     const memeRaw = dt.getData(MEME_DRAG);
     const activeMeme = memeDrag();
     if (memeRaw || activeMeme) {
       try {
-        const item: MemeClipItem = memeRaw ? JSON.parse(memeRaw) : activeMeme;
+        const item: LibraryClipDragItem = memeRaw ? JSON.parse(memeRaw) : activeMeme;
         if (item?.id) {
           void addMemeToTimeline(item, { overlay: true, point: pt });
           return true;
@@ -1453,9 +1453,9 @@ function StudioInner(props: Props) {
     void assets.refresh();
   };
 
-  /** Insert or overlay a meme clip from Library into the timeline or canvas. */
+  /** Insert or overlay a library clip from Library into the timeline or canvas. */
   const addMemeToTimeline = async (
-    item: MemeClipItem,
+    item: LibraryClipDragItem,
     opts: {
       trackId?: string | null;
       at?: number;
@@ -1537,8 +1537,8 @@ function StudioInner(props: Props) {
     }
   };
 
-  /** Import a meme or library stock clip directly into My Assets without inserting onto timeline. */
-  const importMemeToAssets = async (item: MemeClipItem) => {
+  /** Import a library stock clip directly into My Assets without inserting onto timeline. */
+  const importMemeToAssets = async (item: LibraryClipDragItem) => {
     setWorking("Importing clip to My Assets…");
     try {
       const res = await fetch("/api/library/memes/import", {
@@ -1630,7 +1630,7 @@ function StudioInner(props: Props) {
   };
 
   /** Leave the open project: a fresh editor at "/editor" (preserving the active panel if specified). */
-  const toEmptyEditor = (keepPanel?: string | null) => {
+  const toEmptyEditor = (keepPanel?: SidePanel | null) => {
     resetEditor();
     if (keepPanel !== undefined) {
       setLeftPanel(keepPanel);
@@ -1976,7 +1976,7 @@ function StudioInner(props: Props) {
   };
 
   /** Create a new project from a dropped library/meme clip and add it to the timeline. */
-  const createProjectFromMeme = async (item: MemeClipItem) => {
+  const createProjectFromMeme = async (item: LibraryClipDragItem) => {
     if (
       running &&
       !window.confirm(
@@ -7947,7 +7947,6 @@ function StudioInner(props: Props) {
               void assets.refresh();
               if (add) addToTimeline(m);
             }}
-            onInsertMeme={(meme, opts) => addMemeToTimeline(meme, opts)}
             onInsertAudio={(meta) => addToTimeline(meta)}
             projectShape={
               doc.canvas.height > doc.canvas.width

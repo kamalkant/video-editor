@@ -2,9 +2,6 @@ import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { apiError } from "@/lib/http/errors";
-import { MEME_CATALOG } from "@/lib/library/memeCatalog";
-import { ensureMemeVideo } from "@/lib/library/memeGenerator";
-import { dynamicFailure, ensureDynamicVideo } from "@/lib/library/dynamicSearch";
 import { importFile } from "@/lib/videos";
 import { requireUser } from "@/lib/auth/requireUser";
 
@@ -12,7 +9,7 @@ export const runtime = "nodejs";
 
 /**
  * POST /api/library/memes/import
- * Imports a curated or dynamic meme video into My Assets so it can be inserted into the timeline or canvas.
+ * Imports a stock or curated library video into My Assets so it can be inserted into the timeline or canvas.
  */
 export async function POST(request: Request) {
   const user = await requireUser();
@@ -21,22 +18,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const id = body?.id;
     if (!id || typeof id !== "string") {
-      return apiError(400, "bad_request", "Missing meme id.");
+      return apiError(400, "bad_request", "Missing asset id.");
     }
 
     let videoPath: string | null = null;
-    let title = "Meme Clip";
+    let title = "Library Clip";
 
-    if (id.startsWith("dyn_")) {
-      const ytId = id.replace("dyn_", "");
-      title = (body?.title as string) || `Meme_${ytId}`;
-      const reqDuration =
-        typeof body?.duration === "number" ? body.duration : 30;
-      videoPath = await ensureDynamicVideo(
-        ytId,
-        Math.min(30, Math.max(1, reqDuration)),
-      );
-    } else if (id.startsWith("pexels-") || id.startsWith("pixabay-")) {
+    if (id.startsWith("pexels-") || id.startsWith("pixabay-")) {
       const source = id.startsWith("pixabay-") ? "pixabay" : "pexels";
       const rawId = id.replace(/^(pexels|pixabay)-/, "");
       const { startImport, getImport } = await import("@/lib/import/jobs");
@@ -68,19 +56,14 @@ export async function POST(request: Request) {
         }
       }
     } else {
-      const meme = MEME_CATALOG.find((m) => m.id === id);
-      if (!meme) {
-        return apiError(404, "not_found", "Meme clip not found.");
-      }
-      title = meme.title;
-      videoPath = await ensureMemeVideo(meme);
+      return apiError(404, "not_found", "Library clip not found.");
     }
 
     if (!videoPath) {
       return apiError(
         502,
         "server_error",
-        (id.startsWith("dyn_") && dynamicFailure(id.replace("dyn_", ""))) || "Failed to retrieve meme video file.",
+        "Failed to retrieve video file.",
       );
     }
 

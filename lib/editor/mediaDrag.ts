@@ -7,7 +7,6 @@ import type { MediaLite } from "../edit/doc";
 export const MEDIA_DRAG = "application/x-vdo-media";
 export const TEXT_DRAG = "application/x-vdo-text";
 export const ELEMENT_DRAG = "application/x-vdo-element";
-export const MEME_DRAG = "application/x-vdo-meme";
 
 /**
  * The My Assets file being dragged right now (null: none). The browser hides a
@@ -87,31 +86,47 @@ export function useElementDrag(): ElementDragItem | null {
   );
 }
 
-import type { MemeClipItem } from "../library/memeCatalog";
-export type MemeDragItem = MemeClipItem;
-let currentMeme: MemeDragItem | null = null;
-const memeListeners = new Set<() => void>();
+export const LIBRARY_CLIP_DRAG = "application/x-vdo-library-clip";
+export const MEME_DRAG = LIBRARY_CLIP_DRAG;
 
-export function setMemeDrag(m: MemeDragItem | null) {
-  if (currentMeme === m) return;
-  currentMeme = m;
-  for (const l of memeListeners) l();
+export type LibraryClipDragItem = {
+  id: string;
+  title: string;
+  duration: number;
+  thumbUrl?: string;
+  videoUrl?: string;
+  width?: number;
+  height?: number;
+};
+export type MemeDragItem = LibraryClipDragItem;
+export type MemeClipItem = LibraryClipDragItem;
+
+let currentLibraryClip: LibraryClipDragItem | null = null;
+const libraryClipListeners = new Set<() => void>();
+
+export function setLibraryClipDrag(c: LibraryClipDragItem | null) {
+  if (currentLibraryClip === c) return;
+  currentLibraryClip = c;
+  for (const l of libraryClipListeners) l();
 }
+export const setMemeDrag = setLibraryClipDrag;
 
-export const memeDrag = () => currentMeme;
+export const libraryClipDrag = () => currentLibraryClip;
+export const memeDrag = libraryClipDrag;
 
-export function useMemeDrag(): MemeDragItem | null {
+export function useLibraryClipDrag(): LibraryClipDragItem | null {
   return useSyncExternalStore(
     (l) => {
-      memeListeners.add(l);
-      return () => void memeListeners.delete(l);
+      libraryClipListeners.add(l);
+      return () => void libraryClipListeners.delete(l);
     },
-    memeDrag,
+    libraryClipDrag,
     () => null,
   );
 }
+export const useMemeDrag = useLibraryClipDrag;
 
-/** Visual chip attached to the pointer when dragging text styles, elements, or memes. */
+/** Visual chip attached to the pointer when dragging text styles, elements, or library clips. */
 export function createDragChip(
   label: string,
   subOrThumb?: string,

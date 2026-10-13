@@ -38,22 +38,3 @@ describe("project covers", () => {
   });
 });
 
-// 3. Library search showed nothing when YouTube search failed: the reason now comes back
-describe("online meme search says why it found nothing", () => {
-  it("no downloader on the server: onlineError, not an empty answer", async () => {
-    vi.resetModules();
-    vi.doMock("node:child_process", async (orig) => {
-      const real = await orig<typeof import("node:child_process")>();
-      const execFile = ((...a: unknown[]) => {
-        const cb = a[a.length - 1] as (e: Error & { code?: string }) => void;
-        cb(Object.assign(new Error("spawn yt-dlp ENOENT"), { code: "ENOENT" }));
-      }) as unknown as typeof real.execFile;
-      return { ...real, default: { ...real, execFile }, execFile };
-    });
-    const { GET } = await import("@/app/api/library/memes/search/route");
-    const body = await (await GET(new Request("http://x/api/library/memes/search?q=zebra%20crossing&online=1"))).json();
-    expect(body.onlineCount).toBe(0);
-    expect(body.onlineError).toMatch(/downloader/i);
-    vi.doUnmock("node:child_process");
-  });
-});

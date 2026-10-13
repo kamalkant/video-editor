@@ -19,9 +19,7 @@ const FFPROBE = process.env.FFPROBE_PATH ?? "ffprobe";
 // what to compress, and how (videos keep their resolution: the editor edits and exports them)
 const JOBS = [
   { dir: "public/templates/media", ext: ".mp4", kind: "video", crf: 23 }, // template backgrounds
-  { dir: "public/library/memes", ext: ".mp4", kind: "video", crf: 25 }, // short meme clips (with sound)
   { dir: "public/templates/thumbs", ext: ".jpg", kind: "jpeg", maxSide: 960, quality: 76 },
-  { dir: "public/library/memes", ext: ".jpg", kind: "jpeg", maxSide: 480, quality: 72 },
 ];
 
 const run = (bin, args) => execFileSync(bin, args, { stdio: ["ignore", "pipe", "pipe"] }).toString();

@@ -321,7 +321,7 @@ describe("Drag & Drop Containers (Media, Projects, Rail)", () => {
       );
 
       const panel = screen.getByTestId("projects-panel");
-      const mockMeme = { id: "meme-99", title: "Reaction Meme", duration: 4 };
+      const mockMeme = { id: "clip-99", title: "Stock Clip", duration: 4 };
 
       await act(async () => {
         fireEvent.drop(panel, {

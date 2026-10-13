@@ -53,7 +53,7 @@ npm run build && npm start
   ```
 
   Components use `<SiteVideo media="key" />` and `SITE_IMAGES` (never a typed path; a test checks). Videos load near the screen, pause offscreen, and don't start by themselves for visitors who prefer reduced motion or save data.
-- **Editor media** (`public/templates`, `public/library/memes`): `node scripts/compress-public-media.mjs` recompresses them in place (same names and sizes, sound kept); the originals are kept in `assets-source/originals/`.
+- **Editor media** (`public/templates`): `node scripts/compress-public-media.mjs` recompresses them in place (same names and sizes, sound kept); the originals are kept in `assets-source/originals/`.
 
 Needs `ffmpeg`, `ffprobe`, `cwebp` and (for JPEGs) macOS `sips`.
 

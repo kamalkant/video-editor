@@ -1,12 +1,11 @@
-// FFmpeg + FFprobe (video) and yt-dlp (YouTube import, meme search) for Linux hosts that don't have them
+// FFmpeg + FFprobe (video) for Linux hosts that don't have them
 // (e.g. Hostinger's Node.js hosting, where nothing can be installed with apt).
 // Runs after `npm install`, before `npm run build`, and at server start (lib/ffmpeg/ensure).
 //
 //   - not Linux: nothing to do
 //   - a tool already on the PATH, or its *_PATH variable set: that one is skipped
 //   - else downloads the release file, checks its SHA-256, and puts it in vendor/
-//     (FFmpeg 7.0.2 static: x264, x265, VP9, AV1, Opus, from the ffmpeg-static project; yt-dlp 2026.08.19;
-//     Deno 2.9.7, which yt-dlp uses to solve YouTube's JavaScript challenges)
+//     (FFmpeg 7.0.2 static: x264, x265, VP9, AV1, Opus, from the ffmpeg-static project)
 //
 // It never fails the install: on a problem it says so and the site still builds (those features then report it).
 import { createHash } from "node:crypto";
@@ -16,8 +15,6 @@ import { dirname, join } from "node:path";
 import { gunzipSync, inflateRawSync } from "node:zlib";
 
 const FF = "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1";
-const YT = "https://github.com/yt-dlp/yt-dlp/releases/download/2026.08.19";
-const DENO = "https://github.com/denoland/deno/releases/download/v2.9.7";
 // per tool: the file for each CPU, and its SHA-256 (of the file as downloaded)
 const TOOLS = [
   {
@@ -29,17 +26,6 @@ const TOOLS = [
     name: "ffprobe", env: "FFPROBE_PATH", out: "vendor/ffmpeg/ffprobe", gz: true,
     x64: [`${FF}/ffprobe-linux-x64.gz`, "25d9b6ccb05e3d9de9e04e31e2506d8dd7f9f0418981965ac6df12e8d3afd067"],
     arm64: [`${FF}/ffprobe-linux-arm64.gz`, "2ab6aba60ee84412dff9188720703376cb4e7aaf7e0b5e43aa8249f2acae5bf8"],
-  },
-  {
-    name: "yt-dlp", env: "YTDLP_PATH", out: "vendor/yt-dlp/yt-dlp", gz: false,
-    x64: [`${YT}/yt-dlp_linux`, "58162f9bfdc27458ea47bfcb311cf47028f17d8154a8bf7d689861d46399230a"],
-    arm64: [`${YT}/yt-dlp_linux_aarch64`, "b16e4dab368a816cd05d477d698a605a6ae87ccee1c8ffd38fa21d7254141fcc"],
-  },
-  {
-    // (a .zip with the one program inside)
-    name: "deno", env: "DENO_PATH", out: "vendor/deno/deno", gz: false, zip: "deno",
-    x64: [`${DENO}/deno-x86_64-unknown-linux-gnu.zip`, "c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490"],
-    arm64: [`${DENO}/deno-aarch64-unknown-linux-gnu.zip`, "c832298b1ad4422481334855f6003e0f54145762c5a134f20a489511d2f65bbf"],
   },
 ];
 
@@ -75,7 +61,7 @@ export function unzipOne(zip, name) {
   throw new Error(`${name} isn't in the zip`);
 }
 const say = (msg) => console.log(`[fetch-tools] ${msg}`);
-const onPath = (bin) => spawnSync(bin, [bin === "yt-dlp" || bin === "deno" ? "--version" : "-version"], { stdio: "ignore" }).status === 0;
+const onPath = (bin) => spawnSync(bin, ["-version"], { stdio: "ignore" }).status === 0;
 
 async function fetchTool(tool, [url, sha256]) {
   const out = join(process.cwd(), tool.out);

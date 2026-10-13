@@ -31,6 +31,39 @@ export const YTDLP_CLIENT_ARGS = [
   "youtube:player_client=tv,tv_embedded,android,web",
 ];
 
+/**
+ * Automatically discovers cookies.txt on cloud VPS servers (e.g. viplay.in)
+ * Checks YTDLP_COOKIES, COOKIES_PATH, data/cookies.txt, or root cookies.txt.
+ */
+export function ytDlpCookiesArgs(): string[] {
+  const candidates = [
+    process.env.YTDLP_COOKIES,
+    process.env.COOKIES_PATH,
+    process.env.YOUTUBE_COOKIES,
+    join(process.cwd(), "cookies.txt"),
+    join(dataRoot(), "cookies.txt"),
+    join(dataRoot(), "data", "cookies.txt"),
+  ].filter(Boolean) as string[];
+
+  for (const c of candidates) {
+    if (existsSync(c)) {
+      return ["--cookies", c];
+    }
+  }
+  return [];
+}
+
+/**
+ * Discovers residential/datacenter proxy if configured via environment variables
+ */
+export function ytDlpProxyArgs(): string[] {
+  const proxy = process.env.YTDLP_PROXY || process.env.YOUTUBE_PROXY || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  if (proxy) {
+    return ["--proxy", proxy];
+  }
+  return [];
+}
+
 export function ytDlpEnv(): NodeJS.ProcessEnv {
   if (process.platform !== "linux") return process.env;
   const tmp = join(dataRoot(), "tmp");

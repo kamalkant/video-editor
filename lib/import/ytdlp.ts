@@ -1,6 +1,6 @@
 import "server-only";
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { dataRoot } from "../dataRoot";
 
@@ -25,28 +25,68 @@ export const ytDlpBin = () => {
  */
 /** YouTube pages need a JavaScript runtime; servers have Node (this process), not deno: yt-dlp may use it. */
 export const YTDLP_JS = ["--js-runtimes", `node:${process.execPath}`];
-/** Player client preferences: tv, android, web bypass SABR-only streaming and 403 Forbidden errors */
+/** Player client preferences: android, web_embedded, ios, mweb bypass SABR experiments and embed age-gates */
 export const YTDLP_CLIENT_ARGS = [
   "--extractor-args",
-  "youtube:player_client=tv,tv_embedded,android,web",
+  "youtube:player_client=android,web_embedded,ios,mweb,web",
+  "--geo-bypass",
 ];
 
 /**
  * Automatically discovers cookies.txt on cloud VPS servers (e.g. viplay.in)
- * Checks YTDLP_COOKIES, COOKIES_PATH, data/cookies.txt, or root cookies.txt.
+ * Checks YTDLP_COOKIES, COOKIES_PATH, data/cookies.txt, root cookies.txt,
+ * or public_html/cookies.txt in cwd and parent directories.
+ * Also supports YTDLP_COOKIES_CONTENT or COOKIES_TXT directly from environment variables.
  */
 export function ytDlpCookiesArgs(): string[] {
-  const candidates = [
+  const envContent =
+    process.env.YTDLP_COOKIES_CONTENT ||
+    process.env.COOKIES_TXT ||
+    process.env.YOUTUBE_COOKIES_CONTENT;
+  const targetFile = join(dataRoot(), "cookies.txt");
+  if (envContent && !existsSync(targetFile)) {
+    try {
+      const decoded = envContent.startsWith("base64:")
+        ? Buffer.from(envContent.slice(7), "base64").toString("utf8")
+        : envContent;
+      writeFileSync(targetFile, decoded, "utf8");
+    } catch {
+      // Ignore if file cannot be written
+    }
+  }
+
+  const cwd = process.cwd();
+  const candidates: string[] = [
     process.env.YTDLP_COOKIES,
     process.env.COOKIES_PATH,
     process.env.YOUTUBE_COOKIES,
-    join(process.cwd(), "cookies.txt"),
-    join(dataRoot(), "cookies.txt"),
+    targetFile,
+    join(cwd, "cookies.txt"),
+    join(cwd, "public_html", "cookies.txt"),
+    join(cwd, "public", "cookies.txt"),
     join(dataRoot(), "data", "cookies.txt"),
+    join(dataRoot(), "public_html", "cookies.txt"),
   ].filter(Boolean) as string[];
+
+  // Also check ancestor folders for public_html/cookies.txt (common on Hostinger/cPanel)
+  let curr = cwd;
+  for (let i = 0; i < 4; i++) {
+    candidates.push(join(curr, "cookies.txt"));
+    candidates.push(join(curr, "public_html", "cookies.txt"));
+    const parent = join(curr, "..");
+    if (parent === curr) break;
+    curr = parent;
+  }
 
   for (const c of candidates) {
     if (existsSync(c)) {
+      if (c !== targetFile && !existsSync(targetFile)) {
+        try {
+          copyFileSync(c, targetFile);
+        } catch {
+          // ignore copy error
+        }
+      }
       return ["--cookies", c];
     }
   }

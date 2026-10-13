@@ -327,7 +327,11 @@ export const LAST_SPEC_KEY = "VDO:v2:last";
 /** The message of an API error body ({ error: { message } }), if it has one. */
 const apiErrorMessage = (body: unknown): string | null => {
   const m = (body as { error?: { message?: unknown } } | null)?.error?.message;
-  return typeof m === "string" && m ? m : null;
+  if (typeof m !== "string" || !m) return null;
+  if (/YouTube/i.test(m)) {
+    return "This online meme clip is temporarily unavailable. Try another clip or upload your own file.";
+  }
+  return m;
 };
 
 /** A dialog opened before its code has arrived: a spinner where it will appear. */

@@ -97,16 +97,16 @@ export async function searchOnlineMemesWhy(query: string, limit = 4): Promise<{ 
       e.code === "ENOENT"
         ? NO_YTDLP
         : e.killed
-          ? "YouTube search took too long. Try again."
+          ? "Online meme search took too long. Try again."
           : stderr
             ? ytDlpFailure(stderr)
-            : `The YouTube search tool stopped (${e.signal ?? `exit ${e.code ?? "?"}`}): ${String((err as Error)?.message ?? err).replace(/\/[^\s:'"]+/g, "…").slice(0, 160)}`;
+            : `The meme search tool stopped (${e.signal ?? `exit ${e.code ?? "?"}`}): ${String((err as Error)?.message ?? err).replace(/\/[^\s:'"]+/g, "…").slice(0, 160)}`;
     return { items: [], error: why };
   }
 }
 
 const lastFailure = new Map<string, string>();
-/** Why the last download of this YouTube clip failed, in words for the person (e.g. YouTube blocking the server). */
+/** Why the last download of this online meme clip failed, in words for the person. */
 export const dynamicFailure = (ytId: string) => lastFailure.get(ytId.replace(/[^a-zA-Z0-9_-]/g, ""));
 
 /**
@@ -126,26 +126,48 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
   const tempRaw = join(tmpdir(), `raw_dyn_${cleanId}.mp4`);
   try {
     const videoUrl = `https://www.youtube.com/watch?v=${cleanId}`;
-    // Download segment (up to maxDuration seconds, e.g. 30s)
     const formattedDuration = String(Math.floor(maxDuration)).padStart(2, "0");
-    await execFilePromise(
-      ytDlpBin(),
-      [
-        ...YTDLP_JS,
-        ...YTDLP_CLIENT_ARGS,
-        "--download-sections",
-        `*00:00:00-00:00:${formattedDuration}`,
-        "-f",
-        "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best",
-        ...ytDlpFfmpegArgs(FFMPEG),
-        "--force-overwrites",
-        "-o",
-        tempRaw,
-        "--",
-        videoUrl,
-      ],
-      { timeout: 60000, env: ytDlpEnv() },
-    );
+    const baseArgs = [
+      ...YTDLP_JS,
+      ...YTDLP_CLIENT_ARGS,
+      "-f",
+      "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best",
+      ...ytDlpFfmpegArgs(FFMPEG),
+      "--force-overwrites",
+      "-o",
+      tempRaw,
+      "--",
+      videoUrl,
+    ];
+
+    try {
+      // 1. Try segmented download first for fast fetch
+      await execFilePromise(
+        ytDlpBin(),
+        [
+          ...YTDLP_JS,
+          ...YTDLP_CLIENT_ARGS,
+          "--download-sections",
+          `*00:00:00-00:00:${formattedDuration}`,
+          "-f",
+          "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best",
+          ...ytDlpFfmpegArgs(FFMPEG),
+          "--force-overwrites",
+          "-o",
+          tempRaw,
+          "--",
+          videoUrl,
+        ],
+        { timeout: 45000, env: ytDlpEnv() },
+      );
+    } catch {
+      // 2. Fallback: full download without sections (ffmpeg normalizes up to maxDuration below)
+      await execFilePromise(
+        ytDlpBin(),
+        baseArgs,
+        { timeout: 60000, env: ytDlpEnv() },
+      );
+    }
 
     // Normalize with ffmpeg up to maxDuration
     await runFfmpeg(["-i", tempRaw, "-t", String(maxDuration), "-vf", "scale='min(640,iw)':-2", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "-movflags", "+faststart", "-y", outMp4], { timeoutMs: 60000 });
@@ -163,7 +185,7 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
       e.code === "ENOENT"
         ? NO_YTDLP
         : e.killed
-          ? "YouTube took too long to send this clip. Try again."
+          ? "Online clip took too long to download. Try again."
           : stderr
             ? ytDlpFailure(stderr)
             : `The clip couldn't be made: ${String((err as Error)?.message ?? err).replace(/\/[^\s:'"]+/g, "…").slice(0, 160)}`,

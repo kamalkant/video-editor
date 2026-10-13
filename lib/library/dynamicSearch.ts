@@ -7,7 +7,6 @@ import { tmpdir } from "node:os";
 import { FFMPEG, runFfmpeg } from "@/lib/ffmpeg/run";
 import {
   NO_YTDLP,
-  YTDLP_JS,
   ytDlpBin,
   ytDlpClientArgs,
   ytDlpCookiesArgs,
@@ -15,6 +14,7 @@ import {
   ytDlpFailure,
   ytDlpFailureOf,
   ytDlpFfmpegArgs,
+  ytDlpJsArgs,
   ytDlpProxyArgs,
   ytDlpTail,
   type YtAttempt,
@@ -66,7 +66,7 @@ export async function searchOnlineMemesWhy(query: string, limit = 4): Promise<{ 
     const { stdout } = await execFilePromise(
       ytDlpBin(),
       [
-        ...YTDLP_JS,
+        ...ytDlpJsArgs(),
         ...ytDlpClientArgs(ytDlpCookiesArgs()),
         ...ytDlpCookiesArgs(),
         ...ytDlpProxyArgs(),
@@ -150,7 +150,7 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
   const videoUrl = `https://www.youtube.com/watch?v=${cleanId}`;
   const formattedDuration = String(Math.floor(maxDuration)).padStart(2, "0");
   const cookies = ytDlpCookiesArgs();
-  const common = [...YTDLP_JS, ...ytDlpProxyArgs(), "-f", "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best", ...ytDlpFfmpegArgs(FFMPEG), "--force-overwrites", "-o", tempRaw];
+  const common = [...ytDlpJsArgs(), ...ytDlpProxyArgs(), "-f", "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best", ...ytDlpFfmpegArgs(FFMPEG), "--force-overwrites", "-o", tempRaw];
   // the tries, in order: the first part only (fast), the whole clip, then the embedded player (some clips
   // only play there); every try's answer is kept, so the reason shown is the real one
   const tries: { label: string; args: string[]; timeout: number }[] = [

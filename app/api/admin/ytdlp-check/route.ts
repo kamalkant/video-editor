@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { statSync } from "node:fs";
 import { requireAdmin } from "@/lib/auth/admin-guard";
-import { YTDLP_JS, ytDlpBin, ytDlpClientArgs, ytDlpCookiesArgs, ytDlpEnv, ytDlpFailureOf, ytDlpProxyArgs, ytDlpTail, ytDlpVersion, type YtAttempt } from "@/lib/import/ytdlp";
+import { denoBin, ytDlpBin, ytDlpJsArgs, ytDlpClientArgs, ytDlpCookiesArgs, ytDlpEnv, ytDlpFailureOf, ytDlpProxyArgs, ytDlpTail, ytDlpVersion, type YtAttempt } from "@/lib/import/ytdlp";
 
 export const runtime = "nodejs";
 
@@ -16,6 +16,11 @@ const run = (args: string[], timeout: number) =>
     });
   });
 
+const versionOf = (bin: string, flag: string) =>
+  new Promise<string>((resolve) =>
+    execFile(bin, [flag], { timeout: 15_000, encoding: "utf8" }, (err, stdout) => resolve(err ? `doesn't run (${(err as NodeJS.ErrnoException).code ?? err.message})` : String(stdout).split("\n")[0]!.trim())),
+  );
+
 /**
  * GET /api/admin/ytdlp-check[?id=<video id>] (admins): can this server download online clips, and if not,
  * what YouTube says. Tries the same ways the editor does (with the cookies, without them, the embedded
@@ -29,7 +34,7 @@ export async function GET(request: Request) {
   const url = `https://www.youtube.com/watch?v=${id}`;
   const cookies = ytDlpCookiesArgs();
   const proxy = ytDlpProxyArgs();
-  const base = [...YTDLP_JS, ...proxy, "--simulate", "--no-warnings", "-f", "b[ext=mp4]/18/b"];
+  const base = [...ytDlpJsArgs(), ...proxy, "--simulate", "--no-warnings", "-f", "b[ext=mp4]/18/b"];
   const ways: { label: string; args: string[] }[] = [
     ...(cookies.length ? [{ label: "with cookies", args: [...ytDlpClientArgs(cookies), ...cookies] }] : []),
     { label: "without cookies", args: ytDlpClientArgs([]) },
@@ -55,6 +60,8 @@ export async function GET(request: Request) {
     // what people are told when every way fails
     verdict: works ? "Online clips can be downloaded from this server." : ytDlpFailureOf(attempts),
     ytdlp: await ytDlpVersion(),
+    // what solves YouTube's JavaScript challenges here
+    jsRuntimes: { deno: denoBin() ? await versionOf(denoBin()!, "--version") : "not installed (yt-dlp looks on the PATH)", node: process.version },
     cookies: { active: cookies.length > 0, updatedAt: cookiesUpdatedAt },
     proxy: proxy.length > 0,
     results,

@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { getCapabilities } from "@/lib/ffmpeg/capabilities";
 import { ytDlpCheck, ytDlpCookiesArgs } from "@/lib/import/ytdlp";
@@ -14,6 +14,14 @@ const BUILD = (() => {
   }
 })();
 
+const cookieTime = (path: string | undefined): string | null => {
+  try {
+    return path ? new Date(statSync(path).mtimeMs).toISOString() : null;
+  } catch {
+    return null;
+  }
+};
+
 export async function GET(request: Request) {
   const refresh = new URL(request.url).searchParams.has("refresh");
   const caps = await getCapabilities(refresh);
@@ -28,6 +36,8 @@ export async function GET(request: Request) {
       cookies: {
         active: cookies.length > 0,
         path: cookies[1] ?? null,
+        // (exported YouTube cookies stop working after a while: when this one was last replaced)
+        updatedAt: cookieTime(cookies[1]),
       },
     },
     { status: caps.ok ? 200 : 503 },

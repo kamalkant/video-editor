@@ -31,6 +31,11 @@ export const YTDLP_CLIENT_ARGS = [
   "youtube:player_client=android,web_embedded,ios,mweb,web",
   "--geo-bypass",
 ];
+/**
+ * Which players to ask for: with cookies (a signed-in session, the live server), yt-dlp's own choice, which
+ * picks players that accept cookies (android and ios ignore them); without, the list above.
+ */
+export const ytDlpClientArgs = (cookies: string[]): string[] => (cookies.length ? ["--geo-bypass"] : YTDLP_CLIENT_ARGS);
 
 /**
  * Automatically discovers cookies.txt on cloud VPS servers (e.g. viplay.in)
@@ -150,18 +155,55 @@ export const NO_YTDLP =
     ? "The meme downloader tool isn't installed."
     : "This online meme clip isn't available from this server right now. Try another clip or upload your own file.";
 
+/** The server is refused (data-center IPs: a bot check, too many requests, a refused or token-less download). */
+const BLOCKED = /not a bot|\bbot\b|HTTP Error 429|Too Many Requests|HTTP Error 403|Forbidden|PO Token|po_token|SABR|Precondition check failed|cookies are no longer valid|rotated in the browser/i;
+/** A real age gate (not just any word with "age" in it: "page", "usage"…). */
+const AGE_GATED = /confirm your age|age[- ]restricted|inappropriate for some users/i;
+const UNAVAILABLE = /video unavailable|is unavailable|private video|this video is private|has been removed|not available in your country/i;
+const BLOCKED_MESSAGE = "This online meme clip is temporarily blocked or unavailable for download from this server. Try another clip or upload your own file.";
+
 /** What to tell people when yt-dlp fails, from its error output. */
 export function ytDlpFailure(stderr: string): string {
-  // Cloud servers in data centers (hosting): "Sign in to confirm you're not a bot", HTTP 429
-  if (/bot|HTTP Error 429|Too Many Requests/i.test(stderr))
-    return "This online meme clip is temporarily blocked or unavailable for download. Try another clip or upload your own file.";
-  if (/Sign in|age/i.test(stderr)) return "This online clip requires age verification or sign-in, so it cannot be imported.";
+  // Cloud servers in data centers (hosting): "Sign in to confirm you're not a bot", HTTP 429 / 403, PO tokens
+  if (BLOCKED.test(stderr)) return BLOCKED_MESSAGE;
+  if (UNAVAILABLE.test(stderr)) return "This clip is private or unavailable.";
+  if (AGE_GATED.test(stderr)) return "This online clip requires age verification or sign-in, so it cannot be imported.";
   if (/unavailable|private/i.test(stderr)) return "This clip is private or unavailable.";
   // (anything else: last error line, without the server's folders, so it can be fixed)
   const lines = stderr.split("\n").map((l) => l.trim()).filter(Boolean);
   const last = (lines.filter((l) => /ERROR|error/.test(l)).pop() ?? lines.pop())?.replace(/\/[^\s:'"]+/g, "…").slice(0, 160);
   return last ? `Could not download online meme clip (${last}).` : "Could not download this meme clip. Try another one.";
 }
+
+/** One try of a download (which players were asked, and what yt-dlp said). */
+export type YtAttempt = { label: string; stderr: string; code?: string | number | null; killed?: boolean };
+
+/**
+ * Why a download failed after several tries: the most telling reason of all of them, not just the last
+ * one's (the last fallback, the embedded player, answers "confirm your age" for clips that are fine,
+ * which hid "the server is blocked" on viplay.in).
+ */
+export function ytDlpFailureOf(attempts: YtAttempt[]): string {
+  const all = attempts.map((a) => a.stderr).join("\n");
+  if (attempts.some((a) => a.code === "ENOENT")) return NO_YTDLP;
+  if (BLOCKED.test(all)) return BLOCKED_MESSAGE;
+  if (UNAVAILABLE.test(all)) return "This clip is private or unavailable.";
+  if (AGE_GATED.test(all)) return "This online clip requires age verification or sign-in, so it cannot be imported.";
+  if (attempts.length && attempts.every((a) => a.killed)) return "Online clip took too long to download. Try again.";
+  const last = [...attempts].reverse().find((a) => a.stderr.trim());
+  return last ? ytDlpFailure(last.stderr) : "Could not download this meme clip. Try another one.";
+}
+
+/** The end of yt-dlp's error output, without the server's folders (for logs and the admin check). */
+export const ytDlpTail = (stderr: string, lines = 6) =>
+  stderr
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(-lines)
+    .join("\n")
+    .replace(/\/[^\s:'"]+/g, "…")
+    .slice(0, 1200);
 
 /** Can the YouTube downloader run here, and if not why (ENOENT: not there; EACCES: not allowed to run…). */
 export function ytDlpCheck(): Promise<{ ok: boolean; version?: string; why?: string }> {

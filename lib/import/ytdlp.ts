@@ -63,12 +63,18 @@ export function ytDlpCookiesArgs(): string[] {
     process.env.YOUTUBE_COOKIES,
     targetFile,
     join(dRoot, "cookies.txt"),
+    join(dRoot, "viplay-data", "cookies.txt"),
     join(dRoot, "data", "cookies.txt"),
+    join(dRoot, "..", "viplay-data", "cookies.txt"),
     join(dRoot, "..", "public_html", "cookies.txt"),
     join(dRoot, "..", "cookies.txt"),
     join(cwd, "cookies.txt"),
+    join(cwd, "viplay-data", "cookies.txt"),
     join(cwd, "public_html", "cookies.txt"),
     join(cwd, "public", "cookies.txt"),
+    join(cwd, "..", "viplay-data", "cookies.txt"),
+    join(cwd, "..", "public_html", "cookies.txt"),
+    join(cwd, "..", "cookies.txt"),
   ].filter(Boolean) as string[];
 
   // Hostinger deploy layout: .../domains/domain.com/hbuilds/versions/<id>/nodejs
@@ -85,9 +91,12 @@ export function ytDlpCookiesArgs(): string[] {
   // Also check ancestor folders up to 8 levels (reaches domain and user root on any hosting layout)
   let curr = cwd;
   for (let i = 0; i < 8; i++) {
-    candidates.push(join(curr, "cookies.txt"));
-    candidates.push(join(curr, "public_html", "cookies.txt"));
-    candidates.push(join(curr, "public", "cookies.txt"));
+    candidates.push(
+      join(curr, "cookies.txt"),
+      join(curr, "viplay-data", "cookies.txt"),
+      join(curr, "public_html", "cookies.txt"),
+      join(curr, "public", "cookies.txt"),
+    );
     const parent = join(curr, "..");
     if (parent === curr) break;
     curr = parent;
@@ -144,7 +153,7 @@ export const NO_YTDLP =
 /** What to tell people when yt-dlp fails, from its error output. */
 export function ytDlpFailure(stderr: string): string {
   // Cloud servers in data centers (hosting): "Sign in to confirm you're not a bot", HTTP 429
-  if (/not a bot|HTTP Error 429|Too Many Requests/i.test(stderr))
+  if (/bot|HTTP Error 429|Too Many Requests/i.test(stderr))
     return "This online meme clip is temporarily blocked or unavailable for download. Try another clip or upload your own file.";
   if (/Sign in|age/i.test(stderr)) return "This online clip requires age verification or sign-in, so it cannot be imported.";
   if (/unavailable|private/i.test(stderr)) return "This clip is private or unavailable.";

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getCapabilities } from "@/lib/ffmpeg/capabilities";
-import { ytDlpCheck } from "@/lib/import/ytdlp";
+import { ytDlpCheck, ytDlpCookiesArgs } from "@/lib/import/ytdlp";
 
 export const runtime = "nodejs";
 
@@ -19,5 +19,17 @@ export async function GET(request: Request) {
   const caps = await getCapabilities(refresh);
   // the YouTube downloader (meme search, YouTube import): runs here or why not
   const ytdlp = await ytDlpCheck();
-  return Response.json({ build: BUILD, ...caps, ytdlp }, { status: caps.ok ? 200 : 503 });
+  const cookies = ytDlpCookiesArgs();
+  return Response.json(
+    {
+      build: BUILD,
+      ...caps,
+      ytdlp,
+      cookies: {
+        active: cookies.length > 0,
+        path: cookies[1] ?? null,
+      },
+    },
+    { status: caps.ok ? 200 : 503 },
+  );
 }

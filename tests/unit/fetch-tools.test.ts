@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 // (a plain .mjs script, scripts/fetch-ffmpeg.mjs: importing it only defines its helpers)
 import { unzipOne } from "../../scripts/fetch-ffmpeg.mjs";
-import { ytDlpJsArgs } from "@/lib/import/ytdlp";
 
 const dir = mkdtempSync(join(tmpdir(), "VDO-unzip-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -24,17 +23,3 @@ describe("the Linux tool fetcher reads Deno's .zip", () => {
   });
 });
 
-describe("yt-dlp's JavaScript runtimes", () => {
-  it("deno first when there is one, Node as the fallback, and its own cache folder", () => {
-    const before = process.env.DENO_PATH;
-    process.env.DENO_PATH = "/srv/vendor/deno/deno";
-    try {
-      const args = ytDlpJsArgs().join(" ");
-      expect(args.indexOf("deno:/srv/vendor/deno/deno")).toBeLessThan(args.indexOf(`node:${process.execPath}`));
-      expect(args).toMatch(/--cache-dir \S+yt-dlp-cache/);
-    } finally {
-      if (before === undefined) delete process.env.DENO_PATH;
-      else process.env.DENO_PATH = before;
-    }
-  });
-});

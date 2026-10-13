@@ -104,19 +104,19 @@ describe("VDO Premium Website Master Experience", () => {
     render(<AllToolsFeaturesShowcaseSection />);
     expect(screen.getByText(/The Complete Creator Arsenal/)).toBeDefined();
     expect(screen.getByText(/Audio & Music Library/)).toBeDefined();
-    expect(screen.getByText(/Viral Meme Library/)).toBeDefined();
+    expect(screen.getByText(/Stock & Media Library/)).toBeDefined();
     expect(screen.getByText(/AI Cutout & Chroma Key/)).toBeDefined();
     expect(screen.getByText(/Transparent Web Avatars/)).toBeDefined();
     expect(screen.getByText(/Apple VideoToolbox Export/)).toBeDefined();
 
     // Test live search filter
     const searchInput = screen.getByPlaceholderText(/Search all 22 features/);
-    fireEvent.change(searchInput, { target: { value: "meme" } });
-    expect(screen.getByText(/Viral Meme Library/)).toBeDefined();
+    fireEvent.change(searchInput, { target: { value: "stock" } });
+    expect(screen.getByText(/Stock & Media Library/)).toBeDefined();
     expect(screen.queryByText(/Audio & Music Library/)).toBeNull();
 
-    // Click on meme card to verify Quick-Look modal opens
-    fireEvent.click(screen.getByText(/Viral Meme Library/));
+    // Click on card to verify Quick-Look modal opens
+    fireEvent.click(screen.getByText(/Stock & Media Library/));
     expect(screen.getByRole("dialog")).toBeDefined();
     expect(screen.getByText(/Technical Capabilities & Specs/)).toBeDefined();
     expect(screen.getByText(/Close \(Esc\)/)).toBeDefined();

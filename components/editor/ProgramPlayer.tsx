@@ -265,6 +265,12 @@ function blurInto(ctx: CanvasRenderingContext2D, el: HTMLVideoElement, w: number
 }
 /** How long a clip may hold the picture (last frame stays) while its video seeks. */
 const HOLD_MS = 1200;
+/** How long the paused picture keeps being drawn after a change (videos seeking, files arriving, holds ending). */
+const IDLE_DRAW_MS = 2000;
+/** Keep drawing the paused picture for `ms` more (see ProgramPlayer's awakeUntil). */
+const keepAwake = (until: { current: number }, ms = IDLE_DRAW_MS) => {
+  until.current = Math.max(until.current, performance.now() + ms);
+};
 
 /**
  * The program monitor: plays the whole timeline on the project canvas — the
@@ -450,6 +456,7 @@ export function ProgramPlayer(p: {
       // (a picture that failed, e.g. asked for before its upload: again, from this computer if it's here)
       if (!had || (had.complete && !had.naturalWidth && localSrc(id))) {
         const img = new Image();
+        img.onload = () => drawRef.current();
         img.src = localSrc(id) ?? `/api/videos/${id}/source`;
         images.current.set(id, img);
       }
@@ -462,6 +469,8 @@ export function ProgramPlayer(p: {
     if (!fonts) return;
     const onLoaded = () => {
       fontGen.current++;
+      // (text drawn with a font that just arrived)
+      keepAwake(awakeUntil);
     };
     fonts.addEventListener("loadingdone", onLoaded);
     return () => fonts.removeEventListener("loadingdone", onLoaded);
@@ -484,6 +493,13 @@ export function ProgramPlayer(p: {
   };
   /** Put every video element where the timeline needs it, then draw one frame (called every animation frame). */
   const drawRef = useRef<() => void>(() => {});
+  /**
+   * While paused the picture is drawn only for a moment after something changed (a render, the clock, a
+   * file arriving, the pointer on the stage), not 60 times a second for nothing: an editor left open
+   * kept the computer's CPU and graphics busy (and hot). Playing always draws every frame.
+   */
+  const awakeUntil = useRef(0);
+  const wake = useCallback((ms = IDLE_DRAW_MS) => keepAwake(awakeUntil, ms), []);
   useEffect(() => {
     drawRef.current = () => {
     const cv = canvasRef.current;
@@ -682,7 +698,11 @@ export function ProgramPlayer(p: {
     const spin = stallSince.current !== null && now - stallSince.current > 300;
     if (bufferingRef.current && bufferingRef.current.hidden === spin) bufferingRef.current.hidden = !spin;
     // Never abort rendering during active playback
-    if (blocking && !playing.current) return;
+    if (blocking && !playing.current) {
+      // (holding the last frame for a file that's still loading: look again shortly; the hold is time-limited)
+      keepAwake(awakeUntil, 250);
+      return;
+    }
     // draw
     let aiPending = false;
     const k = cv.width / d.canvas.width;
@@ -1268,6 +1288,8 @@ export function ProgramPlayer(p: {
       setAiWaiting(aiPending);
     }
     };
+    // (rendered again: something may have changed, so the next frames are drawn)
+    keepAwake(awakeUntil);
   });
 
   // let go of every video file when the player closes
@@ -1307,7 +1329,12 @@ export function ProgramPlayer(p: {
         p.clock.set(t);
         setTime(t);
       }
-      // one bad frame must not stop the loop (it also pauses and silences what shouldn't play)
+      // one bad frame must not stop the loop (it also pauses and silences what shouldn't play);
+      // paused and nothing changed for a moment: nothing to draw
+      if (!playing.current && performance.now() > awakeUntil.current) {
+        raf = requestAnimationFrame(tick);
+        return;
+      }
       try {
         drawRef.current();
       } catch (err) {
@@ -1325,14 +1352,31 @@ export function ProgramPlayer(p: {
     () =>
       p.clock.subscribe(() => {
         if (playing.current) return;
+        wake();
         const t = p.clock.get();
         if (Math.abs(t - tRef.current) > 1e-4) {
           tRef.current = t;
           setTime(t);
         }
       }),
-    [p.clock],
+    [p.clock, wake],
   );
+
+  // the pointer on the stage (dragging, resizing, picking): drawn as it moves; and a resized window
+  useEffect(() => {
+    const el = frameRef.current;
+    const poke = () => wake();
+    el?.addEventListener("pointermove", poke, { passive: true });
+    el?.addEventListener("pointerdown", poke, { passive: true });
+    el?.addEventListener("wheel", poke, { passive: true });
+    window.addEventListener("resize", poke);
+    return () => {
+      el?.removeEventListener("pointermove", poke);
+      el?.removeEventListener("pointerdown", poke);
+      el?.removeEventListener("wheel", poke);
+      window.removeEventListener("resize", poke);
+    };
+  }, [wake]);
 
   useEffect(() => {
     const onChange = () => setIsFull(!!frameRef.current && document.fullscreenElement === frameRef.current);
@@ -3063,7 +3107,11 @@ export function ProgramPlayer(p: {
                   </div>
                 ) : memeDragged ? (
                   <div className="relative flex size-full items-center justify-center overflow-hidden rounded p-1">
-                    <img src={memeDragged.thumbUrl || `/api/library/memes/${memeDragged.id}/thumb`} alt="" className="size-full rounded object-cover shadow" />
+                    {memeDragged.thumbUrl ? (
+                      <img src={memeDragged.thumbUrl} alt="" className="size-full rounded object-cover shadow" />
+                    ) : (
+                      <Icon name="library" className="size-6 text-white" />
+                    )}
                     <span className="absolute bottom-1 right-1 rounded bg-black/75 px-1 py-0.5 font-mono text-[9px] text-white">
                       {memeDragged.duration.toFixed(1)}s
                     </span>

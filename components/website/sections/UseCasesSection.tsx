@@ -15,7 +15,7 @@ const USE_CASES = [
     lead: "Cut, caption and resize for every platform without leaving the browser.",
     bullets: [
       "1-click silence detection cuts dead air automatically",
-      "Instant meme library drop with volume auditioning",
+      "Instant stock media drop with volume auditioning",
       "Auto-captions with word-by-word kinetic animations",
     ],
     media: "neonWalk" as const,

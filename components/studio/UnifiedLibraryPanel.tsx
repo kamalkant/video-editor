@@ -8,16 +8,15 @@ import { VoiceSearchMic } from "@/components/ui/VoiceSearchMic";
 import { formatTime } from "@/lib/format";
 import type { VideoMeta } from "@/lib/videos";
 import {
-  MEME_CATEGORIES,
-  type MemeCategory,
-  type MemeClipItem,
-  queryMemes,
-} from "@/lib/library/memeCatalog";
-import { createDragChip, MEME_DRAG, setMemeDrag } from "@/lib/editor/mediaDrag";
+  createDragChip,
+  LIBRARY_CLIP_DRAG,
+  setLibraryClipDrag,
+  type LibraryClipDragItem,
+} from "@/lib/editor/mediaDrag";
 import type { LibraryItem as AudioLibraryItem } from "@/lib/library";
 import { openAiSettings } from "@/lib/editor/useGemini";
 
-export type LibraryCategory = "all" | "videos" | "memes" | "photos" | "audio";
+export type LibraryCategory = "all" | "videos" | "photos" | "audio";
 
 
 interface StockItem {
@@ -48,17 +47,12 @@ interface StockPhotoItem {
 
 type Props = {
   onInsertVideo: (video: VideoMeta, add: boolean) => void;
-  onInsertMeme: (
-    meme: MemeClipItem,
-    options?: { overlay?: boolean; trackId?: string | null },
-  ) => void;
   onInsertAudio?: (meta: VideoMeta) => void;
   projectShape?: "landscape" | "portrait" | "any";
 };
 
 export function UnifiedLibraryPanel({
   onInsertVideo,
-  onInsertMeme,
   onInsertAudio,
   projectShape = "any",
 }: Props) {
@@ -77,11 +71,6 @@ export function UnifiedLibraryPanel({
   const [isSearchingStock, setIsSearchingStock] = useState(false);
   const [isSearchingPhotos, setIsSearchingPhotos] = useState(false);
 
-  // Online memes (yt-dlp search on the server)
-  const [onlineMemes, setOnlineMemes] = useState<MemeClipItem[]>([]);
-  // why a search source found nothing (no API key on the server, the downloader blocked…): shown, not swallowed
-  const [searchNotes, setSearchNotes] = useState<{ memes?: string | null }>({});
-  const [isSearchingOnlineMemes, setIsSearchingOnlineMemes] = useState(false);
 
   // Audio Library state
   const [audioItems, setAudioItems] = useState<AudioLibraryItem[]>([]);
@@ -140,13 +129,7 @@ export function UnifiedLibraryPanel({
     };
   }, []);
 
-  // Meme category filter (when memes tab or all tab is active)
-  const [memeSubCat, setMemeSubCat] = useState<MemeCategory>("all");
 
-  // Filter local memes
-  const filteredMemes = useMemo(() => {
-    return queryMemes(q, memeSubCat);
-  }, [q, memeSubCat]);
 
   // Load audio assets from /api/library
   useEffect(() => {
@@ -256,42 +239,6 @@ export function UnifiedLibraryPanel({
     };
   }, [q, activeCategory]);
 
-  // Search online dynamic memes when searching in memes or all
-  useEffect(() => {
-    const query = q.trim();
-    if (!query || (activeCategory !== "memes" && activeCategory !== "all")) {
-      setOnlineMemes([]);
-      setIsSearchingOnlineMemes(false);
-      return;
-    }
-
-    let cancelled = false;
-    const ctl = new AbortController();
-    setIsSearchingOnlineMemes(true);
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/library/memes/search?q=${encodeURIComponent(query)}&online=1`, { signal: ctl.signal });
-        if (res.ok) {
-          const data = await res.json();
-          if (!cancelled && Array.isArray(data?.items)) {
-            const dynamicItems = data.items.filter((item: MemeClipItem) => item.isDynamic);
-            setOnlineMemes(dynamicItems);
-            setSearchNotes((n) => ({ ...n, memes: dynamicItems.length ? null : (data.onlineError ?? null) }));
-          }
-        }
-      } catch {
-        // Fallback
-      } finally {
-        if (!cancelled) setIsSearchingOnlineMemes(false);
-      }
-    }, 350);
-
-    return () => {
-      cancelled = true;
-      ctl.abort();
-      clearTimeout(timer);
-    };
-  }, [q, activeCategory]);
 
   // Import stock video directly to timeline
   const handleImportStock = async (item: StockItem) => {
@@ -373,19 +320,7 @@ export function UnifiedLibraryPanel({
     }
   };
 
-  // Meme insert helper with progress
-  const handleInsertMemeItem = async (meme: MemeClipItem) => {
-    setBusyId(meme.id);
-    setProgressMsg("Adding meme to timeline…");
-    try {
-      await onInsertMeme(meme);
-    } catch {
-      // Ignore
-    } finally {
-      setBusyId(null);
-      setProgressMsg(null);
-    }
-  };
+
 
   // Audio Play/Pause preview: plays real sound through /api/library/[id]/audio
   const handleToggleAudio = (it: AudioLibraryItem) => {
@@ -443,16 +378,14 @@ export function UnifiedLibraryPanel({
   const CATEGORIES: { id: LibraryCategory; label: string; icon: IconName }[] = [
     { id: "all", label: "All", icon: "search" },
     { id: "videos", label: "Videos", icon: "film" },
-    { id: "memes", label: "Memes", icon: "sparkles" },
     { id: "photos", label: "Photos", icon: "camera" },
     { id: "audio", label: "Audio", icon: "audio" },
   ];
 
   // a search is on its way for the sources this tab shows (the box shows a spinner, the sections skeletons)
   const searching =
-    (activeCategory !== "audio" && activeCategory !== "photos" && activeCategory !== "memes" && isSearchingStock) ||
-    ((activeCategory === "all" || activeCategory === "photos") && isSearchingPhotos) ||
-    ((activeCategory === "all" || activeCategory === "memes") && isSearchingOnlineMemes);
+    (activeCategory !== "audio" && activeCategory !== "photos" && isSearchingStock) ||
+    ((activeCategory === "all" || activeCategory === "photos") && isSearchingPhotos);
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden text-xs">
@@ -469,7 +402,7 @@ export function UnifiedLibraryPanel({
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search stock videos, photos, memes, audio…"
+              placeholder="Search stock videos, photos, audio…"
               aria-label="Search the library"
               aria-busy={searching}
               data-testid="library-search"
@@ -539,25 +472,7 @@ export function UnifiedLibraryPanel({
           })}
         </div>
 
-        {/* Sub-categories for Memes: One Line and Horizontal Scroll */}
-        {activeCategory === "memes" && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
-            {MEME_CATEGORIES.map((cat) => (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setMemeSubCat(cat.id)}
-                className={`shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors ${
-                  memeSubCat === cat.id
-                    ? "bg-zinc-800 text-white font-semibold shadow-xs"
-                    : "bg-raised/60 text-muted hover:bg-raised hover:text-ink"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-        )}
+
       </div>
 
       {/* Progress / Status banner */}
@@ -570,13 +485,12 @@ export function UnifiedLibraryPanel({
 
       {/* Main Results Scroll Area */}
       <div className="flex-1 overflow-y-auto p-2.5 space-y-4">
-        {/* why a search source found nothing: a missing API key, the meme downloader refused… */}
-        {q.trim() && (searchNotes.memes || (stockNeedsKey && activeCategory !== "memes")) && (
+        {/* why a search source found nothing: a missing API key for stock videos */}
+        {q.trim() && stockNeedsKey && activeCategory !== "photos" && activeCategory !== "audio" && (
           <div className="rounded-lg border border-warn-line bg-warn-soft px-2.5 py-2 text-[11px] leading-snug text-ink" role="status" data-testid="library-search-notes">
             <p className="font-semibold">Some sources can't search yet</p>
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
-              {stockNeedsKey && activeCategory !== "memes" && <li>Stock videos (Pixabay / Pexels): add a free Pixabay or Pexels API key.</li>}
-              {searchNotes.memes && <li>Online memes: {searchNotes.memes}</li>}
+              <li>Stock videos (Pixabay / Pexels): add a free Pixabay or Pexels API key.</li>
             </ul>
             <button type="button" className="mt-1.5 text-[11px] font-semibold text-primary underline" onClick={openAiSettings}>
               Open API keys
@@ -601,33 +515,28 @@ export function UnifiedLibraryPanel({
             ) : (
               <div className={gridCls}>
                 {stockVideos.map((it) => {
-                  const stockMeme: MemeClipItem = {
+                  const clipItem: LibraryClipDragItem = {
                     id: it.id,
                     title: it.title,
-                    dialogue: it.title,
-                    category: "comedy",
                     duration: it.duration || 10,
                     thumbUrl: it.thumb,
                     videoUrl: it.videoUrl || "",
-                    actorOrShow: it.author || "Stock Video",
-                    tags: ["stock", "video"],
                     width: it.width || 1920,
                     height: it.height || 1080,
-                    isDynamic: it.source !== "curated",
                   };
                   return (
                     <div
                       key={it.id}
                       draggable
                       onDragStart={(e) => {
-                        e.dataTransfer.setData(MEME_DRAG, JSON.stringify(stockMeme));
+                        e.dataTransfer.setData(LIBRARY_CLIP_DRAG, JSON.stringify(clipItem));
                         e.dataTransfer.setData("text/plain", it.title);
                         e.dataTransfer.effectAllowed = "copy";
-                        setMemeDrag(stockMeme);
+                        setLibraryClipDrag(clipItem);
                         const chip = createDragChip(it.title, it.thumb);
                         if (chip) e.dataTransfer.setDragImage(chip, 16, 20);
                       }}
-                      onDragEnd={() => setMemeDrag(null)}
+                      onDragEnd={() => setLibraryClipDrag(null)}
                       className="group relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface hover:border-primary/50 transition-all cursor-grab active:cursor-grabbing shadow-xs select-none"
                       onMouseEnter={() => setHoveredId(it.id)}
                       onMouseLeave={() => setHoveredId(null)}
@@ -699,206 +608,7 @@ export function UnifiedLibraryPanel({
           </div>
         )}
 
-        {/* 2. Memes & Viral Overlays */}
-        {(activeCategory === "all" || activeCategory === "memes") && (
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
-              <span>MEMES & OVERLAYS ({filteredMemes.length + onlineMemes.length})</span>
-            </div>
 
-            {filteredMemes.length === 0 && (
-              <div className="rounded-lg border border-dashed border-line p-4 text-center space-y-1 text-muted my-2">
-                <div className="text-xs font-semibold text-ink">
-                  {q.trim() ? `No local memes match "${q.trim()}"` : "No memes found"}
-                </div>
-                <div className="text-[11px] text-muted">
-                  {onlineMemes.length > 0 ? "Found online meme clips below:" : isSearchingOnlineMemes ? "Searching online memes…" : "Try searching another meme dialogue or keyword."}
-                </div>
-              </div>
-            )}
-
-            <div className={gridCls}>
-              {filteredMemes.map((m) => (
-                <div
-                  key={m.id}
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData(MEME_DRAG, JSON.stringify(m));
-                    e.dataTransfer.setData("text/plain", m.title);
-                    e.dataTransfer.effectAllowed = "copy";
-                    setMemeDrag(m);
-                    const chip = createDragChip(m.title, m.thumbUrl);
-                    if (chip) e.dataTransfer.setDragImage(chip, 16, 20);
-                  }}
-                  onDragEnd={() => setMemeDrag(null)}
-                  className="group relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface hover:border-primary/50 transition-all cursor-grab active:cursor-grabbing shadow-xs select-none"
-                  onMouseEnter={() => setHoveredId(m.id)}
-                  onMouseLeave={() => setHoveredId(null)}
-                >
-                  {/* Clean container without graying/fade overlay on hover */}
-                  <div className="relative aspect-video w-full bg-black/40 overflow-hidden pointer-events-none">
-                    <img
-                      src={m.thumbUrl}
-                      alt={m.title}
-                      className="size-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
-                      loading="lazy"
-                      draggable={false}
-                    />
-                    {hoveredId === m.id && m.videoUrl && (
-                      <video
-                        ref={(el) => {
-                          if (el) {
-                            el.currentTime = 0;
-                            el.muted = !audioPreviewEnabled;
-                            const p = el.play();
-                            if (p !== undefined) {
-                              p.catch(() => {
-                                el.muted = true;
-                                el.play().catch(() => {});
-                              });
-                            }
-                          }
-                        }}
-                        src={m.videoUrl}
-                        autoPlay
-                        loop
-                        muted={!audioPreviewEnabled}
-                        playsInline
-                        preload="auto"
-                        draggable={false}
-                        className="absolute inset-0 size-full object-cover z-0 pointer-events-none select-none"
-                      />
-                    )}
-
-                    {/* Duration badge: bottom left */}
-                    <span className="absolute bottom-1.5 left-1.5 z-20 rounded bg-black/75 px-1 py-0.5 text-[9px] tabular-nums text-white shadow-xs pointer-events-none select-none">
-                      {formatTime(m.duration)}
-                    </span>
-
-                    {/* Plus button: small, bottom right corner - no volume button, no graying overlay */}
-                    <button
-                      type="button"
-                      disabled={busyId === m.id || busyId === ("dyn_" + m.id)}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void handleInsertMemeItem(m);
-                      }}
-                      className="pointer-events-auto absolute bottom-1.5 right-1.5 z-30 flex size-5 items-center justify-center rounded-full bg-primary text-white hover:scale-110 active:scale-95 transition-transform shadow-md cursor-pointer disabled:opacity-50"
-                      title="Add to timeline"
-                    >
-                      {busyId === m.id || busyId === ("dyn_" + m.id) ? (
-                        <span className="size-2 rounded-full border border-white border-t-transparent animate-spin" />
-                      ) : (
-                        <Icon name="plus" className="size-2.5" />
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="p-1.5 truncate text-[11px] font-medium text-ink pointer-events-none select-none" title={m.title}>
-                    {m.title}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Searchable Online Memes (dynamic search clips) */}
-            {isSearchingOnlineMemes && onlineMemes.length === 0 && (
-              <div className="space-y-1.5 pt-2" data-testid="online-memes-loading">
-                <div className="flex items-center gap-1.5 text-muted text-[11px] font-semibold px-1">
-                  <Spinner size="xs" /> SEARCHING ONLINE MEMES…
-                </div>
-                <SkeletonGrid n={6} className="grid-cols-[repeat(auto-fill,minmax(110px,1fr))]" />
-              </div>
-            )}
-            {onlineMemes.length > 0 && (
-              <div className="space-y-1.5 pt-2">
-                <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
-                  <span>SEARCHABLE ONLINE MEMES ({onlineMemes.length})</span>
-                </div>
-                <div className={gridCls}>
-                  {onlineMemes.map((m) => (
-                    <div
-                      key={m.id}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData(MEME_DRAG, JSON.stringify(m));
-                        e.dataTransfer.setData("text/plain", m.title);
-                        e.dataTransfer.effectAllowed = "copy";
-                        setMemeDrag(m);
-                        const chip = createDragChip(m.title, m.thumbUrl);
-                        if (chip) e.dataTransfer.setDragImage(chip, 16, 20);
-                      }}
-                      onDragEnd={() => setMemeDrag(null)}
-                      className="group relative flex flex-col overflow-hidden rounded-lg border border-line bg-surface hover:border-primary/50 transition-all cursor-grab active:cursor-grabbing shadow-xs select-none"
-                      onMouseEnter={() => setHoveredId(m.id)}
-                      onMouseLeave={() => setHoveredId(null)}
-                    >
-                      <div className="relative aspect-video w-full bg-black/40 overflow-hidden pointer-events-none">
-                        <img
-                          src={m.thumbUrl}
-                          alt={m.title}
-                          className="size-full object-cover group-hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
-                          loading="lazy"
-                          draggable={false}
-                        />
-                        {hoveredId === m.id && m.videoUrl && (
-                          <video
-                            ref={(el) => {
-                              if (el) {
-                                el.currentTime = 0;
-                                el.muted = !audioPreviewEnabled;
-                                const p = el.play();
-                                if (p !== undefined) {
-                                  p.catch(() => {
-                                    el.muted = true;
-                                    el.play().catch(() => {});
-                                  });
-                                }
-                              }
-                            }}
-                            src={m.videoUrl}
-                            autoPlay
-                            loop
-                            muted={!audioPreviewEnabled}
-                            playsInline
-                            preload="auto"
-                            draggable={false}
-                            className="absolute inset-0 size-full object-cover z-0 pointer-events-none select-none"
-                          />
-                        )}
-
-                        <span className="absolute bottom-1.5 left-1.5 z-20 rounded bg-black/75 px-1 py-0.5 text-[9px] tabular-nums text-white shadow-xs pointer-events-none select-none">
-                          {formatTime(m.duration)}
-                        </span>
-
-                        <button
-                          type="button"
-                          disabled={busyId === m.id || (m.id.startsWith("dyn_") && busyId === m.id.replace("dyn_", "")) || busyId === ("dyn_" + m.id)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void handleInsertMemeItem(m);
-                          }}
-                          className="pointer-events-auto absolute bottom-1.5 right-1.5 z-30 flex size-5 items-center justify-center rounded-full bg-primary text-white hover:scale-110 active:scale-95 transition-transform shadow-md cursor-pointer disabled:opacity-50"
-                          title="Add to timeline"
-                        >
-                          {busyId === m.id || (m.id.startsWith("dyn_") && busyId === m.id.replace("dyn_", "")) || busyId === ("dyn_" + m.id) ? (
-                            <span className="size-2 rounded-full border border-white border-t-transparent animate-spin" />
-                          ) : (
-                            <Icon name="plus" className="size-2.5" />
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="p-1.5 truncate text-[11px] font-medium text-ink pointer-events-none select-none" title={m.title}>
-                        {m.title}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* 3. Photos & Backgrounds */}
         {(activeCategory === "all" || activeCategory === "photos") && (

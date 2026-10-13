@@ -39,13 +39,14 @@ import {
   MEME_DRAG,
   memeDrag,
   useMediaDrag,
+  type LibraryClipDragItem,
+  type MemeClipItem,
 } from "@/lib/editor/mediaDrag";
 import { elementName } from "@/lib/elements/catalog";
 import { filmOpsParam, filmTiles } from "@/lib/editor/film";
 import { getEditingTools } from "@/lib/editor/editingTools";
 import { useTheme } from "@/lib/editor/theme";
 import { localFilm, localItem, localSrc, localThumb, notOnServer } from "@/lib/media/localMedia";
-import type { MemeClipItem } from "@/lib/library/memeCatalog";
 
 export { MEDIA_DRAG, MEME_DRAG } from "@/lib/editor/mediaDrag";
 

@@ -76,7 +76,7 @@ export const SHOWCASE_TEMPLATES = [
     duration: "00:15",
     resolution: "1080 × 1920",
     media: "reelsVertical" as SiteMediaKey,
-    tracks: "Kinetic Subtitles • Meme Audio",
+    tracks: "Kinetic Subtitles • Sound FX Audio",
     tag: "Social",
     accent: "amber",
   },

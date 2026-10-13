@@ -185,12 +185,36 @@ export async function ensureDynamicVideo(ytId: string, maxDuration = 30): Promis
         { timeout: 45000, env: ytDlpEnv() },
       );
     } catch {
-      // 2. Fallback: full download without sections (ffmpeg normalizes up to maxDuration below)
-      await execFilePromise(
-        ytDlpBin(),
-        baseArgs,
-        { timeout: 60000, env: ytDlpEnv() },
-      );
+      try {
+        // 2. Fallback: full download without sections (ffmpeg normalizes up to maxDuration below)
+        await execFilePromise(
+          ytDlpBin(),
+          baseArgs,
+          { timeout: 60000, env: ytDlpEnv() },
+        );
+      } catch {
+        // 3. Fallback for age-gated/restricted clips: specifically use web_embedded client
+        await execFilePromise(
+          ytDlpBin(),
+          [
+            ...YTDLP_JS,
+            "--extractor-args",
+            "youtube:player_client=web_embedded,mweb",
+            "--geo-bypass",
+            ...ytDlpCookiesArgs(),
+            ...ytDlpProxyArgs(),
+            "-f",
+            "b[ext=mp4]/18/bv*[ext=mp4]+ba[ext=m4a]/b/best",
+            ...ytDlpFfmpegArgs(FFMPEG),
+            "--force-overwrites",
+            "-o",
+            tempRaw,
+            "--",
+            videoUrl,
+          ],
+          { timeout: 60000, env: ytDlpEnv() },
+        );
+      }
     }
 
     // Normalize with ffmpeg up to maxDuration

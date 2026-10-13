@@ -163,4 +163,25 @@ describe("a copy in the browser (survives a reload)", () => {
     expect(left.some((k) => k.endsWith(ids[0]!))).toBe(false);
     expect(left.some((k) => k.endsWith(ids[2]!))).toBe(true);
   });
+
+  it("restores media asset thumbnail from OPFS on second-time login/reload without needing timeline restoration", async () => {
+    L.setLocalAccount("acct1");
+    const i = id();
+    const posterBlob = new Blob([new Uint8Array([1, 2, 3])], { type: "image/jpeg" });
+    const f = file("veo.mp4");
+    L.addLocal(i, f, "video", posterBlob, "local");
+    await L.persistLocal(i, f, { ...probe, poster: posterBlob, name: "veo.mp4" });
+    expect(L.localThumb(i)).toMatch(/^blob:/);
+
+    // Simulate second time login in a fresh session: reset in-memory items
+    L.resetLocalMedia();
+    expect(L.localItem(i)).toBeUndefined();
+
+    // On second time login, setLocalAccount preloads saved posters from OPFS
+    L.setLocalAccount("acct1");
+    await tick();
+
+    // Thumbnail should be restored from OPFS even though item is not on timeline
+    expect(L.localThumb(i)).toMatch(/^blob:/);
+  });
 });

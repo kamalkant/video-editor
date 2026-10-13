@@ -21,7 +21,8 @@ import type { MediaLite } from "../edit/doc";
 import type { VideoMeta } from "../api/types";
 import { ApiError } from "../api/types";
 import { CHUNKED_ABOVE_BYTES, uploadInChunks } from "../api/chunkedUpload";
-import { filmSlots, FILM_H } from "../editor/film";
+import { filmSlots, FILM_H, parseFilmOps } from "../editor/film";
+import { LiveKeyRenderer, type LiveKeyParams } from "../editor/liveKey";
 import { LIMITS } from "../settings";
 import { opfsDelete, opfsReadBlob, opfsWriteBlob } from "../storage/opfs";
 
@@ -64,16 +65,44 @@ export const localVersion = () => version;
 export const localItem = (id: string): LocalItem | undefined => items.get(id);
 /** The file itself, to play (null: not imported in this tab, use the server's copy). */
 export const localSrc = (id: string): string | null => items.get(id)?.url ?? null;
+const posters = new Map<string, string>();
+const posterLoading = new Set<string>();
+
 /**
  * A thumbnail from this computer (null: use /api/videos/<id>/thumb). A video's frame taken in the browser
  * stays the thumbnail after the upload (no need to download the server's); a picture is its own thumbnail
- * only until the server's smaller one exists.
+ * only until the server's smaller one exists. After a reload/second login, falls back to the saved poster in OPFS.
  */
 export function localThumb(id: string): string | null {
   const it = items.get(id);
-  if (!it) return null;
-  if (it.kind === "image") return it.state === "uploaded" ? null : it.url;
-  return it.poster;
+  if (it) {
+    if (it.kind === "image") return it.state === "uploaded" ? null : it.url;
+    return it.poster;
+  }
+  const cached = posters.get(id);
+  if (cached) return cached;
+  const acct = account;
+  if (acct && !posterLoading.has(id)) {
+    const idx = readIndex(acct);
+    if (idx[id]) {
+      posterLoading.add(id);
+      const isImg = idx[id].kind === "image";
+      void (async () => {
+        try {
+          const blob =
+            (await opfsReadBlob(acct, isImg ? pathOf(id) : posterPathOf(id)).catch(() => null)) ??
+            (await opfsReadBlob(acct, `thumbnails/${id}.jpg`).catch(() => null));
+          if (blob && account === acct) {
+            posters.set(id, URL.createObjectURL(blob));
+            emit();
+          }
+        } finally {
+          posterLoading.delete(id);
+        }
+      })();
+    }
+  }
+  return null;
 }
 /** The file itself (this tab, else the copy kept in the browser), e.g. for a portable .vdo. null: not here. */
 export async function localFileOf(id: string): Promise<Blob | null> {
@@ -124,9 +153,12 @@ export function releaseLocal(id: string, force = false) {
   if (!it || (!force && (it.state === "uploading" || (it.state === "local" && !it.persisted)))) return;
   URL.revokeObjectURL(it.url);
   if (it.poster) URL.revokeObjectURL(it.poster);
-  const film = films.get(id);
-  if (film?.url) URL.revokeObjectURL(film.url);
-  films.delete(id);
+  for (const [k, film] of films.entries()) {
+    if (k === id || k.startsWith(`${id}:ops:`)) {
+      if (film.url) URL.revokeObjectURL(film.url);
+      films.delete(k);
+    }
+  }
   items.delete(id);
   emit();
 }
@@ -314,20 +346,35 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * The timeline film of a local video, made in the browser with the server's layout (lib/editor/film), so
  * the timeline shows frames at once. null until its first frames are drawn (it fills in from the left).
- * A new layout (the server's exact frame rate or length arrived) makes it again.
+ * When opsParam is given (background removal on), it generates a keyed transparent PNG filmstrip.
+ * While the keyed film is being generated, it returns the plain film if available so tiles don't disappear.
  */
-export function localFilm(id: string, m: { duration: number; fps: number; width: number; height: number }): string | null {
+export function localFilm(
+  id: string,
+  m: { duration: number; fps: number; width: number; height: number },
+  opsParam?: string,
+): string | null {
   const it = items.get(id);
   if (!it || it.kind !== "video" || !(m.duration > 0) || !m.width || !m.height || typeof document === "undefined") return null;
   const slots = filmSlots(m.duration, m.fps || 30, m.width, m.height);
-  const key = `${slots.n}:${slots.fw}`;
-  const had = films.get(id);
-  if (had?.key === key) return had.url;
-  if (had?.url) URL.revokeObjectURL(had.url);
-  films.set(id, { key, url: null });
-  filmJobs.push(() => makeFilm(id, key, slots));
-  if (!filmBusy) void runFilms();
-  return null;
+  const layoutKey = `${slots.n}:${slots.fw}`;
+  const filmKey = opsParam ? `${id}:ops:${opsParam}` : id;
+  const had = films.get(filmKey);
+  if (had?.key === layoutKey && had.url) return had.url;
+  if (had && had.key !== layoutKey && had.url) {
+    URL.revokeObjectURL(had.url);
+  }
+  if (!had || had.key !== layoutKey) {
+    films.set(filmKey, { key: layoutKey, url: null });
+    filmJobs.push(() => makeFilm(id, filmKey, layoutKey, slots, opsParam));
+    if (!filmBusy) void runFilms();
+  }
+  // While keyed film is generating, fall back to plain film if available so tiles don't disappear
+  if (opsParam) {
+    const plain = films.get(id);
+    if (plain?.url) return plain.url;
+  }
+  return had?.url ?? null;
 }
 
 async function runFilms() {
@@ -336,14 +383,55 @@ async function runFilms() {
   filmBusy = false;
 }
 
-async function makeFilm(id: string, key: string, s: ReturnType<typeof filmSlots>) {
+async function makeFilm(
+  id: string,
+  filmKey: string,
+  layoutKey: string,
+  s: ReturnType<typeof filmSlots>,
+  opsParam?: string,
+) {
   const fresh = items.get(id);
-  if (!fresh || films.get(id)?.key !== key) return;
+  if (!fresh || films.get(filmKey)?.key !== layoutKey) return;
   const wait = fresh.addedAt + FILM_DELAY_MS - Date.now();
   if (wait > 0) await sleep(wait);
   await filmGo();
   const it = items.get(id);
-  if (!it || films.get(id)?.key !== key) return;
+  if (!it || films.get(filmKey)?.key !== layoutKey) return;
+
+  let keyParams: LiveKeyParams | null = null;
+  if (opsParam) {
+    try {
+      const ops = parseFilmOps(opsParam);
+      const chroma = ops.find((o) => o.type === "chromaKey" && o.enabled);
+      if (chroma && chroma.type === "chromaKey") {
+        keyParams = {
+          keyColor: chroma.params.keyColor,
+          similarity: chroma.params.similarity,
+          blend: chroma.params.blend,
+          despill: chroma.params.despill,
+          despillStrength: chroma.params.despillStrength,
+          method: "chroma",
+        };
+      } else {
+        const black = ops.find((o) => o.type === "blackKey" && o.enabled);
+        if (black && black.type === "blackKey") {
+          keyParams = {
+            keyColor: "#000000",
+            similarity: 0.1,
+            blend: 0.1,
+            despill: false,
+            despillStrength: 0,
+            threshold: black.params.threshold,
+            restoreColor: black.params.restoreColor,
+            method: "black",
+          };
+        }
+      }
+    } catch {
+      // bad param, fallback to unkeyed
+    }
+  }
+
   const v = document.createElement("video");
   v.muted = true;
   v.preload = "auto";
@@ -356,22 +444,43 @@ async function makeFilm(id: string, key: string, s: ReturnType<typeof filmSlots>
     c.height = s.canvasH;
     const ctx = c.getContext("2d");
     if (!ctx) return;
+
+    let renderer: LiveKeyRenderer | null = null;
+    let keyCanvas: HTMLCanvasElement | null = null;
+    if (keyParams && typeof document !== "undefined") {
+      try {
+        keyCanvas = document.createElement("canvas");
+        keyCanvas.width = s.fw;
+        keyCanvas.height = FILM_H;
+        renderer = LiveKeyRenderer.create(keyCanvas);
+      } catch {
+        renderer = null;
+      }
+    }
+
     let shown = 0;
     const publish = async () => {
-      const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.72));
-      const now = films.get(id);
-      if (!blob || now?.key !== key) return;
+      const format = keyParams ? "image/png" : "image/jpeg";
+      const quality = keyParams ? undefined : 0.72;
+      const blob = await new Promise<Blob | null>((r) => c.toBlob(r, format, quality));
+      const now = films.get(filmKey);
+      if (!blob || now?.key !== layoutKey) return;
       if (now.url) URL.revokeObjectURL(now.url);
-      films.set(id, { key, url: URL.createObjectURL(blob) });
+      films.set(filmKey, { key: layoutKey, url: URL.createObjectURL(blob) });
       emit();
     };
     for (let i = 0; i < s.n; i++) {
       if (filmPaused) await filmGo();
-      if (films.get(id)?.key !== key) return; // released, or a new layout
+      if (films.get(filmKey)?.key !== layoutKey) return; // released, or a new layout
       const slot = s.at(i);
       v.currentTime = Math.min(slot.t, Math.max(0, v.duration - 0.05));
       if (!(await once(v, "seeked", 5_000))) continue;
-      ctx.drawImage(v, slot.x, slot.y, s.fw, FILM_H);
+      if (renderer && keyCanvas && keyParams && renderer.render(v, keyParams, "result")) {
+        ctx.clearRect(slot.x, slot.y, s.fw, FILM_H);
+        ctx.drawImage(keyCanvas, slot.x, slot.y, s.fw, FILM_H);
+      } else {
+        ctx.drawImage(v, slot.x, slot.y, s.fw, FILM_H);
+      }
       // (shown while it fills: the first frames at once, then about twice a second)
       if (i === 0 || i === s.n - 1 || performance.now() - shown > 500) {
         shown = performance.now();
@@ -619,7 +728,36 @@ function writeIndex(acct: string, idx: Index) {
 let account: string | null = null;
 /** The signed-in account whose storage the copies go to (lib/storage/workspace). null: no copies. */
 export function setLocalAccount(acct: string | null) {
+  if (account !== acct) {
+    for (const url of posters.values()) URL.revokeObjectURL(url);
+    posters.clear();
+    posterLoading.clear();
+  }
   account = acct;
+  if (acct) {
+    void preloadLocalPosters(acct);
+  }
+}
+
+async function preloadLocalPosters(acct: string) {
+  const idx = readIndex(acct);
+  const ids = Object.keys(idx);
+  if (!ids.length) return;
+  let loadedAny = false;
+  await Promise.all(
+    ids.map(async (id) => {
+      if (posters.has(id)) return;
+      const isImg = idx[id]?.kind === "image";
+      const blob =
+        (await opfsReadBlob(acct, isImg ? pathOf(id) : posterPathOf(id)).catch(() => null)) ??
+        (await opfsReadBlob(acct, `thumbnails/${id}.jpg`).catch(() => null));
+      if (blob && account === acct) {
+        posters.set(id, URL.createObjectURL(blob));
+        loadedAny = true;
+      }
+    }),
+  );
+  if (loadedAny) emit();
 }
 
 /** Keep a copy of the file (in the background). false when it can't be kept (no space, no storage). */
@@ -634,7 +772,10 @@ export async function persistLocal(id: string, file: Blob, p: LocalProbe & { nam
     await opfsWriteBlob(acct, pathOf(id), file);
     // the frame taken in the browser: after a reload the thumbnails still need no server request
     const poster = items.get(id)?.posterBlob ?? p.poster;
-    if (poster) await opfsWriteBlob(acct, posterPathOf(id), poster).catch(() => undefined);
+    if (poster) {
+      await opfsWriteBlob(acct, posterPathOf(id), poster).catch(() => undefined);
+      if (!posters.has(id)) posters.set(id, URL.createObjectURL(poster));
+    }
     const idx = readIndex(acct);
     idx[id] = { name: p.name, kind: p.kind, type: file.type, size: file.size, width: p.width, height: p.height, duration: p.duration, uploaded: items.get(id)?.state === "uploaded", savedAt: Date.now() };
     writeIndex(acct, idx);
@@ -771,6 +912,8 @@ export function adoptLocal(id: string, blob: Blob, name: string, kind: MediaKind
 export function resetLocalMedia() {
   for (const id of [...items.keys()]) releaseLocal(id, true);
   films.clear();
+  posters.clear();
+  posterLoading.clear();
   filmJobs.length = 0;
   filmPaused = false;
   filmResume = null;

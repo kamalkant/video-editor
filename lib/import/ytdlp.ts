@@ -1,7 +1,7 @@
 import "server-only";
 import { spawn } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import { dataRoot } from "../dataRoot";
 
 /**
@@ -35,7 +35,7 @@ export const YTDLP_CLIENT_ARGS = [
 /**
  * Automatically discovers cookies.txt on cloud VPS servers (e.g. viplay.in)
  * Checks YTDLP_COOKIES, COOKIES_PATH, data/cookies.txt, root cookies.txt,
- * or public_html/cookies.txt in cwd and parent directories.
+ * or public_html/cookies.txt in cwd, dataRoot, and Hostinger domain root.
  * Also supports YTDLP_COOKIES_CONTENT or COOKIES_TXT directly from environment variables.
  */
 export function ytDlpCookiesArgs(): string[] {
@@ -56,23 +56,38 @@ export function ytDlpCookiesArgs(): string[] {
   }
 
   const cwd = process.cwd();
+  const dRoot = dataRoot();
   const candidates: string[] = [
     process.env.YTDLP_COOKIES,
     process.env.COOKIES_PATH,
     process.env.YOUTUBE_COOKIES,
     targetFile,
+    join(dRoot, "cookies.txt"),
+    join(dRoot, "data", "cookies.txt"),
+    join(dRoot, "..", "public_html", "cookies.txt"),
+    join(dRoot, "..", "cookies.txt"),
     join(cwd, "cookies.txt"),
     join(cwd, "public_html", "cookies.txt"),
     join(cwd, "public", "cookies.txt"),
-    join(dataRoot(), "data", "cookies.txt"),
-    join(dataRoot(), "public_html", "cookies.txt"),
   ].filter(Boolean) as string[];
 
-  // Also check ancestor folders for public_html/cookies.txt (common on Hostinger/cPanel)
+  // Hostinger deploy layout: .../domains/domain.com/hbuilds/versions/<id>/nodejs
+  const at = cwd.indexOf(`${sep}hbuilds${sep}versions${sep}`);
+  if (at >= 0) {
+    const hostingerRoot = cwd.slice(0, at);
+    candidates.push(
+      join(hostingerRoot, "public_html", "cookies.txt"),
+      join(hostingerRoot, "cookies.txt"),
+      join(hostingerRoot, "viplay-data", "cookies.txt"),
+    );
+  }
+
+  // Also check ancestor folders up to 8 levels (reaches domain and user root on any hosting layout)
   let curr = cwd;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 8; i++) {
     candidates.push(join(curr, "cookies.txt"));
     candidates.push(join(curr, "public_html", "cookies.txt"));
+    candidates.push(join(curr, "public", "cookies.txt"));
     const parent = join(curr, "..");
     if (parent === curr) break;
     curr = parent;

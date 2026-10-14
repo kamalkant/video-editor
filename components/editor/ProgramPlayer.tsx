@@ -2127,10 +2127,10 @@ export function ProgramPlayer(p: {
   return (
     <figure className={`m-0 flex min-w-0 flex-col ${p.fit ? "h-full min-h-0" : ""}`} aria-labelledby="program-caption">
       <div className="flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line px-2 text-xs">
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scrollbar-none">
           {p.toolbar}
           {modeBar}
-          <span role="group" aria-label="Preview zoom" className="flex items-center gap-0.5 rounded-md border border-line px-0.5">
+          <span role="group" aria-label="Preview zoom" className="flex items-center gap-0.5 rounded-md border border-line px-0.5 shrink-0">
             <button type="button" className="flex size-7 items-center justify-center rounded text-muted hover:bg-raised hover:text-ink disabled:opacity-40" onClick={() => zoomBy(-1)} disabled={zoom <= PREVIEW_ZOOMS[0]} aria-label="Zoom out the preview" title="Zoom out (⌘ + scroll)">
               −
             </button>
@@ -2162,7 +2162,7 @@ export function ProgramPlayer(p: {
       <div
         ref={frameRef}
         data-testid="program-frame"
-        className={`relative flex flex-col bg-preview ${isFull ? "h-full w-full" : p.fit ? "min-h-40 flex-1" : ""}`}
+        className={`relative flex flex-col bg-preview ${isFull ? "h-full w-full" : p.fit ? "min-h-0 flex-1" : ""}`}
         onPointerDown={(e) => {
           if (!editable || e.button !== 0 || p.cropId || p.patchEdit) return;
           const target = e.target as HTMLElement;

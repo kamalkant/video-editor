@@ -8167,7 +8167,7 @@ function StudioInner(props: Props) {
         localSrc={localSrc(video.id) && !(proxyMode && !notOnServer(video.id)) ? localSrc(video.id) : null}
         sound={activeSound}
         key={activeClip.id}
-        fit={wide}
+        fit={wide || isMobile}
         clock={clipClock}
         playerRef={clipRef}
         segments={[
@@ -8237,7 +8237,7 @@ function StudioInner(props: Props) {
       sourceOf={sourceOf}
       speech={speech}
       reversedOf={reversedOf}
-      fit={wide}
+      fit={wide || isMobile}
       bg={bg}
       custom={custom}
       bgMedia={bg === "image" || bg === "video" ? bgMedia[bg] : undefined}
@@ -8316,7 +8316,7 @@ function StudioInner(props: Props) {
   const previewArea = (
     <section
       aria-label="Preview"
-      className={`panel relative flex min-w-0 flex-col overflow-hidden ${wide || isMobile ? "min-h-0 flex-1" : ""} ${dragging ? "ring-2 ring-primary" : ""}`}
+      className={`panel relative flex min-w-0 flex-col overflow-hidden ${wide || isMobile ? "h-full min-h-0 flex-1" : ""} ${dragging ? "ring-2 ring-primary" : ""}`}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
@@ -8420,6 +8420,7 @@ function StudioInner(props: Props) {
         <div className={wide ? "min-h-0 flex-1" : ""}>
           <EmptyPreview
             state={uploadState}
+            isMobile={isMobile}
             onChoose={openPicker}
             onCancel={cancelUpload}
             dragging={dragging}

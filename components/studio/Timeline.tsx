@@ -1883,53 +1883,255 @@ export function Timeline(p: TimelineProps) {
       className="panel flex h-full min-h-0 flex-col overflow-hidden"
     >
       {isMobile ? (
-        <div className="flex h-8 shrink-0 items-center justify-between border-b border-line bg-surface px-2.5">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold tabular-nums text-muted">
-            <span className="text-ink">{formatTenths(t)}</span>
+        <div className="flex h-9 shrink-0 items-center justify-between border-b border-line bg-surface px-2 gap-1.5 overflow-hidden">
+          {/* Mobile Timecode & Fit */}
+          <div className="flex items-center gap-1 shrink-0 text-[11px] font-semibold tabular-nums text-muted">
+            <span className="text-ink font-bold">{formatTenths(t)}</span>
             <span>/</span>
             <span>{formatTenths(docDuration(doc))}</span>
-          </div>
-
-          <div className="flex items-center gap-1 text-xs">
             <button
               type="button"
-              className="flex size-6 items-center justify-center rounded text-muted hover:text-ink hover:bg-raised"
-              onClick={() => zoomStep(-1)}
-              disabled={empty || pxPerSec <= minZoom + 0.1}
-              aria-label="Zoom out"
-            >
-              −
-            </button>
-            <input
-              type="range"
-              className="w-16 accent-[var(--color-primary)] h-1"
-              min={0}
-              max={100}
-              step={1}
-              value={scaleToSlider(pxPerSec, minZoom, maxZoom)}
-              onChange={(e) =>
-                zoomTo(sliderToScale(Number(e.target.value), minZoom, maxZoom))
-              }
-              disabled={empty}
-              aria-label="Timeline zoom"
-            />
-            <button
-              type="button"
-              className="flex size-6 items-center justify-center rounded text-muted hover:text-ink hover:bg-raised"
-              onClick={() => zoomStep(1)}
-              disabled={empty || pxPerSec >= maxZoom - 0.1}
-              aria-label="Zoom in"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              className="rounded px-1.5 py-0.5 text-[10px] font-medium text-link hover:bg-raised"
+              className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-link hover:bg-raised"
               onClick={fit}
               disabled={empty}
             >
               Fit
             </button>
+          </div>
+
+          <div className="h-4 w-px bg-line/60 shrink-0" />
+
+          {/* Quick Editing Tools Toolbar */}
+          <div
+            role="toolbar"
+            aria-label="Editing tools"
+            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-0.5 scrollbar-none"
+          >
+            {/* Split */}
+            {tool(
+              "Split",
+              "split",
+              tools.canSplit ? () => p.onSplit(tools.target!.clip.id, t) : null,
+              "Split: Split at the playhead (S)",
+            )}
+            {/* Trim */}
+            {tool(
+              "Trim",
+              "trim",
+              tools.canTrim
+                ? (e) => {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setTrimMenu((o) =>
+                      o ? null : { x: r.left, y: r.bottom + 4 },
+                    );
+                  }
+                : null,
+              "Trim: Trim the clip under the playhead (Q / W)",
+              trimMenu && tools.target ? (
+                <ContextMenu
+                  x={trimMenu.x}
+                  y={trimMenu.y}
+                  label="Trim"
+                  onClose={() => setTrimMenu(null)}
+                  items={[
+                    {
+                      label: "Trim start to playhead",
+                      shortcut: "Q",
+                      onSelect: () =>
+                        p.onTrim(
+                          tools.target!.clip.id,
+                          "in",
+                          t,
+                          `trimq:${tools.target!.clip.id}:${t}`,
+                        ),
+                    },
+                    {
+                      label: "Trim end to playhead",
+                      shortcut: "W",
+                      onSelect: () =>
+                        p.onTrim(
+                          tools.target!.clip.id,
+                          "out",
+                          t,
+                          `trimw:${tools.target!.clip.id}:${t}`,
+                        ),
+                    },
+                  ]}
+                />
+              ) : null,
+              !!trimMenu,
+            )}
+            {/* Delete */}
+            {tool(
+              "Delete",
+              "trash",
+              multiSelected.size > 1
+                ? () => {
+                    if (p.onDeleteMany) p.onDeleteMany(Array.from(multiSelected));
+                    else multiSelected.forEach((id) => p.onDelete(id));
+                    clearMulti();
+                  }
+                : tools.canDelete
+                  ? () => p.onDelete(tools.selected!.clip.id)
+                  : null,
+              multiSelected.size > 1
+                ? `Delete ${multiSelected.size} selected clips (Del)`
+                : "Delete: Delete the selected clip (Del)",
+              undefined,
+              undefined,
+              multiSelected.size > 1 ? multiSelected.size : undefined,
+            )}
+            {/* Duplicate */}
+            {tool(
+              "Duplicate",
+              "plus",
+              multiSelected.size > 1
+                ? () => {
+                    multiSelected.forEach((id) => p.onDuplicate(id));
+                  }
+                : tools.canDuplicate
+                  ? () => p.onDuplicate(tools.selected!.clip.id)
+                  : null,
+              multiSelected.size > 1
+                ? `Copy ${multiSelected.size} selected clips (⌘D)`
+                : "Duplicate: Copy the selected clip (⌘D)",
+              undefined,
+              undefined,
+              multiSelected.size > 1 ? multiSelected.size : undefined,
+            )}
+            {/* Snapping */}
+            {tool(
+              "Snapping",
+              "magnet",
+              () => setSnapping((s) => !s),
+              snapping
+                ? "Snapping is ON (hold Alt to bypass)"
+                : "Snapping is OFF (click to enable)",
+              undefined,
+              undefined,
+              undefined,
+              snapping,
+            )}
+            {/* Crop */}
+            {tool(
+              "Crop",
+              "crop",
+              tools.canCrop && p.onCrop
+                ? () => p.onCrop!(tools.selected!.clip.id)
+                : null,
+              tools.selected
+                ? "Crop: Crop the selected clip on the preview"
+                : "Select a video or picture first",
+            )}
+            {/* Speed & Reverse & Freeze */}
+            {(() => {
+              const v =
+                tools.canSpeed || tools.canReverse ? tools.selected!.clip : null;
+              return (
+                <>
+                  {tool(
+                    "Speed",
+                    "speed",
+                    tools.canSpeed && p.onPatchClip
+                      ? (e) => {
+                          const r = e.currentTarget.getBoundingClientRect();
+                          setSpeedMenu((o) =>
+                            o ? null : { x: r.left, y: r.bottom + 4 },
+                          );
+                        }
+                      : null,
+                    tools.selected
+                      ? "Speed: Change the speed of the selected clip"
+                      : "Select a video clip first",
+                    speedMenu && v ? (
+                      <ContextMenu
+                        x={speedMenu.x}
+                        y={speedMenu.y}
+                        label="Speed"
+                        onClose={() => setSpeedMenu(null)}
+                        items={SPEED_MENU.map((x) => ({
+                          label: `${x}×${x === 1 ? " (normal)" : x < 1 ? " slow motion" : ""}`,
+                          onSelect: () =>
+                            p.onPatchClip!(v.id, {
+                              speed: x === 1 ? undefined : x,
+                            }),
+                        }))}
+                      />
+                    ) : null,
+                    !!speedMenu,
+                  )}
+                  {tool(
+                    "Reverse",
+                    "reverse",
+                    tools.canReverse && p.onPatchClip
+                      ? () =>
+                          p.onPatchClip!(v!.id, {
+                            reversed: (v as { reversed?: boolean }).reversed
+                              ? undefined
+                              : true,
+                          })
+                      : null,
+                    tools.selected
+                      ? "Reverse: Play the selected clip backwards"
+                      : "Select a video clip first",
+                  )}
+                  {tool(
+                    "Freeze",
+                    "freeze",
+                    tools.canFreeze && p.onFreeze
+                      ? () => p.onFreeze!(tools.target!.clip.id, t)
+                      : null,
+                    "Freeze: Hold the frame at the playhead (adds a 2-second picture on Video 1)",
+                  )}
+                </>
+              );
+            })()}
+            {/* Audio Detach */}
+            {(() => {
+              const isDetached = tools.isAudioDetached;
+              const canToggle = tools.canAttachAudio || tools.canDetachAudio;
+              const label = isDetached ? "Attach" : "Detach";
+              const icon: IconName = isDetached ? "attachAudio" : "detachAudio";
+              const tooltip = isDetached
+                ? "Attach Audio: Re-attach and merge audio back into video"
+                : tools.selected?.clip.type === "video"
+                  ? tools.canDetachAudio
+                    ? "Detach Audio: Move audio to a dedicated audio track"
+                    : "This video has no audio"
+                  : "Select a video or detached audio clip";
+
+              const onClick =
+                canToggle && (p.onToggleAudioDetach || p.onDetachAudio || p.onAttachAudio)
+                  ? () => {
+                      const clipId = tools.selected!.clip.id;
+                      if (p.onToggleAudioDetach) {
+                        p.onToggleAudioDetach(clipId);
+                      } else if (isDetached && p.onAttachAudio) {
+                        p.onAttachAudio(clipId);
+                      } else if (p.onDetachAudio) {
+                        p.onDetachAudio(clipId);
+                      }
+                    }
+                  : null;
+
+              return tool(
+                label,
+                icon,
+                onClick,
+                tooltip,
+                undefined,
+                undefined,
+                undefined,
+                isDetached,
+              );
+            })()}
+            {/* Marker */}
+            {tool(
+              "Marker",
+              "marker",
+              p.onAddMarker ? () => p.onAddMarker!(t) : null,
+              "Marker: Add marker at playhead (M)",
+            )}
           </div>
         </div>
       ) : (

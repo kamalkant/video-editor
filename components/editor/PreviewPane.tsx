@@ -483,7 +483,7 @@ export function PreviewPane(p: {
         </span>
       </div>
 
-      <div ref={frameRef} data-testid="preview-frame" className={`group relative flex flex-col bg-[#0c1527] ${isFull ? "h-full w-full" : p.fit ? "min-h-40 flex-1" : ""}`}>
+      <div ref={frameRef} data-testid="preview-frame" className={`group relative flex flex-col bg-[#0c1527] ${isFull ? "h-full w-full" : p.fit ? "min-h-0 flex-1" : ""}`}>
       <div
         tabIndex={0}
         aria-label="Preview. Space plays or pauses. Scroll to look around when zoomed."

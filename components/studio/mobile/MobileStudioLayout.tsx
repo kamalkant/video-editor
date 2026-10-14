@@ -187,8 +187,8 @@ export function MobileStudioLayout({
       />
 
       {/* 2. Video Preview Area (YouTube Create rounded canvas stage) */}
-      <div className="relative shrink-0 w-full max-h-[35vh] min-h-[170px] bg-[#0f0f0f] flex items-center justify-center overflow-hidden border-b border-line/40 px-2 py-1.5">
-        <div className="w-full h-full flex items-center justify-center rounded-2xl overflow-hidden shadow-md">
+      <div className="relative shrink-0 w-full h-[38vh] min-h-[185px] max-h-[320px] bg-[#0f0f0f] flex flex-col overflow-hidden border-b border-line/40 px-2 py-1.5">
+        <div className="w-full h-full flex flex-col rounded-2xl overflow-hidden shadow-md">
           {previewArea}
         </div>
       </div>

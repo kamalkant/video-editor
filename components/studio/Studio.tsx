@@ -8328,7 +8328,7 @@ function StudioInner(props: Props) {
           !!target.closest("a") ||
           !!target.closest("[role='menu']") ||
           !!target.closest("[role='group']");
-        if (!insideStage && !isInteractive && (selectedId || logoShown)) {
+        if ((!insideStage || isMobile) && !isInteractive && (selectedId || logoShown)) {
           selectClip(null);
         }
       }}
@@ -9697,8 +9697,20 @@ function StudioInner(props: Props) {
         onRedo={() => dispatchHistory({ type: "redo" })}
         onHome={startOver}
         onExport={() => setExportOpen(true)}
+        onChoose={openPicker}
+        projectMenu={{
+          projects: projects.items ?? [],
+          onOpen: (id) => void openProject(id),
+          onNew: () => startOver(),
+          onNewBlank: () => startOver({ withBlank: true }),
+          onDuplicate: () => void duplicateProject(),
+          onRename: (name) => void sync.rename(name),
+          onAll: () => showPanel("projects"),
+          onRefresh: () => void projects.refresh(),
+        }}
         previewArea={previewArea}
         timeline={timeline}
+        fileInput={fileInput}
         dialogs={dialogs}
         onSplit={(clipId, t) => dispatchDoc({ type: "split", clipId, t })}
         onTrim={(clipId, edge, to) => dispatchDoc({ type: "trim", clipId, edge, to })}

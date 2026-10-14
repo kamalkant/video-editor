@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Icon } from "@/components/ui/Icon";
 import type { ProjectRef, SaveState } from "@/lib/projects/useProjectSync";
 
@@ -32,27 +31,28 @@ export function MobileTopBar({
 }: MobileTopBarProps) {
   return (
     <header
-      className={`sticky top-0 z-40 flex h-11 w-full shrink-0 items-center justify-between border-b border-line bg-surface/98 backdrop-blur-md px-2.5 pt-[env(safe-area-inset-top)] shadow-xs select-none ${className}`}
+      className={`sticky top-0 z-40 flex h-12 w-full shrink-0 items-center justify-between border-b border-line/60 bg-[#0f0f0f]/98 backdrop-blur-xl px-2.5 pt-[env(safe-area-inset-top)] shadow-xs select-none ${className}`}
     >
-      {/* Left: Back / Home and Project Name */}
+      {/* Left: Back / Home and Project Name Dropdown */}
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
         <button
           type="button"
           onClick={onHome}
-          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-raised hover:text-ink active:scale-95 transition-all"
+          className="flex size-8 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-raised hover:text-ink active:scale-95 transition-all"
           title="Home / Back"
           aria-label="Home"
         >
-          <Icon name="chevronLeft" className="size-4" />
+          <Icon name="chevronLeft" className="size-4.5" />
         </button>
 
         <button
           type="button"
           onClick={onOpenProjects}
-          className="flex items-center gap-1 min-w-0 rounded-md px-1.5 py-0.5 hover:bg-raised transition-colors text-left"
-          title="Project settings / switch project"
+          className="flex items-center gap-1.5 min-w-0 rounded-xl px-2 py-1 hover:bg-raised/60 active:scale-98 transition-all text-left cursor-pointer border border-transparent hover:border-line/40"
+          title="Switch project / Project menu"
+          aria-label="Switch project"
         >
-          <span className="truncate text-xs font-semibold text-ink max-w-[130px] sm:max-w-[200px]">
+          <span className="truncate text-xs font-semibold text-ink max-w-[140px] sm:max-w-[220px]">
             {projectName}
           </span>
           <Icon name="chevronDown" className="size-3 text-muted shrink-0" />
@@ -66,7 +66,7 @@ export function MobileTopBar({
           />
         )}
         {saveState === "saved" && (
-          <span className="text-[10px] text-muted shrink-0 hidden sm:inline" title="All changes saved">
+          <span className="text-[10px] text-muted/70 shrink-0 hidden sm:inline" title="All changes saved">
             ✓
           </span>
         )}
@@ -78,28 +78,28 @@ export function MobileTopBar({
           type="button"
           onClick={onUndo}
           disabled={!canUndo}
-          className="flex size-7 items-center justify-center rounded-lg text-muted hover:bg-raised hover:text-ink disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all"
+          className="flex size-8 items-center justify-center rounded-xl text-muted hover:bg-raised hover:text-ink disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all cursor-pointer"
           title="Undo"
           aria-label="Undo"
         >
-          <Icon name="undo" className="size-3.5" />
+          <Icon name="undo" className="size-4" />
         </button>
 
         <button
           type="button"
           onClick={onRedo}
           disabled={!canRedo}
-          className="flex size-7 items-center justify-center rounded-lg text-muted hover:bg-raised hover:text-ink disabled:opacity-30 disabled:pointer-events-none active:scale-95 transition-all"
+          className="flex size-8 items-center justify-center rounded-xl text-muted hover:bg-raised hover:text-ink disabled:opacity-25 disabled:pointer-events-none active:scale-95 transition-all cursor-pointer"
           title="Redo"
           aria-label="Redo"
         >
-          <Icon name="redo" className="size-3.5" />
+          <Icon name="redo" className="size-4" />
         </button>
 
         <button
           type="button"
           onClick={onExport}
-          className="flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 active:scale-95 transition-all"
+          className="flex items-center gap-1 rounded-full bg-primary px-3.5 py-1 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 active:scale-95 transition-all cursor-pointer ml-1"
           title="Export video"
         >
           <span>Export</span>

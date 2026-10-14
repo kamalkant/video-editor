@@ -1205,9 +1205,9 @@ export function Timeline(p: TimelineProps) {
       return;
     }
     drag.current = { kind: "seek" };
-    // an empty spot in a track or lanes clears the selection; the ruler only moves the playhead
+    // an empty spot in a track or lanes clears the selection; on mobile, ruler also clears selection
     const isRuler = !!(e.target as HTMLElement).closest("[data-ruler]");
-    if (!isRuler) {
+    if (!isRuler || isMobile) {
       clearMulti();
       p.onSelect(null);
       if (p.onSelectClips) p.onSelectClips([]);
@@ -2514,9 +2514,9 @@ export function Timeline(p: TimelineProps) {
           className={`relative flex min-h-0 min-w-0 flex-1 ${empty ? "overflow-hidden" : "overflow-auto"}`}
         >
           {/* lanes */}
-          <div className="relative min-w-0 flex-1">
+          <div className="relative min-w-0 flex-1 min-h-full">
             <div
-              className="relative"
+              className="relative min-h-full flex flex-col"
               style={{
                 minWidth: "100%",
                 width: empty ? "100%" : Math.max(lanesW, inner + 24),
@@ -2645,7 +2645,7 @@ export function Timeline(p: TimelineProps) {
               </div>
               <div
                 ref={lanesWrap}
-                className="relative select-none"
+                className="relative select-none flex-1 min-h-[calc(100%-1.5rem)]"
                 style={{ touchAction: "none" }}
                 onPointerDown={onPointerDown}
                 onPointerMove={onPointerMove}

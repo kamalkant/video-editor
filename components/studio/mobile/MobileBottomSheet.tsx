@@ -75,7 +75,7 @@ export function MobileBottomSheet({
       ref={sheetRef}
       role="region"
       aria-label={`${title} Options`}
-      className={`relative z-30 flex flex-col w-full rounded-t-2xl border-t border-line bg-surface/98 backdrop-blur-xl shadow-2xl transition-[height] duration-200 ease-out select-none ${heightClass} ${className}`}
+      className={`relative z-30 flex flex-col w-full rounded-t-2xl border-t border-line/60 bg-surface/98 backdrop-blur-xl shadow-2xl transition-[height] duration-250 ease-out select-none animate-sheet-up ${heightClass} ${className}`}
     >
       {/* Drag handle pill */}
       <div
@@ -121,8 +121,8 @@ export function MobileBottomSheet({
         </div>
       </div>
 
-      {/* Sheet Content */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 min-h-0 text-xs">
+      {/* Sheet Content with smooth tab crossfade */}
+      <div key={title} className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 min-h-0 text-xs animate-in fade-in duration-200">
         {children}
       </div>
     </div>

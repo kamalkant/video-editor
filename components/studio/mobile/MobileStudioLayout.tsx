@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import type { TimelineDoc, VideoClip, AudioClip, TextClip } from "@/lib/edit/doc";
+import type { TimelineDoc } from "@/lib/edit/doc";
 import type { Clock } from "@/lib/editor/clock";
 import type { ProjectRef, SaveState } from "@/lib/projects/useProjectSync";
+import type { ProjectSummary } from "@/lib/projects/model";
 import type { TransitionType } from "@/lib/player/transitions";
 import { MobileTopBar } from "./MobileTopBar";
 import { MobileBottomToolbar, type MobileTab } from "./MobileBottomToolbar";
 import { MobileBottomSheet, type SheetSnap } from "./MobileBottomSheet";
+import { MobileProjectSheet } from "./sheets/MobileProjectSheet";
 import { MobileEditSheet } from "./sheets/MobileEditSheet";
 import { MobileAudioSheet } from "./sheets/MobileAudioSheet";
 import { MobileTextSheet } from "./sheets/MobileTextSheet";
@@ -30,9 +32,20 @@ export type MobileStudioLayoutProps = {
   onRedo: () => void;
   onHome: () => void;
   onExport: () => void;
-  onOpenProjects?: () => void;
+  onChoose?: () => void;
+  projectMenu?: {
+    projects: ProjectSummary[];
+    onOpen: (id: string) => void;
+    onNew: () => void;
+    onNewBlank: () => void;
+    onDuplicate: () => void;
+    onRename?: (newName: string) => void;
+    onAll?: () => void;
+    onRefresh?: () => void;
+  };
   previewArea: ReactNode;
   timeline: ReactNode;
+  fileInput?: ReactNode;
   dialogs?: ReactNode;
   // Action Handlers
   onSplit?: (clipId: string, t: number) => void;
@@ -71,9 +84,11 @@ export function MobileStudioLayout({
   onRedo,
   onHome,
   onExport,
-  onOpenProjects,
+  onChoose,
+  projectMenu,
   previewArea,
   timeline,
+  fileInput,
   dialogs,
   onSplit,
   onTrim,
@@ -98,13 +113,15 @@ export function MobileStudioLayout({
 }: MobileStudioLayoutProps) {
   const [activeTab, setActiveTab] = useState<MobileTab | null>(null);
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
+  const [isProjectSheetOpen, setIsProjectSheetOpen] = useState(false);
 
   // When a clip is tapped/selected:
-  // As decided in /grill-me, highlight clip and open/switch to 'edit' if no sheet open
+  // In YouTube Create style, selecting a clip switches to contextual clip mode
   useEffect(() => {
     if (selectedId) {
       if (activeTab === null) {
-        setActiveTab("edit");
+        // keep sheet closed by default so user has maximum view of timeline and preview
+        // but toolbar shows contextual actions
       }
     }
   }, [selectedId]);
@@ -139,9 +156,23 @@ export function MobileStudioLayout({
     }
   };
 
+  const handleContainerPointerDown = (e: React.PointerEvent) => {
+    if (!selectedId) return;
+    const target = e.target as HTMLElement;
+    // Don't deselect if clicking inside a clip, trim handle, or interactive element
+    const isClip = !!target.closest("[data-clip], [data-edge], [data-key], [data-marker-id]");
+    const isInteractive = !!target.closest("button, input, select, textarea, a, [role='button'], [role='menu'], [role='dialog'], [data-sheet]");
+    if (!isClip && !isInteractive) {
+      onSelectClip(null);
+    }
+  };
+
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-app text-ink select-none font-sans">
-      {/* 1. Mobile Top Bar */}
+    <div 
+      className="flex h-dvh w-full flex-col overflow-hidden bg-[#0f0f0f] text-ink select-none font-sans"
+      onPointerDown={handleContainerPointerDown}
+    >
+      {/* 1. Mobile Top Bar with Project Switcher */}
       <MobileTopBar
         projectName={project?.name || "Untitled project"}
         project={project}
@@ -152,18 +183,18 @@ export function MobileStudioLayout({
         onRedo={onRedo}
         onHome={onHome}
         onExport={onExport}
-        onOpenProjects={onOpenProjects}
+        onOpenProjects={() => setIsProjectSheetOpen(true)}
       />
 
-      {/* 2. Video Preview Area (Top ~32-35vh) */}
-      <div className="relative shrink-0 w-full max-h-[36vh] min-h-[170px] bg-black/40 flex items-center justify-center overflow-hidden border-b border-line/60">
-        <div className="w-full h-full flex items-center justify-center">
+      {/* 2. Video Preview Area (YouTube Create rounded canvas stage) */}
+      <div className="relative shrink-0 w-full max-h-[35vh] min-h-[170px] bg-[#0f0f0f] flex items-center justify-center overflow-hidden border-b border-line/40 px-2 py-1.5">
+        <div className="w-full h-full flex items-center justify-center rounded-2xl overflow-hidden shadow-md">
           {previewArea}
         </div>
       </div>
 
       {/* 3. Multi-track Timeline Area (Middle flex-1) */}
-      <div className="relative flex-1 min-h-0 w-full overflow-hidden bg-app">
+      <div className="relative flex-1 min-h-0 w-full overflow-hidden bg-[#0a0a0a]">
         {timeline}
       </div>
 
@@ -255,11 +286,63 @@ export function MobileStudioLayout({
         )}
       </MobileBottomSheet>
 
-      {/* 5. Sticky Bottom Toolbar (7 touch tabs) */}
+      {/* 5. YouTube Create Contextual Dual-Mode Toolbar */}
       <MobileBottomToolbar
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
+        selectedId={selectedId}
+        onDeselectClip={() => onSelectClip(null)}
+        onAddMedia={onChoose}
+        onSplit={() => {
+          if (selectedId && onSplit) {
+            onSplit(selectedId, clock.get());
+          }
+        }}
+        onCrop={() => {
+          if (selectedId && onCrop) {
+            onCrop(selectedId);
+          }
+        }}
+        onDuplicate={() => {
+          if (selectedId && onDuplicate) {
+            onDuplicate(selectedId);
+          }
+        }}
+        onDelete={() => {
+          if (selectedId && onDelete) {
+            onDelete(selectedId);
+          }
+        }}
+        onBgRemoval={() => {
+          if (selectedId && onRemoveBackground) {
+            onRemoveBackground(selectedId);
+          }
+        }}
       />
+
+      {/* 6. Mobile Project Switcher Drawer */}
+      {projectMenu && (
+        <MobileProjectSheet
+          isOpen={isProjectSheetOpen}
+          onClose={() => setIsProjectSheetOpen(false)}
+          currentId={project?.id ?? null}
+          currentName={project?.name || "Untitled project"}
+          projects={projectMenu.projects}
+          onOpen={(id) => {
+            projectMenu.onOpen(id);
+            setIsProjectSheetOpen(false);
+          }}
+          onNew={projectMenu.onNew}
+          onNewBlank={projectMenu.onNewBlank}
+          onRename={projectMenu.onRename}
+          onDuplicate={projectMenu.onDuplicate}
+          onAll={projectMenu.onAll}
+          onRefresh={projectMenu.onRefresh}
+        />
+      )}
+
+      {/* File input for mobile picker */}
+      {fileInput}
 
       {/* Dialogs, export modal, etc. */}
       {dialogs}

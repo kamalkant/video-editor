@@ -905,10 +905,13 @@ export function Timeline(p: TimelineProps) {
   }, [clock]);
 
   const timeAt = (clientX: number) => {
-    const r = lanesRef.current!.getBoundingClientRect();
+    const xCoord = Number.isFinite(clientX) ? clientX : 0;
+    const r = lanesRef.current ? lanesRef.current.getBoundingClientRect() : { left: 0 };
+    const left = Number.isFinite(r.left) ? r.left : 0;
+    const pps = pxPerSec > 0 ? pxPerSec : DEFAULT_FIT_PX_PER_SEC;
     return Math.min(
       empty ? span : contentSpan,
-      Math.max(0, (clientX - r.left) / pxPerSec),
+      Math.max(0, (xCoord - left) / pps),
     );
   };
 
@@ -1661,7 +1664,8 @@ export function Timeline(p: TimelineProps) {
   };
 
   const onDragOver = (e: React.DragEvent, trackId: string | null) => {
-    const hasMedia = e.dataTransfer.types.includes(MEDIA_DRAG);
+    const hasMedia =
+      e.dataTransfer.types.includes(MEDIA_DRAG) || mediaDrag() != null;
     const hasMeme = e.dataTransfer.types.includes(MEME_DRAG);
     const hasFiles = e.dataTransfer.types.includes("Files");
     const m = mediaDrag();
@@ -1759,7 +1763,10 @@ export function Timeline(p: TimelineProps) {
     setSnapAt(null);
     const l = landing;
     clearLanding();
-    const id = e.dataTransfer.getData(MEDIA_DRAG);
+    const id =
+      e.dataTransfer.getData(MEDIA_DRAG) ||
+      mediaDrag()?.id ||
+      e.dataTransfer.getData("text/plain");
     const memeData = e.dataTransfer.getData(MEME_DRAG);
     const activeMeme = memeDrag();
     const tl = lanesRef.current ? timeAt(e.clientX) : 0;

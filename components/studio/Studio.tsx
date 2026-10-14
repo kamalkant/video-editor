@@ -261,6 +261,7 @@ import {
   ELEMENT_DRAG,
   elementDrag,
   MEDIA_DRAG,
+  mediaDrag,
   MEME_DRAG,
   memeDrag,
   TEXT_DRAG,
@@ -598,6 +599,23 @@ const firstStateFor = (v: VideoMeta, base: EditSpec | null) =>
     silentOf(v),
     hintsOf(v),
   );
+const metaFromLite = (m: MediaLite): VideoMeta => ({
+  id: m.id,
+  kind: m.kind,
+  fileName: m.fileName,
+  createdAt: Date.now(),
+  info: {
+    width: m.width,
+    height: m.height,
+    fps: m.fps,
+    duration: m.duration,
+    hasAudio: m.hasAudio,
+    soundDetected: m.soundDetected,
+  },
+  suggestedKey: m.suggestedKey ?? null,
+  keyKind: m.keyKind ?? null,
+  keyVia: m.keyVia,
+});
 const NO_CLIP: StudioState = {
   method: "color",
   spec: DEFAULT_SPEC,
@@ -1368,8 +1386,17 @@ function StudioInner(props: Props) {
       }
     }
     // 4. Media asset dropped
-    const id = dt.getData(MEDIA_DRAG);
-    const v = id ? (assets.items ?? []).find((a) => a.id === id) : undefined;
+    const id = dt.getData(MEDIA_DRAG) || mediaDrag()?.id || dt.getData("text/plain");
+    const activeDrag = mediaDrag();
+    const fallbackFromDrag =
+      activeDrag && activeDrag.id === id ? metaFromLite(activeDrag) : undefined;
+    const v = id
+      ? (metas[id] ??
+         shownAssets?.find((a) => a.id === id) ??
+         (assets.items ?? []).find((a) => a.id === id) ??
+         listLocalFiles().find((a) => a.id === id) ??
+         fallbackFromDrag)
+      : undefined;
     if (v) {
       if (v.kind === "image") placeLogo(v, pt);
       else addToTimeline(v);
@@ -2146,7 +2173,17 @@ function StudioInner(props: Props) {
     t: number,
     index?: number,
   ) => {
-    const v = metas[mediaId] ?? assets.items?.find((a) => a.id === mediaId);
+    const id = mediaId || mediaDrag()?.id;
+    if (!id) return;
+    const activeDrag = mediaDrag();
+    const fallbackFromDrag =
+      activeDrag && activeDrag.id === id ? metaFromLite(activeDrag) : undefined;
+    const v =
+      metas[id] ??
+      shownAssets?.find((a) => a.id === id) ??
+      assets.items?.find((a) => a.id === id) ??
+      listLocalFiles().find((a) => a.id === id) ??
+      fallbackFromDrag;
     // an empty timeline: the first thing starts at 0 (wherever it was dropped)
     if (v)
       addToTimeline(v, { trackId, at: live.current.hasClips ? t : 0, index });

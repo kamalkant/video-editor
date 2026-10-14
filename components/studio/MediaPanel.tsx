@@ -769,6 +769,7 @@ export function MediaPanel(p: {
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData(MEDIA_DRAG, a.id);
+                        e.dataTransfer.setData("text/plain", a.id);
                         e.dataTransfer.effectAllowed = "copy";
                         setMediaDrag(mediaLiteOf(a));
                         const chip = dragChip(
@@ -914,6 +915,7 @@ export function MediaPanel(p: {
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData(MEDIA_DRAG, a.id);
+                        e.dataTransfer.setData("text/plain", a.id);
                         e.dataTransfer.effectAllowed = "copy";
                         setMediaDrag(mediaLiteOf(a));
                         const chip = dragChip(

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Icon } from "@/components/ui/Icon";
 import { Popover } from "@/components/ui/Popover";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toApiError } from "@/lib/api/types";
 import { formatTime } from "@/lib/format";
 import type { VersionSummary } from "@/lib/projects/versions";
@@ -74,32 +75,62 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
       setBusy(null);
     }
   };
-  const restore = async (v: VersionSummary) => {
-    if (!window.confirm(`Restore “${v.name}”? What you have now is saved as a version first, and ⌘Z undoes this.`)) return;
-    setBusy(v.id);
-    setError(null);
-    try {
-      await onRestore(v);
-      onDone?.();
-    } catch (e) {
-      setError((e as Error).message);
-      load();
-    } finally {
-      setBusy(null);
-    }
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: "danger" | "primary";
+    action: () => Promise<void>;
+  } | null>(null);
+  const [modalBusy, setModalBusy] = useState(false);
+
+  const restore = (v: VersionSummary) => {
+    setConfirmModal({
+      title: "Restore Version",
+      message: `Restore “${v.name}”? What you have now is saved as a version first, and ⌘Z undoes this.`,
+      confirmLabel: "Restore",
+      variant: "primary",
+      action: async () => {
+        setModalBusy(true);
+        setBusy(v.id);
+        setError(null);
+        try {
+          await onRestore(v);
+          onDone?.();
+        } catch (e) {
+          setError((e as Error).message);
+          load();
+        } finally {
+          setBusy(null);
+          setModalBusy(false);
+          setConfirmModal(null);
+        }
+      },
+    });
   };
-  const remove = async (v: VersionSummary) => {
-    if (!window.confirm(`Delete the version “${v.name}”? This can't be undone.`)) return;
-    setBusy(v.id);
-    try {
-      const r = await fetch(`${base}/${v.id}`, { method: "DELETE" });
-      if (!r.ok && r.status !== 404) throw await toApiError(r);
-      load();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(null);
-    }
+
+  const remove = (v: VersionSummary) => {
+    setConfirmModal({
+      title: "Delete Version",
+      message: `Delete the version “${v.name}”? This can't be undone.`,
+      confirmLabel: "Delete",
+      variant: "danger",
+      action: async () => {
+        setModalBusy(true);
+        setBusy(v.id);
+        try {
+          const r = await fetch(`${base}/${v.id}`, { method: "DELETE" });
+          if (!r.ok && r.status !== 404) throw await toApiError(r);
+          load();
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(null);
+          setModalBusy(false);
+          setConfirmModal(null);
+        }
+      },
+    });
   };
 
   return (
@@ -156,6 +187,22 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
           ))}
         </ul>
       )}
+
+      {/* Confirmation modal for restore/delete */}
+      <ConfirmDialog
+        open={!!confirmModal}
+        title={confirmModal?.title}
+        message={confirmModal?.message}
+        confirmLabel={confirmModal?.confirmLabel}
+        variant={confirmModal?.variant}
+        busy={modalBusy}
+        onClose={() => {
+          if (!modalBusy) setConfirmModal(null);
+        }}
+        onConfirm={async () => {
+          if (confirmModal) await confirmModal.action();
+        }}
+      />
     </div>
   );
 }

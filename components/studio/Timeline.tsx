@@ -46,7 +46,7 @@ import {
   type LibraryClipDragItem,
   type MemeClipItem,
 } from "@/lib/editor/mediaDrag";
-import { elementName } from "@/lib/elements/catalog";
+import { elementName, elementPreset } from "@/lib/elements/catalog";
 import { filmOpsParam, filmTiles } from "@/lib/editor/film";
 import { getEditingTools } from "@/lib/editor/editingTools";
 import { useTheme } from "@/lib/editor/theme";
@@ -1772,7 +1772,9 @@ export function Timeline(p: TimelineProps) {
     } else if (hasElement || el) {
       const tl = timeAt(e.clientX);
       const at = snapTo(tl, edges(), e.altKey);
-      const label = el?.presetId ? elementName(el.presetId) : (el?.emoji ? `Emoji ${el.emoji}` : "Element");
+      const label =
+        el?.label ||
+        (el?.presetId ? (elementPreset(el.presetId)?.label ?? elementName(el.presetId)) : (el?.emoji ? `Emoji ${el.emoji}` : "Element"));
       showLanding(
         `el:${tr.id}:${Math.round(at * fps)}`,
         () => ({

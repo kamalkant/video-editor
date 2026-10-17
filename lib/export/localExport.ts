@@ -172,7 +172,7 @@ class LocalVideoPool {
 
 /** Frame seek with tight timeout safety */
 function seekVideo(video: HTMLVideoElement, targetTime: number): Promise<void> {
-  if (Math.abs(video.currentTime - targetTime) < 0.015) {
+  if (Math.abs(video.currentTime - targetTime) < 0.02) {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
@@ -188,7 +188,7 @@ function seekVideo(video: HTMLVideoElement, targetTime: number): Promise<void> {
     video.addEventListener("seeked", finish, { once: true });
     video.addEventListener("error", finish, { once: true });
     video.currentTime = targetTime;
-    setTimeout(finish, 80);
+    setTimeout(finish, 40);
   });
 }
 

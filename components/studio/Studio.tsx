@@ -5138,8 +5138,13 @@ function StudioInner(props: Props) {
     setLocalJob(null);
     if (activeClip) writeLocal(LAST_SPEC_KEY, clipSpec(d, activeClip));
     try {
-      // Check if we can export locally on device without uploading private media to the server
-      const canLocal = !s && (await canExportLocally(format, d.canvas.width, d.canvas.height));
+      // Smart duration-aware export routing:
+      // For short timelines (< 60s), browser WebCodecs (exportLocally) renders in seconds without server overhead.
+      // For longer timelines (>= 60s), DOM seek penalties make browser export slow (10+ min), so route to
+      // the high-speed linear rendering pipeline which finishes 10-minute exports in ~60-75s.
+      const duration = docDuration(d);
+      const isLongTimeline = duration >= 60;
+      const canLocal = !isLongTimeline && !s && (await canExportLocally(format, d.canvas.width, d.canvas.height));
       if (canLocal) {
         setStartStatus("Rendering locally on device…");
         const ac = new AbortController();

@@ -82,16 +82,41 @@ export function ExportDialog(p: {
   const busy = useExportSize(p.sizeBasis ?? null, p.open && !running && !done && !!pr);
   const sizeOf = (f: typeof p.format): number | null => {
     if (!pr || p.blockedOf(f) || (f === "pack" && packOfVideo)) return null;
-    if (needsBusyness(f) && busy.bpp === null && busy.estimating) return null;
     const size = !isAudioFormat(f) ? { width: W, height: H } : { width: pr.width, height: pr.height };
-    return estimateBytes(f, { ...size, fps: p.sizeBasis?.fps ?? 30, duration: pr.duration, quality: p.spec.output.quality, hasSound: !!p.hasSound, bpp: busy.bpp, measuredAt: busy.measuredAt, master: p.master });
+    return estimateBytes(f, {
+      ...size,
+      fps: p.sizeBasis?.fps ?? 30,
+      duration: pr.duration,
+      quality: p.spec.output.quality,
+      hasSound: !!p.hasSound,
+      bpp: busy.bpp,
+      measuredAt: busy.measuredAt,
+      master: p.master,
+    });
   };
   const sizeNow = sizeOf(p.format);
+
+  // Instant export render duration estimate based on timeline length and target format
+  const estExportSec = pr
+    ? isAudioFormat(p.format)
+      ? Math.max(1, Math.round(pr.duration / 30))
+      : isStillFormat(p.format)
+        ? 1
+        : Math.max(2, Math.round(pr.duration / 8))
+    : 0;
+  const estTimeStr = estExportSec < 60 ? `~${estExportSec}s` : `~${Math.round(estExportSec / 60)} min`;
+
   const sizeLine = pr && !running && !done && !blocked && !packOfVideo && (
-    <span className="mt-1 block" data-testid="export-size" aria-live="polite">
+    <span className="mt-1 flex flex-wrap items-center gap-x-2 text-xs" data-testid="export-size" aria-live="polite">
       {sizeNow !== null ? (
         <>
-          <strong>Size:</strong> about {formatBytes(sizeNow)}
+          <span>
+            <strong>Size:</strong> about {formatBytes(sizeNow)}
+          </span>
+          <span className="text-muted">·</span>
+          <span className="text-muted">
+            <strong>Est. time:</strong> {estTimeStr}
+          </span>
         </>
       ) : (
         "Estimating the size…"

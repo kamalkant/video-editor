@@ -64,7 +64,8 @@ export async function uploadInChunks(file: Blob, o: ChunkedOptions, onProgress: 
   const cancel = () => void fetch(base, { method: "DELETE" }).catch(() => undefined);
 
   let offset = 0;
-  let size = o.timing?.firstChunk ?? FIRST_CHUNK_BYTES;
+  const isLocalHost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "::1");
+  let size = o.timing?.firstChunk ?? (isLocalHost ? 64 * 1024 * 1024 : FIRST_CHUNK_BYTES);
   let failures = 0;
   onProgress(0, total);
   try {

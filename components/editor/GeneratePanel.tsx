@@ -3,10 +3,10 @@
 import { Notice } from "@/components/ui/Notice";
 import type { Job } from "@/lib/jobs/queue";
 
-export function GeneratePanel(p: { job: Job | null; starting: boolean; connection: "ok" | "retrying" | "gone"; disabledReason: string | null; startError: string | null; onGenerate: () => void; onCancel: () => void; label?: string; help?: string }) {
+export function GeneratePanel(p: { job: Job | null; starting: boolean; startStatus?: string; connection: "ok" | "retrying" | "gone"; disabledReason: string | null; startError: string | null; onGenerate: () => void; onCancel: () => void; label?: string; help?: string }) {
   const running = p.starting || (p.job && (p.job.state === "queued" || p.job.state === "running"));
   const step = p.job?.steps.find((s) => s.state === "running");
-  const status = p.starting ? "Starting…" : p.job?.state === "queued" ? "Waiting for another video to finish…" : step ? `${step.label}…` : p.job?.state === "done" ? "Done ✓ Opening your files…" : "";
+  const status = p.startStatus ?? (p.starting ? "Preparing export…" : p.job?.state === "queued" ? "Waiting for another video to finish…" : step ? `${step.label}…` : p.job?.state === "done" ? "Done ✓ Opening your files…" : "");
 
   return (
     <section aria-labelledby="gen-heading" className="card flex flex-col gap-3">

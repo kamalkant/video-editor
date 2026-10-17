@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { clipLength, docDuration, findClip, LOGO_MAX_SIZE, mainStarts, mainTrack, type AnyClip, type AudioPlaced, type BlankClip, type ElementClip, type MediaLite, type TextClip, type TimelineDoc, type Transform, type VideoClip, type Watermark, watermarkPad, watermarkRect } from "@/lib/edit/doc";
+import { clipLength, docDuration, findClip, layersAt, LOGO_MAX_SIZE, mainStarts, mainTrack, type AnyClip, type AudioPlaced, type BlankClip, type ElementClip, type Layer, type MediaLite, type TextClip, type TimelineDoc, type Transform, type VideoClip, type Watermark, watermarkPad, watermarkRect } from "@/lib/edit/doc";
 import { drawLogoBadge, logoState } from "@/lib/player/logo";
 import { ELEMENT_DRAG, elementDrag, MEDIA_DRAG, mediaDrag, MEME_DRAG, memeDrag, TEXT_DRAG, textDrag, useElementDrag, useMediaDrag, useMemeDrag, useTextDrag } from "@/lib/editor/mediaDrag";
 import type { Clock } from "@/lib/editor/clock";
@@ -43,36 +43,7 @@ const BG_CLASS: Record<Exclude<Bg, "custom">, string> = { checker: "bg-checker",
 /** Preview resolution (the export uses the full canvas size). */
 const MAX_SIDE = 1280;
 
-type Layer = { clip: AnyClip; start: number; trackIndex: number };
-
-/** The clips visible at time t, bottom to top: main track, then overlay tracks from the lowest up. */
-export function layersAt(doc: TimelineDoc, t: number): Layer[] {
-  const out: Layer[] = [];
-  const main = mainTrack(doc);
-  const starts = mainStarts(main.clips);
-  main.clips.forEach((c, i) => {
-    const s = starts[i];
-    const len = clipLength(c);
-    // Allow boundary tolerance at start (-1e-4) and at the track end so the final frame remains visible.
-    // If the first clip has a leading start offset (e.g. during in-point trimming before ripple),
-    // and t is at or before s, keep clip 0 visible so the frame being trimmed never drops out.
-    const isLeadingTrim = i === 0 && s > 0 && t <= s + 1e-4;
-    const isAtEnd = i === main.clips.length - 1 && t <= s + len + 1e-5;
-    if (isLeadingTrim || (t >= s - 1e-4 && (isAtEnd || t < s + len - 1e-6))) {
-      out.push({ clip: c, start: s, trackIndex: doc.tracks.indexOf(main) });
-    }
-  });
-  for (let ti = doc.tracks.length - 1; ti >= 0; ti--) {
-    const tr = doc.tracks[ti];
-    if (tr.kind !== "overlay" || tr.hidden) continue;
-    for (const c of tr.clips) {
-      if (t >= c.start - 1e-4 && t <= c.start + clipLength(c) + 1e-6) {
-        out.push({ clip: c, start: c.start, trackIndex: ti });
-      }
-    }
-  }
-  return out;
-}
+export { layersAt, type Layer };
 
 /** A sound the player plays with its own <audio>: a sound clip, or the cleaned sound of a video clip. */
 type Sound = { id: string; src: string; in: number; start: number; len: number; volume: number; fadeIn: number; fadeOut: number; duck?: boolean; rate?: number };

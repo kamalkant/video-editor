@@ -772,6 +772,34 @@ export function elementClipsOf(doc: TimelineDoc): ElementClip[] {
   return out;
 }
 
+export type Layer = { clip: AnyClip; start: number; trackIndex: number };
+
+/** The clips visible at time t, bottom to top: main track, then overlay tracks from the lowest up. */
+export function layersAt(doc: TimelineDoc, t: number): Layer[] {
+  const out: Layer[] = [];
+  const main = mainTrack(doc);
+  const starts = mainStarts(main.clips);
+  main.clips.forEach((c, i) => {
+    const s = starts[i];
+    const len = clipLength(c);
+    const isLeadingTrim = i === 0 && s > 0 && t <= s + 1e-4;
+    const isAtEnd = i === main.clips.length - 1 && t <= s + len + 1e-5;
+    if (isLeadingTrim || (t >= s - 1e-4 && (isAtEnd || t < s + len - 1e-6))) {
+      out.push({ clip: c, start: s, trackIndex: doc.tracks.indexOf(main) });
+    }
+  });
+  for (let ti = doc.tracks.length - 1; ti >= 0; ti--) {
+    const tr = doc.tracks[ti];
+    if (tr.kind !== "overlay" || tr.hidden) continue;
+    for (const c of tr.clips) {
+      if (t >= c.start - 1e-4 && t <= c.start + clipLength(c) + 1e-6) {
+        out.push({ clip: c, start: c.start, trackIndex: ti });
+      }
+    }
+  }
+  return out;
+}
+
 // ---------- making clips ----------
 
 export function newId(doc: TimelineDoc, prefix = "c"): string {

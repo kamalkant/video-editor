@@ -1,4 +1,4 @@
-import { findClip, mainTrack, type Canvas, type ElementClip, type MarkerColor, type MediaLite, type TextClip, type TimelineDoc, type TimelineMarker, type Track, type Transform, type VideoClip, type Watermark } from "../edit/doc";
+import { findClip, mainTrack, type Backdrop, type Canvas, type ElementClip, type MarkerColor, type MediaLite, type TextClip, type TimelineDoc, type TimelineMarker, type Track, type Transform, type VideoClip, type Watermark } from "../edit/doc";
 import { addBlank, addCaptionTrack, addElement, addMarker, addMedia, addText, addTrack, closeAllGaps, deleteClip, deleteClips, deleteMarker, detachAudio, attachAudio, toggleAudioDetach, duplicateClip, editClipAt, keyframeOp, moveClip, removeRangesInClip, removeTrack, reorderTracks, setClip, setTrack, splitClip, trimClip, updateMarker, pasteClip, type AddOptions, type CaptionIn, type CopiedClip, type KeyframeOp } from "../edit/docEdit";
 import { activeAiOp, blackOp, keyOp, sanitizeOutput, type OutputSettings } from "../edit/spec";
 import type { Range } from "../edit/timeline";
@@ -17,9 +17,9 @@ export type DocAction =
   | { type: "clip"; clipId: string; action: StudioAction }
   | { type: "output"; patch: Partial<OutputSettings> }
   | { type: "addMedia"; media: MediaLite; options?: AddOptions }
-  | { type: "addText"; clip: Omit<TextClip, "id">; at: number; id?: string }
-  | { type: "addElement"; clip: Omit<ElementClip, "id">; at: number; id?: string }
-  | { type: "addBlank"; index: number; fill?: string; duration?: number; id?: string }
+  | { type: "addText"; clip: Omit<TextClip, "id">; at: number; id?: string; trackId?: string }
+  | { type: "addElement"; clip: Omit<ElementClip, "id">; at: number; id?: string; trackId?: string }
+  | { type: "addBlank"; index: number; fill?: string; duration?: number; id?: string; backdrop?: Backdrop }
   /** subtitles on new tracks of their own (one undo step); `hide`: tracks to hide (the original language) */
   | { type: "addCaptions"; name: string; captions: CaptionIn[]; template: Omit<TextClip, "id" | "text" | "duration">; hide?: string[] }
   | { type: "split"; clipId: string; t: number }
@@ -105,11 +105,11 @@ export function docReducer(s: DocState, a: DocAction): DocState {
       return { doc: r.doc, media: { ...s.media, [a.media.id]: a.media } };
     }
     case "addText":
-      return { ...s, doc: addText(d, a.clip, a.at, a.id).doc };
+      return { ...s, doc: addText(d, a.clip, a.at, a.id, a.trackId).doc };
     case "addElement":
-      return { ...s, doc: addElement(d, a.clip, a.at, a.id).doc };
+      return { ...s, doc: addElement(d, a.clip, a.at, a.id, a.trackId).doc };
     case "addBlank":
-      return { ...s, doc: addBlank(d, a.index, { fill: a.fill, duration: a.duration, id: a.id }).doc };
+      return { ...s, doc: addBlank(d, a.index, { fill: a.fill, duration: a.duration, id: a.id, backdrop: a.backdrop }).doc };
     case "addCaptions":
       return { ...s, doc: addCaptionTrack(d, a.name, a.captions, a.template, a.hide).doc };
     case "split":

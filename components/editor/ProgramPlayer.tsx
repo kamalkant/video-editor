@@ -1075,8 +1075,14 @@ export function ProgramPlayer(p: {
         }
         ctx.restore();
       } else if (renderClip.type === "blank") {
-        const pic = colorPic(renderClip.fill);
-        draw(pic, pic.width, pic.height, pic.width, pic.height, renderClip, { x: tx, y: ty, w: cv.width, h: cv.height }, { rot: 0, into });
+        if (renderClip.backdrop) {
+          ctx.save();
+          drawBackdrop(ctx, renderClip.backdrop, cv.width, cv.height, into);
+          ctx.restore();
+        } else {
+          const pic = colorPic(renderClip.fill);
+          draw(pic, pic.width, pic.height, pic.width, pic.height, renderClip, { x: tx, y: ty, w: cv.width, h: cv.height }, { rot: 0, into });
+        }
       } else if (renderClip.type === "element") {
         const r = elementRect(renderClip, into, cv.width, cv.height);
         const pic = elementPic(renderClip, r.w, r.h, into, len);

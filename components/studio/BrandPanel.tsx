@@ -115,6 +115,8 @@ export function BrandPanel(p: {
   duration?: number;
   onAddClip: (v: VideoMeta, where: "start" | "end") => void;
   onUploaded: (v: VideoMeta) => void;
+  onAddLogoToTimeline?: (logoId: string) => void;
+  onInsertAtPlayhead?: (v: VideoMeta) => void;
 }) {
   const b = p.api.brand;
   const [color, setColor] = useState("#1d4ed8");
@@ -178,6 +180,16 @@ export function BrandPanel(p: {
         />
         {b.logo && (
           <>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary w-full text-xs"
+                onClick={() => p.onAddLogoToTimeline?.(b.logo!)}
+                title="Add logo as a timeline layer to trim, animate, and position like any clip"
+              >
+                <Icon name="layers" className="size-3.5 text-primary" /> Add Logo to Timeline
+              </button>
+            </div>
             {/* (switched on again: the look it had last time; Studio remembers it when it's switched off) */}
             <Switch label="Show my logo on this video" checked={!!wm} onCheckedChange={(v) => p.onWatermark(v ? { ...DEFAULT_LOGO_LOOK, ...(b.logoLook ?? {}), mediaId: b.logo! } : undefined)} />
             {wm && (

@@ -16,6 +16,7 @@ import {
   videoClipOf,
   type AnyClip,
   type AudioPlaced,
+  type Backdrop,
   type ClipGeneration,
   type MainClip,
   type MarkerColor,
@@ -130,10 +131,10 @@ export function addMedia(doc: TimelineDoc, m: MediaLite, o: AddOptions = {}): { 
  * at the end): "before clip i" is i, "after clip i" is i + 1. A transition
  * into the clip at `index` stays with it (now from the blank).
  */
-export function addBlank(doc: TimelineDoc, index: number, o: { fill?: string; duration?: number; id?: string } = {}): { doc: TimelineDoc; clipId: string } {
+export function addBlank(doc: TimelineDoc, index: number, o: { fill?: string; duration?: number; id?: string; backdrop?: Backdrop } = {}): { doc: TimelineDoc; clipId: string } {
   const main = mainTrack(doc);
   const id = o.id && !findClip(doc, o.id) && /^[\w-]{1,40}$/.test(o.id) ? o.id : newId(doc, "b");
-  const clip = blankClipOf(id, o.fill, pictureLength(o.duration));
+  const clip = blankClipOf(id, o.fill, pictureLength(o.duration), o.backdrop);
   const i = Math.min(Math.max(0, Math.round(index)), main.clips.length);
   return { doc: mapTrack(doc, main.id, (t) => ({ ...t, clips: [...(t.clips as MainClip[]).slice(0, i), clip, ...(t.clips as MainClip[]).slice(i)] }) as Track), clipId: id };
 }
@@ -168,21 +169,21 @@ export function dropLanding(
 }
 
 /** A new text or element at `at`, on a free overlay track that shows. */
-function addDrawn(doc: TimelineDoc, clip: Omit<Extract<OverlayClip, { type: "text" | "element" }>, "id" | "start">, at: number, prefix: string, wantId?: string): { doc: TimelineDoc; clipId: string } {
+function addDrawn(doc: TimelineDoc, clip: Omit<Extract<OverlayClip, { type: "text" | "element" }>, "id" | "start">, at: number, prefix: string, wantId?: string, preferTrackId?: string): { doc: TimelineDoc; clipId: string } {
   const id = wantId && !findClip(doc, wantId) ? wantId : newId(doc, prefix);
   const placed = { ...clip, id, start: Math.max(0, at) } as OverlayClip;
-  const r = trackFor(doc, "overlay", placed.start, clipLength(placed), undefined, undefined, true);
+  const r = trackFor(doc, "overlay", placed.start, clipLength(placed), preferTrackId, undefined, true);
   return { doc: mapTrack(r.doc, r.trackId, (t) => ({ ...t, clips: [...(t.clips as OverlayClip[]), placed].sort((a, b) => a.start - b.start) }) as Track), clipId: id };
 }
 
-/** Add a text clip at `at` on a free overlay track. */
-export function addText(doc: TimelineDoc, clip: Omit<Extract<OverlayClip, { type: "text" }>, "id" | "start">, at: number, wantId?: string): { doc: TimelineDoc; clipId: string } {
-  return addDrawn(doc, clip, at, "t", wantId);
+/** Add a text clip at `at` on a free overlay track (or preferred trackId). */
+export function addText(doc: TimelineDoc, clip: Omit<Extract<OverlayClip, { type: "text" }>, "id" | "start">, at: number, wantId?: string, trackId?: string): { doc: TimelineDoc; clipId: string } {
+  return addDrawn(doc, clip, at, "t", wantId, trackId);
 }
 
-/** Add an element (a shape, sticker, emoji, news graphic) at `at` on a free overlay track. */
-export function addElement(doc: TimelineDoc, clip: Omit<Extract<OverlayClip, { type: "element" }>, "id" | "start">, at: number, wantId?: string): { doc: TimelineDoc; clipId: string } {
-  return addDrawn(doc, clip, at, "e", wantId);
+/** Add an element (a shape, sticker, emoji, news graphic) at `at` on a free overlay track (or preferred trackId). */
+export function addElement(doc: TimelineDoc, clip: Omit<Extract<OverlayClip, { type: "element" }>, "id" | "start">, at: number, wantId?: string, trackId?: string): { doc: TimelineDoc; clipId: string } {
+  return addDrawn(doc, clip, at, "e", wantId, trackId);
 }
 
 /** Split a clip at timeline time t (on its track). Pictures and text split by duration. */

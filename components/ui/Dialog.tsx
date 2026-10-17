@@ -18,7 +18,7 @@ export function Dialog({
   onClose: () => void;
   title: ReactNode;
   children: ReactNode;
-  size?: "md" | "lg";
+  size?: "sm" | "md" | "lg";
   footer?: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -33,7 +33,7 @@ export function Dialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      className={`VDO-dialog m-auto max-h-[min(92dvh,56rem)] w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl open:flex ${size === "lg" ? "max-w-5xl" : "max-w-xl"}`}
+      className={`VDO-dialog m-auto max-h-[min(92dvh,56rem)] w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-xl border border-line bg-surface p-0 text-ink shadow-2xl open:flex ${size === "lg" ? "max-w-5xl" : size === "sm" ? "max-w-md" : "max-w-xl"}`}
       onClose={onClose}
       onCancel={(e) => {
         e.preventDefault();

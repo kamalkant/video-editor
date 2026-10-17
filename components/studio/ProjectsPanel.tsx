@@ -6,6 +6,7 @@ import { Notice } from "@/components/ui/Notice";
 import { SkeletonGrid, SkeletonRows } from "@/components/ui/Skeleton";
 import { Spinner } from "@/components/ui/Spinner";
 import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toApiError } from "@/lib/api/types";
 import { formatAgo, formatTime } from "@/lib/format";
 import type { ProjectSummary } from "@/lib/projects/model";
@@ -50,6 +51,13 @@ export function ProjectsPanel(p: {
     y: number;
   } | null>(null);
   const [deletingBatch, setDeletingBatch] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    action: () => Promise<void>;
+  } | null>(null);
+  const [deletingModal, setDeletingModal] = useState(false);
 
   // View mode & sorting preference from localStorage
   const [view, setView] = useState<ProjectView>("list");
@@ -177,72 +185,81 @@ export function ProjectsPanel(p: {
     }
   };
 
-  const del = async (x: ProjectSummary) => {
-    if (
-      !window.confirm(
-        `Delete the project “${x.name}”? Its settings are removed. The video stays in My Assets.`,
-      )
-    )
-      return;
-    try {
-      if (workspace) {
-        await workspace.deleteProject(x.id);
-        await workspace.clearRecovery(x.id);
-      }
-      try {
-        const res = await fetch(`/api/projects/${x.id}`, { method: "DELETE" });
-        if (!res.ok && res.status !== 404) throw await toApiError(res);
-      } catch {
-        // Local deletion succeeded even if server is offline
-      }
-      p.onDeleted(x.id);
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(x.id);
-        return next;
-      });
-    } catch (e) {
-      setError((e as Error).message);
-    }
+  const del = (x: ProjectSummary) => {
+    setConfirmDelete({
+      title: "Delete Project",
+      message: `Delete the project “${x.name}”? Its settings are removed. The video stays in My Assets.`,
+      confirmLabel: "Delete",
+      action: async () => {
+        setDeletingModal(true);
+        try {
+          if (workspace) {
+            await workspace.deleteProject(x.id);
+            await workspace.clearRecovery(x.id);
+          }
+          try {
+            const res = await fetch(`/api/projects/${x.id}`, { method: "DELETE" });
+            if (!res.ok && res.status !== 404) throw await toApiError(res);
+          } catch {
+            // Local deletion succeeded even if server is offline
+          }
+          p.onDeleted(x.id);
+          setSelected((prev) => {
+            const next = new Set(prev);
+            next.delete(x.id);
+            return next;
+          });
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setDeletingModal(false);
+          setConfirmDelete(null);
+        }
+      },
+    });
   };
 
-  const deleteBatch = async () => {
+  const deleteBatch = () => {
     const count = selected.size;
     if (!count) return;
-    if (
-      !window.confirm(
-        `Delete ${count} selected project${count > 1 ? "s" : ""}? Their settings are removed. The videos stay in My Assets.`,
-      )
-    )
-      return;
-    setDeletingBatch(true);
-    let deletedCurrent = false;
-    try {
-      for (const id of Array.from(selected)) {
-        if (id === p.currentId) deletedCurrent = true;
-        if (workspace) {
-          await workspace.deleteProject(id);
-          await workspace.clearRecovery(id);
-        }
+    setConfirmDelete({
+      title: "Delete Projects",
+      message: `Delete ${count} selected project${count > 1 ? "s" : ""}? Their settings are removed. The videos stay in My Assets.`,
+      confirmLabel: "Delete",
+      action: async () => {
+        setDeletingModal(true);
+        setDeletingBatch(true);
+        let deletedCurrent = false;
         try {
-          const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
-          if (!res.ok && res.status !== 404) throw await toApiError(res);
-        } catch {
-          // Local deletion succeeded
+          for (const id of Array.from(selected)) {
+            if (id === p.currentId) deletedCurrent = true;
+            if (workspace) {
+              await workspace.deleteProject(id);
+              await workspace.clearRecovery(id);
+            }
+            try {
+              const res = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+              if (!res.ok && res.status !== 404) throw await toApiError(res);
+            } catch {
+              // Local deletion succeeded
+            }
+          }
+          const firstId = Array.from(selected)[0] ?? "";
+          setSelected(new Set());
+          if (deletedCurrent && p.currentId) {
+            p.onDeleted(p.currentId);
+          } else if (firstId) {
+            p.onDeleted(firstId);
+          }
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setDeletingBatch(false);
+          setDeletingModal(false);
+          setConfirmDelete(null);
         }
-      }
-      const firstId = Array.from(selected)[0] ?? "";
-      setSelected(new Set());
-      if (deletedCurrent && p.currentId) {
-        p.onDeleted(p.currentId);
-      } else if (firstId) {
-        p.onDeleted(firstId);
-      }
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setDeletingBatch(false);
-    }
+      },
+    });
   };
 
   const downloadBlob = (blob: Blob, fileName: string) => {
@@ -906,6 +923,21 @@ export function ProjectsPanel(p: {
           ]}
         />
       )}
+
+      {/* In-app confirm modal for safe, non-vanishing project deletions */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={confirmDelete?.title}
+        message={confirmDelete?.message}
+        confirmLabel={confirmDelete?.confirmLabel}
+        busy={deletingModal}
+        onClose={() => {
+          if (!deletingModal) setConfirmDelete(null);
+        }}
+        onConfirm={async () => {
+          if (confirmDelete) await confirmDelete.action();
+        }}
+      />
     </div>
   );
 }

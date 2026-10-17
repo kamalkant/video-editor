@@ -12,6 +12,7 @@ import { MEDIA_DRAG } from "./Timeline";
 import { formatBytes, formatTime } from "@/lib/format";
 import type { Asset } from "@/lib/media/useLibrary";
 import { ContextMenu, type MenuItem } from "@/components/ui/ContextMenu";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { LIMITS, limitSizeLabel } from "@/lib/settings";
 import type { UploadState } from "@/lib/upload/useUpload";
 import { keptHereOnly, localItem, localSrc, localThumb, subscribeLocal, localVersion } from "@/lib/media/localMedia";
@@ -152,6 +153,13 @@ export function MediaPanel(p: {
     y: number;
   } | null>(null);
   const [deletingBatch, setDeletingBatch] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    action: () => Promise<void>;
+  } | null>(null);
+  const [deletingModal, setDeletingModal] = useState(false);
 
   useEffect(() => {
     try {
@@ -227,24 +235,34 @@ export function MediaPanel(p: {
     }
   };
 
-  const del = async (a: Asset) => {
+  const del = (a: Asset) => {
     const isUsed = a.usedIn && a.usedIn.length > 0;
     const confirmMsg = isUsed
       ? `This file is used in ${a.usedIn.length > 1 ? `${a.usedIn.length} projects` : "1 project"} (${a.usedIn.map((p) => `“${p.name}”`).join(", ")}).\n\nRemoving it will hide it from My Assets, but existing projects and templates will continue to play and render smoothly.\n\nRemove “${a.fileName}” from My Assets?`
       : `Delete “${a.fileName}” from this computer?`;
-    if (!window.confirm(confirmMsg)) return;
-    setDeleting(a.id);
-    const err = await p.onDelete(a);
-    setDeleteError(err);
-    setDeleting(null);
-    setSelectedAssets((prev) => {
-      const next = new Set(prev);
-      next.delete(a.id);
-      return next;
+
+    setConfirmDelete({
+      title: isUsed ? "Remove Asset" : "Delete Asset",
+      confirmLabel: isUsed ? "Remove" : "Delete",
+      message: confirmMsg,
+      action: async () => {
+        setDeletingModal(true);
+        setDeleting(a.id);
+        const err = await p.onDelete(a);
+        setDeleteError(err);
+        setDeleting(null);
+        setSelectedAssets((prev) => {
+          const next = new Set(prev);
+          next.delete(a.id);
+          return next;
+        });
+        setDeletingModal(false);
+        setConfirmDelete(null);
+      },
     });
   };
 
-  const deleteBatch = async () => {
+  const deleteBatch = () => {
     if (!sortedAssets) return;
     const items = sortedAssets.filter((a) => selectedAssets.has(a.id));
     const count = items.length;
@@ -254,16 +272,26 @@ export function MediaPanel(p: {
       usedItems.length > 0
         ? `Remove ${count} selected asset${count > 1 ? "s" : ""} from My Assets?\n\n(${usedItems.length} of them ${usedItems.length > 1 ? "are" : "is"} in use by projects and will remain accessible to those projects).`
         : `Delete ${count} selected asset${count > 1 ? "s" : ""} from this computer?`;
-    if (!window.confirm(confirmMsg)) return;
-    setDeletingBatch(true);
-    let lastError: string | null = null;
-    for (const a of items) {
-      const err = await p.onDelete(a);
-      if (err) lastError = err;
-    }
-    setDeleteError(lastError);
-    setSelectedAssets(new Set());
-    setDeletingBatch(false);
+
+    setConfirmDelete({
+      title: usedItems.length > 0 ? "Remove Selected Assets" : "Delete Selected Assets",
+      confirmLabel: usedItems.length > 0 ? "Remove" : "Delete",
+      message: confirmMsg,
+      action: async () => {
+        setDeletingModal(true);
+        setDeletingBatch(true);
+        let lastError: string | null = null;
+        for (const a of items) {
+          const err = await p.onDelete(a);
+          if (err) lastError = err;
+        }
+        setDeleteError(lastError);
+        setSelectedAssets(new Set());
+        setDeletingBatch(false);
+        setDeletingModal(false);
+        setConfirmDelete(null);
+      },
+    });
   };
 
   useEffect(() => {
@@ -1029,6 +1057,21 @@ export function MediaPanel(p: {
           ]}
         />
       )}
+
+      {/* In-app confirm modal for safe, non-vanishing deletions */}
+      <ConfirmDialog
+        open={!!confirmDelete}
+        title={confirmDelete?.title}
+        message={confirmDelete?.message}
+        confirmLabel={confirmDelete?.confirmLabel}
+        busy={deletingModal}
+        onClose={() => {
+          if (!deletingModal) setConfirmDelete(null);
+        }}
+        onConfirm={async () => {
+          if (confirmDelete) await confirmDelete.action();
+        }}
+      />
     </div>
   );
 }

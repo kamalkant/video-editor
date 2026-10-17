@@ -19,6 +19,7 @@ import { TemplateCustomizerModal } from "./TemplateCustomizerModal";
 import { Icon } from "@/components/ui/Icon";
 import { Spinner } from "@/components/ui/Spinner";
 import { VoiceSearchMic } from "@/components/ui/VoiceSearchMic";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export function TemplateHub({
   onUseTemplate,
@@ -72,11 +73,22 @@ export function TemplateHub({
     if (!r.ok) setHubError(((await r.json().catch(() => null)) as { error?: { message?: string } } | null)?.error?.message ?? "Couldn't rename it.");
     await loadMine();
   };
-  const deleteMine = async (t: BroadcastTemplate) => {
-    if (!t.custom || !window.confirm(`Delete the template “${t.name}”? Its video and sound stay in My Assets.`)) return;
-    const r = await fetch(`/api/templates/custom/${t.custom.id}`, { method: "DELETE" });
+  const [templateToDelete, setTemplateToDelete] = useState<BroadcastTemplate | null>(null);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
+
+  const deleteMine = (t: BroadcastTemplate) => {
+    if (!t.custom) return;
+    setTemplateToDelete(t);
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!templateToDelete?.custom) return;
+    setDeletingTemplate(true);
+    const r = await fetch(`/api/templates/custom/${templateToDelete.custom.id}`, { method: "DELETE" });
     if (!r.ok && r.status !== 404) setHubError("Couldn't delete it. Try again.");
     await loadMine();
+    setDeletingTemplate(false);
+    setTemplateToDelete(null);
   };
 
   // Customizer Modal state
@@ -347,6 +359,19 @@ export function TemplateHub({
           }}
         />
       )}
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={!!templateToDelete}
+        title="Delete Template"
+        message={templateToDelete ? `Delete the template “${templateToDelete.name}”? Its video and sound stay in My Assets.` : ""}
+        confirmLabel="Delete"
+        busy={deletingTemplate}
+        onClose={() => {
+          if (!deletingTemplate) setTemplateToDelete(null);
+        }}
+        onConfirm={confirmDeleteTemplate}
+      />
     </div>
   );
 }

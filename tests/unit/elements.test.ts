@@ -45,6 +45,11 @@ describe("the ready-made elements (lib/elements/catalog)", () => {
   });
   it("names: what it is, or its words once changed", () => {
     expect(elementName(clipOf("arrow"))).toBe("Arrow");
+    expect(elementName("arrow")).toBe("Arrow");
+    expect(elementName("breaking-lower-third")).toBe("Breaking banner");
+    expect(elementName("lowerThird")).toBe("Lower third");
+    expect(elementName(undefined)).toBe("Element");
+    expect(elementName(null)).toBe("Element");
     const live = clipOf("live");
     expect(elementName(live)).toBe("LIVE");
     expect(elementName({ el: { ...live.el, text: "ON AIR" } })).toBe("ON AIR");

@@ -238,14 +238,22 @@ const KIND_NAME: Record<ElementKind, string> = {
 };
 
 /** An element's name (the timeline, the inspector): its words when you changed them, else what it is. */
-export function elementName(c: Pick<ElementClip, "el">): string {
+export function elementName(c: Pick<ElementClip, "el"> | string | undefined | null): string {
+  if (!c) return "Element";
+  if (typeof c === "string") {
+    const p = elementPreset(c);
+    if (p?.label) return p.label;
+    if (c in KIND_NAME) return KIND_NAME[c as ElementKind];
+    return c;
+  }
   const el = c.el;
+  if (!el) return "Element";
   if (el.kind === "emoji") return `${el.emoji ?? ""} ${emojiName(el.emoji) ?? "Emoji"}`.trim();
   const p = el.preset ? elementPreset(el.preset) : undefined;
   if (el.kind === "ticker") return el.text ? `Ticker: ${el.text}` : "News ticker";
   if (el.kind === "lowerThird") return el.text ? `Lower Third: ${el.text}` : "Lower third";
   if (el.text && el.text !== p?.el.text) return el.text;
-  return p?.label ?? KIND_NAME[el.kind];
+  return p?.label ?? KIND_NAME[el.kind] ?? "Element";
 }
 
 /** What the Elements panel shows for a search: ready-made elements and emoji, best first (everything when empty). */

@@ -35,6 +35,7 @@ export function BackgroundPanel(p: {
   onUploaded: (v: VideoMeta) => void;
   /** ✦ Gemini: describe a background (opens the Generate background window). */
   onGenerate?: () => void;
+  onAddBackgroundLayer?: (b?: Backdrop) => void;
 }) {
   const bd = p.canvas.backdrop;
   const pick = (b: Backdrop | undefined) => p.onCanvas({ backdrop: b });
@@ -56,6 +57,16 @@ export function BackgroundPanel(p: {
           <GeminiBadge />
         </button>
       )}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="btn btn-secondary w-full text-xs"
+          onClick={() => p.onAddBackgroundLayer?.(p.canvas.backdrop)}
+          title="Add the chosen background as an editable layer on the timeline"
+        >
+          <Icon name="layers" className="size-3.5 text-primary" /> Add Background to Timeline
+        </button>
+      </div>
       {p.target && (
         <div className="rounded-lg border border-line bg-raised/40 p-2.5 text-xs">
           {p.target.removalOn ? (

@@ -47,6 +47,22 @@ export function useGemini(): GeminiUi {
 export const openAiSettings = () =>
   window.dispatchEvent(new Event("VDO:ai-settings"));
 
+/** Broadcast an AI key error to display a modal alert with 1-click settings navigation. */
+export const notifyAiKeyError = (message?: string, title?: string) => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("VDO:ai-key-error", {
+        detail: {
+          message:
+            message ||
+            "No Gemini API key available. Please configure your Gemini API key in AI Settings to enable AI generation and analysis.",
+          title: title || "Gemini API Key Required",
+        },
+      }),
+    );
+  }
+};
+
 /** A POST to a Gemini route: the JSON answer, or an Error with the server's plain message. */
 export async function geminiPost<T>(
   url: string,
@@ -60,7 +76,25 @@ export async function geminiPost<T>(
     signal,
   });
   const j = await r.json().catch(() => null);
-  if (!r.ok)
-    throw new Error(j?.error?.message ?? "Gemini didn't answer. Try again.");
+  if (!r.ok) {
+    const msg = j?.error?.message ?? "Gemini didn't answer. Try again.";
+    const code = j?.error?.code;
+    const isKeyIssue =
+      code === "gemini_key" ||
+      code === "no_key" ||
+      code === "invalid_key" ||
+      r.status === 401 ||
+      r.status === 403 ||
+      msg.toLowerCase().includes("api key") ||
+      msg.toLowerCase().includes("no gemini key");
+    if (isKeyIssue) {
+      notifyAiKeyError(
+        msg.includes("API key") || msg.includes("api key")
+          ? msg
+          : "No Gemini API key available or key is invalid. Please check your AI Settings.",
+      );
+    }
+    throw new Error(msg);
+  }
   return j as T;
 }

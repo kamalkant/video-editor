@@ -38,6 +38,10 @@ import {
   mediaDrag,
   MEME_DRAG,
   memeDrag,
+  ELEMENT_DRAG,
+  elementDrag,
+  TEXT_DRAG,
+  textDrag,
   useMediaDrag,
   type LibraryClipDragItem,
   type MemeClipItem,
@@ -48,7 +52,7 @@ import { getEditingTools } from "@/lib/editor/editingTools";
 import { useTheme } from "@/lib/editor/theme";
 import { localFilm, localItem, localSrc, localThumb, notOnServer, subscribeLocal, localVersion } from "@/lib/media/localMedia";
 
-export { MEDIA_DRAG, MEME_DRAG } from "@/lib/editor/mediaDrag";
+export { MEDIA_DRAG, MEME_DRAG, ELEMENT_DRAG, TEXT_DRAG } from "@/lib/editor/mediaDrag";
 
 const SPEED_MENU = [0.25, 0.5, 1, 1.5, 2, 3, 4];
 export type MaskKind = "none" | "rounded" | "circle" | "bubble";
@@ -236,6 +240,18 @@ export type TimelineProps = {
   ) => void;
   onDropMeme?: (
     meme: MemeClipItem,
+    trackId: string | null,
+    t: number,
+    index?: number,
+  ) => void;
+  onDropElement?: (
+    data: { presetId?: string; emoji?: string },
+    trackId: string | null,
+    t: number,
+    index?: number,
+  ) => void;
+  onDropText?: (
+    styleId: string,
     trackId: string | null,
     t: number,
     index?: number,
@@ -1666,17 +1682,23 @@ export function Timeline(p: TimelineProps) {
   const onDragOver = (e: React.DragEvent, trackId: string | null) => {
     const hasMedia =
       e.dataTransfer.types.includes(MEDIA_DRAG) || mediaDrag() != null;
-    const hasMeme = e.dataTransfer.types.includes(MEME_DRAG);
+    const hasMeme = e.dataTransfer.types.includes(MEME_DRAG) || memeDrag() != null;
+    const hasElement =
+      e.dataTransfer.types.includes(ELEMENT_DRAG) || elementDrag() != null;
+    const hasText =
+      e.dataTransfer.types.includes(TEXT_DRAG) || textDrag() != null;
     const hasFiles = e.dataTransfer.types.includes("Files");
     const m = mediaDrag();
     const meme = memeDrag();
-    if (!hasMedia && !hasMeme && !hasFiles && !m && !meme) return;
+    const el = elementDrag();
+    const txt = textDrag();
+    if (!hasMedia && !hasMeme && !hasFiles && !hasElement && !hasText && !m && !meme && !el && !txt) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
     setOver(trackId ?? "any");
     const tr = trackId
       ? doc.tracks.find((q) => q.id === trackId)
-      : (doc.tracks.find((q) => q.kind === "main") ?? doc.tracks[0]);
+      : (doc.tracks.find((q) => q.kind === "overlay") ?? doc.tracks.find((q) => q.kind === "main") ?? doc.tracks[0]);
     if (!tr || !lanesRef.current) return;
 
     if (m && hasMedia) {
@@ -1747,6 +1769,38 @@ export function Timeline(p: TimelineProps) {
           );
         },
       );
+    } else if (hasElement || el) {
+      const tl = timeAt(e.clientX);
+      const at = snapTo(tl, edges(), e.altKey);
+      const label = el?.presetId ? elementName(el.presetId) : (el?.emoji ? `Emoji ${el.emoji}` : "Element");
+      showLanding(
+        `el:${tr.id}:${Math.round(at * fps)}`,
+        () => ({
+          doc,
+          trackId: tr.id,
+          start: at,
+          length: 3,
+          hover: tr.id,
+          name: label,
+          drop: { trackId: tr.id, at },
+        }),
+      );
+    } else if (hasText || txt) {
+      const tl = timeAt(e.clientX);
+      const at = snapTo(tl, edges(), e.altKey);
+      const label = txt?.label || (txt?.styleId ? `Text (${txt.styleId})` : "Text");
+      showLanding(
+        `txt:${tr.id}:${Math.round(at * fps)}`,
+        () => ({
+          doc,
+          trackId: tr.id,
+          start: at,
+          length: 3,
+          hover: tr.id,
+          name: label,
+          drop: { trackId: tr.id, at },
+        }),
+      );
     }
   };
   /** The drag left the timeline (not just moved onto a clip or another lane). */
@@ -1763,17 +1817,17 @@ export function Timeline(p: TimelineProps) {
     setSnapAt(null);
     const l = landing;
     clearLanding();
-    const id =
-      e.dataTransfer.getData(MEDIA_DRAG) ||
-      mediaDrag()?.id ||
-      e.dataTransfer.getData("text/plain");
     const memeData = e.dataTransfer.getData(MEME_DRAG);
     const activeMeme = memeDrag();
+    const elRaw = e.dataTransfer.getData(ELEMENT_DRAG);
+    const activeEl = elementDrag();
+    const textStyleId = e.dataTransfer.getData(TEXT_DRAG) || textDrag()?.styleId;
+    const mediaDragId = e.dataTransfer.getData(MEDIA_DRAG) || mediaDrag()?.id;
     const tl = lanesRef.current ? timeAt(e.clientX) : 0;
     const resolvedTrackId =
       trackId ??
       l?.drop?.trackId ??
-      (doc.tracks.find((q) => q.kind === "main")?.id ?? null);
+      (doc.tracks.find((q) => q.kind === "overlay")?.id ?? doc.tracks.find((q) => q.kind === "main")?.id ?? null);
     const tr = resolvedTrackId
       ? doc.tracks.find((q) => q.id === resolvedTrackId)
       : null;
@@ -1806,6 +1860,30 @@ export function Timeline(p: TimelineProps) {
       }
     }
 
+    if (elRaw || activeEl) {
+      try {
+        const item = elRaw ? JSON.parse(elRaw) : activeEl;
+        if (item && p.onDropElement) {
+          const at = l?.drop?.at ?? tl;
+          p.onDropElement(item, resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
+          return;
+        }
+      } catch {
+        if (activeEl && p.onDropElement) {
+          const at = l?.drop?.at ?? tl;
+          p.onDropElement(activeEl, resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
+          return;
+        }
+      }
+    }
+
+    if (textStyleId && p.onDropText) {
+      const at = l?.drop?.at ?? tl;
+      p.onDropText(textStyleId, resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
+      return;
+    }
+
+    const id = mediaDragId || e.dataTransfer.getData("text/plain");
     if (id && l?.drop && (l.hover === trackId || !trackId))
       p.onDropMedia(id, l.drop.trackId, l.drop.at, l.drop.index);
     else if (id)
@@ -3683,7 +3761,13 @@ function ClipBlock(p: {
   const isLight = theme === "light";
   // a blank scene: its own color (dynamically adapts between dark and light mode for default fill)
   if (c.type === "blank") {
-    bg = { backgroundColor: resolveBlankFill(c.fill, isLight) };
+    if (c.backdrop?.kind === "gradient") {
+      bg = { background: `linear-gradient(${c.backdrop.angle}deg, ${c.backdrop.from}, ${c.backdrop.to})` };
+    } else if (c.backdrop?.kind === "set") {
+      bg = { backgroundColor: "#1e1b4b" };
+    } else {
+      bg = { backgroundColor: resolveBlankFill(c.fill, isLight) };
+    }
   }
   const label =
     c.type === "text"
@@ -3691,7 +3775,11 @@ function ClipBlock(p: {
       : c.type === "element"
         ? elementName(c)
         : c.type === "blank"
-          ? "Blank"
+          ? c.backdrop?.kind === "set"
+            ? `Background (${c.backdrop.id})`
+            : c.backdrop?.kind === "gradient"
+              ? "Gradient Background"
+              : "Background"
           : (p.media?.fileName ?? "Missing file");
   return (
     <div

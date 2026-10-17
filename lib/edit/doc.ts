@@ -33,6 +33,13 @@ export const CANVAS_PRESETS = [
   { id: "21:9", label: "21:9 · Cinema wide", width: 2560, height: 1080 },
 ] as const;
 
+export const backdropSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("gradient"), from: hex, to: hex, angle: z.number().finite().min(-360).max(360) }),
+  z.object({ kind: z.literal("set"), id: z.string().max(40) }),
+  z.object({ kind: z.literal("media"), mediaId: uuid }),
+]);
+export type Backdrop = z.infer<typeof backdropSchema>;
+
 export const canvasSchema = z.object({
   width: z.number().int().min(64).max(3840),
   height: z.number().int().min(64).max(3840),
@@ -40,13 +47,7 @@ export const canvasSchema = z.object({
   /** "transparent" for website overlays (transparent export); a color for normal videos. */
   background: z.union([z.literal("transparent"), hex]),
   /** What's behind everything (Replace Background): a gradient, a built-in studio set, or a picture / video (lib/backdrops). */
-  backdrop: z
-    .discriminatedUnion("kind", [
-      z.object({ kind: z.literal("gradient"), from: hex, to: hex, angle: z.number().finite().min(-360).max(360) }),
-      z.object({ kind: z.literal("set"), id: z.string().max(40) }),
-      z.object({ kind: z.literal("media"), mediaId: uuid }),
-    ])
-    .optional(),
+  backdrop: backdropSchema.optional(),
   /** Canvas fit mode: "fit" (all visible) or "fill" (fill height/cover). */
   fit: z.enum(["fit", "fill"]).optional(),
 });
@@ -434,6 +435,8 @@ export const blankClipSchema = z.object({
   type: z.literal("blank"),
   /** Its color. (Not `color`: on videos and pictures that's the color correction.) */
   fill: hex,
+  /** Optional backdrop definition (gradient, set, media) for background layer clips on timeline */
+  backdrop: backdropSchema.optional(),
   duration: z.number().finite().min(0.1).max(3600),
   ...fades,
   /** A transition into it from the clip before. */
@@ -839,8 +842,8 @@ export function videoClipOf(id: string, m: MediaLite, ops: OpInstance[], inT = 0
 }
 
 /** A new blank scene: black, 3 seconds. */
-export function blankClipOf(id: string, fill: string = BLANK_FILL, duration = BLANK_SECONDS): BlankClip {
-  return { id, type: "blank", fill, duration, fadeIn: 0, fadeOut: 0 };
+export function blankClipOf(id: string, fill: string = BLANK_FILL, duration = BLANK_SECONDS, backdrop?: Backdrop): BlankClip {
+  return { id, type: "blank", fill, duration, fadeIn: 0, fadeOut: 0, ...(backdrop ? { backdrop } : {}) };
 }
 
 /** A new generating placeholder scene on Video 1 with progress state */

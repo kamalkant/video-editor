@@ -34,6 +34,7 @@ import { toApiError } from "@/lib/api/types";
 import { ACCEPT, precheck } from "@/lib/api/upload";
 import {
   type AnyClip,
+  type Backdrop,
   type MainClip,
   type MediaLite,
   type Track,
@@ -281,6 +282,7 @@ import { BUBBLE_MASK } from "./LookSections";
 import { TransitionCard } from "./TransitionsPanel";
 import type { TransitionType } from "@/lib/player/transitions";
 import { PanelSplitter, usePanelWidth } from "./PanelSplitter";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { captionLookStyle, type CaptionLook } from "./SubtitlesPanel";
 import { mainFrameAt } from "@/lib/edit/frameAt";
 import { emojiBoost } from "@/lib/subtitles/emoji";
@@ -946,18 +948,30 @@ function StudioInner(props: Props) {
   const [importTab, setImportTab] = useState<ImportTab | null>(null);
   // AI Tools → Settings (API keys); any "Open AI settings" button asks for it with an event
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [aiKeyAlert, setAiKeyAlert] = useState<{ title: string; message: string } | null>(null);
   useEffect(() => {
     const open = () => setAiSettingsOpen(true);
+    const onKeyError = (e: Event) => {
+      const ce = e as CustomEvent<{ message?: string; title?: string }>;
+      const msg =
+        ce.detail?.message ||
+        "No Gemini API key available. Please add your Gemini API key in AI Settings to use AI tools.";
+      const title = ce.detail?.title || "Gemini API Key Required";
+      setAiKeyAlert({ title, message: msg });
+    };
     window.addEventListener("VDO:ai-settings", open);
-    return () => window.removeEventListener("VDO:ai-settings", open);
+    window.addEventListener("VDO:ai-key-error", onKeyError);
+    return () => {
+      window.removeEventListener("VDO:ai-settings", open);
+      window.removeEventListener("VDO:ai-key-error", onKeyError);
+    };
   }, []);
   const gemini = useGemini();
   const serverCaps = useServerCaps();
   const [silenceMarks, setSilenceMarks] = useState<Range[] | null>(null);
   const [timelineH, setTimelineH] = useTimelineHeight(tall ? 236 : 196);
   // panel widths: drag the lines between the panels (remembered)
-  const defaultAiW = () =>
-    typeof window === "undefined" ? 640 : Math.round(window.innerWidth * 0.44);
+  const defaultAiW = () => 360;
   const [leftW, setLeftW] = usePanelWidth(
     "VDO:v1:leftPanelWidth",
     () => 256,
@@ -974,7 +988,7 @@ function StudioInner(props: Props) {
   const [aiW, setAiW] = usePanelWidth(
     "VDO:v1:aiPanelWidth",
     defaultAiW,
-    420,
+    320,
     1100,
   );
   // the program clock (timeline seconds) and the clip view's own clock (seconds in the clip's video)
@@ -1349,10 +1363,10 @@ function StudioInner(props: Props) {
     pt: { x: number; y: number },
     dt: DataTransfer,
   ): boolean => {
-    if (!live.current.hasClips) return false;
     // 1. Text style dropped directly onto canvas
     const textStyleId = dt.getData(TEXT_DRAG) || textDrag()?.styleId;
     if (textStyleId) {
+      ensureBaseScene(5);
       addTextAt(textStyleId, { point: pt });
       return true;
     }
@@ -1363,20 +1377,24 @@ function StudioInner(props: Props) {
       try {
         const parsed = elRaw ? JSON.parse(elRaw) : activeEl;
         if (parsed?.presetId) {
+          ensureBaseScene(5);
           addElementAt(parsed.presetId, { point: pt });
           return true;
         }
         if (parsed?.emoji) {
+          ensureBaseScene(5);
           addElementAt({ emoji: parsed.emoji }, { point: pt });
           return true;
         }
       } catch {
         if (elRaw) {
+          ensureBaseScene(5);
           addElementAt(elRaw, { point: pt });
           return true;
         }
       }
     }
+    if (!live.current.hasClips) return false;
     // 3. Library clip dropped directly onto canvas
     const memeRaw = dt.getData(MEME_DRAG);
     const activeMeme = memeDrag();
@@ -3712,10 +3730,36 @@ function StudioInner(props: Props) {
   };
 
   /** A text style from the Text panel, at the playhead (on a free overlay track). */
+  /** Ensure an initial base scene exists if the timeline is empty. */
+  const ensureBaseScene = (duration = 5): boolean => {
+    if (!live.current.hasClips) {
+      dispatchDoc(
+        {
+          type: "addBlank",
+          index: 0,
+          duration,
+          fill:
+            doc.canvas.background !== "transparent"
+              ? doc.canvas.background
+              : "#000000",
+          backdrop: doc.canvas.backdrop,
+        },
+        `init-scene:${++editSeq.current}`,
+      );
+      return true;
+    }
+    return false;
+  };
+
   /** A text style at the playhead (on a blank scene: from its start, for 3 s). `where`: a place of its own, or canvas drop point {x, y}. */
   const addTextAt = (
     styleId: string,
-    where?: { at?: number; seconds?: number; point?: { x: number; y: number } },
+    where?: {
+      at?: number;
+      seconds?: number;
+      point?: { x: number; y: number };
+      trackId?: string;
+    },
   ) => {
     const id = `t${++editSeq.current}${newId(doc)}`;
     // (at the very end of the timeline the text would start after everything: at the start instead)
@@ -3741,6 +3785,7 @@ function StudioInner(props: Props) {
       },
       at,
       id,
+      trackId: where?.trackId,
     });
     setSelectedId(id);
     setMode("program");
@@ -3753,7 +3798,11 @@ function StudioInner(props: Props) {
   /** An element from the Elements panel (or an emoji), at the playhead on a free overlay track (a progress bar: the whole video). `where`: optional point on canvas. */
   const addElementAt = (
     what: string | { emoji: string },
-    where?: { at?: number; point?: { x: number; y: number } },
+    where?: {
+      at?: number;
+      point?: { x: number; y: number };
+      trackId?: string;
+    },
   ) => {
     const p = typeof what === "string" ? elementPreset(what) : null;
     if (typeof what === "string" && !p) return;
@@ -3797,13 +3846,169 @@ function StudioInner(props: Props) {
             }
           : fit.transform,
       };
-    dispatchDoc({ type: "addElement", clip, at, id });
+    dispatchDoc({ type: "addElement", clip, at, id, trackId: where?.trackId });
     setSelectedId(id);
     setMode("program");
     setNotice(null);
     setJobId(null);
     if (!wide) setPhoneTab("edit");
     if (!whole) requestAnimationFrame(() => seekTimeline(at + 0.6));
+  };
+
+  const handleDropElementOnTimeline = (
+    data: { presetId?: string; emoji?: string },
+    trackId: string | null,
+    at: number,
+  ) => {
+    ensureBaseScene(Math.max(5, (at || 0) + 3));
+    const targetAt = Math.max(0, at || 0);
+    if (data.presetId) {
+      addElementAt(data.presetId, { at: targetAt, trackId: trackId ?? undefined });
+    } else if (data.emoji) {
+      addElementAt({ emoji: data.emoji }, { at: targetAt, trackId: trackId ?? undefined });
+    }
+  };
+
+  const handleDropTextOnTimeline = (
+    styleId: string,
+    trackId: string | null,
+    at: number,
+  ) => {
+    ensureBaseScene(Math.max(5, (at || 0) + 3));
+    const targetAt = Math.max(0, at || 0);
+    addTextAt(styleId, { at: targetAt, trackId: trackId ?? undefined });
+  };
+
+  const addLogoToTimeline = (logoMediaId?: string) => {
+    const targetId = logoMediaId || brand.brand?.logo;
+    if (!targetId) {
+      setNotice("Upload or select a logo in the Brand Kit first.");
+      return;
+    }
+    const meta =
+      (assets.items ?? []).find((a) => a.id === targetId) ?? metas[targetId];
+    if (!meta) {
+      setNotice("Logo file not found. Please upload it again.");
+      return;
+    }
+    ensureBaseScene(5);
+    const look = brand.brand?.logoLook ?? DEFAULT_LOGO_LOOK;
+    const corner = doc.watermark?.corner ?? look.corner ?? "tr";
+    const x = corner === "tl" || corner === "bl" ? -0.38 : 0.38;
+    const y = corner === "tl" || corner === "tr" ? -0.38 : 0.38;
+    const dur = Math.max(5, docDuration(doc));
+
+    addToTimeline(meta, {
+      overlay: true,
+      at: 0,
+      duration: dur,
+      patch: {
+        transform: {
+          fit: "contain",
+          x,
+          y,
+          scale: Math.max(0.12, (look.size ?? 0.12) * 1.5),
+        },
+        opacity: look.opacity ?? 0.95,
+      },
+    });
+    setNotice("Added Brand Logo layer to timeline.");
+  };
+
+  const handleSetBackground = (patch: Partial<Canvas>) => {
+    const group = `backdrop:${++editSeq.current}`;
+    dispatchDoc({ type: "setCanvas", patch }, group);
+
+    const isTransparent = patch.background === "transparent" && !patch.backdrop;
+    if (isTransparent) return;
+
+    const main = mainTrack(doc);
+    const existingBlank = main.clips.find((c) => c.type === "blank");
+
+    if (main.clips.length === 0) {
+      // Empty timeline: add a 5s base scene with the chosen background
+      dispatchDoc(
+        {
+          type: "addBlank",
+          index: 0,
+          duration: 5,
+          fill:
+            patch.background && patch.background !== "transparent"
+              ? patch.background
+              : "#000000",
+          backdrop: patch.backdrop,
+        },
+        group,
+      );
+      setNotice("Added background scene to timeline.");
+    } else if (existingBlank) {
+      // Main track has a blank clip: update its backdrop / fill
+      dispatchDoc(
+        {
+          type: "setClip",
+          clipId: existingBlank.id,
+          patch: {
+            backdrop: patch.backdrop,
+            fill:
+              patch.background && patch.background !== "transparent"
+                ? patch.background
+                : existingBlank.fill,
+          },
+        },
+        group,
+      );
+      setNotice("Updated timeline background.");
+    } else {
+      // Main track has video/image clips.
+      // If the first clip is a video with cutout / AI removal active,
+      // lift it to overlay so background sits natively on mainTrack (V1)
+      const firstClip = main.clips[0];
+      const cs = firstClip.type === "video" ? clipStudioState(ds, firstClip.id) : null;
+      const isCutout = cs ? removalOn(cs) : false;
+      const totalDur = docDuration(doc);
+
+      if (isCutout && firstClip.type === "video") {
+        dispatchDoc(
+          {
+            type: "move",
+            clipId: firstClip.id,
+            to: { trackId: "new-overlay", start: 0 },
+          },
+          group,
+        );
+        dispatchDoc(
+          {
+            type: "addBlank",
+            index: 0,
+            duration: totalDur > 0 ? totalDur : 5,
+            fill:
+              patch.background && patch.background !== "transparent"
+                ? patch.background
+                : "#000000",
+            backdrop: patch.backdrop,
+          },
+          group,
+        );
+        setNotice("Placed background layer under cutout video on timeline.");
+      }
+    }
+  };
+
+  const addBackgroundLayerToTimeline = (bd?: Backdrop) => {
+    const backdrop = bd ?? doc.canvas.backdrop;
+    const dur = Math.max(5, docDuration(doc));
+    const main = mainTrack(doc);
+    dispatchDoc({
+      type: "addBlank",
+      index: main.clips.length,
+      duration: dur,
+      backdrop,
+      fill:
+        doc.canvas.background !== "transparent"
+          ? doc.canvas.background
+          : "#000000",
+    });
+    setNotice("Added Background layer to timeline.");
   };
   // the Elements panel's search box (Search tools → "Add emoji…")
   const elementsSearch = useRef<HTMLInputElement>(null);
@@ -5761,6 +5966,31 @@ function StudioInner(props: Props) {
           targetDescription: `Timeline at ${formatTime(playheadT)}`,
         },
       });
+    }
+    const geminiRequired = [
+      "gen-video",
+      "text-to-video",
+      "gen-image",
+      "gen-bg",
+      "avatar",
+      "b-roll",
+      "extend",
+      "translate",
+      "gen-effects",
+      "replace-sky",
+    ];
+    if (
+      geminiRequired.includes(id) &&
+      (gemini === "no-key" || gemini === "off")
+    ) {
+      setAiKeyAlert({
+        title: "No Gemini API Key Available",
+        message:
+          gemini === "off"
+            ? "Gemini is switched off. Please switch it on in AI Settings to use this tool."
+            : "No Gemini API key available. Please add your Gemini API key in AI Settings to enable AI generation and analysis.",
+      });
+      return;
     }
     if (id === "gen-image" || id === "gen-bg")
       return setGenImage(id === "gen-bg" ? "background" : "picture");
@@ -7808,12 +8038,8 @@ function StudioInner(props: Props) {
         ) : sidePanel === "background" ? (
           <BackgroundPanel
             canvas={doc.canvas}
-            onCanvas={(patch) =>
-              dispatchDoc(
-                { type: "setCanvas", patch },
-                `backdrop:${++editSeq.current}`,
-              )
-            }
+            onCanvas={handleSetBackground}
+            onAddBackgroundLayer={addBackgroundLayerToTimeline}
             assets={assets.items}
             target={
               aiVideo
@@ -7851,6 +8077,7 @@ function StudioInner(props: Props) {
               assets={assets.items}
               watermark={doc.watermark}
               onWatermark={setWatermark}
+              onAddLogoToTimeline={addLogoToTimeline}
               duration={docDuration(doc)}
               onAddClip={(v, where) =>
                 addToTimeline(v, where === "start" ? { index: 0 } : {})
@@ -9121,6 +9348,21 @@ function StudioInner(props: Props) {
           onClose={() => setAiSettingsOpen(false)}
         />
       )}
+      {aiKeyAlert && (
+        <ConfirmDialog
+          open={!!aiKeyAlert}
+          title={aiKeyAlert.title}
+          message={aiKeyAlert.message}
+          confirmLabel="Open AI Settings"
+          cancelLabel="Close"
+          variant="primary"
+          onConfirm={() => {
+            setAiKeyAlert(null);
+            setAiSettingsOpen(true);
+          }}
+          onClose={() => setAiKeyAlert(null)}
+        />
+      )}
       {grokOpen && (
         <GrokImagineDialog
           onClose={() => setGrokOpen(false)}
@@ -9619,6 +9861,12 @@ function StudioInner(props: Props) {
       onDropMeme={(item, trackId, at, index) =>
         void addMemeToTimeline(item, { trackId, at, index })
       }
+      onDropElement={(data, trackId, at) =>
+        handleDropElementOnTimeline(data, trackId, at)
+      }
+      onDropText={(styleId, trackId, at) =>
+        handleDropTextOnTimeline(styleId, trackId, at)
+      }
       onDropFile={uploadFile}
       onSetTrack={(trackId, patch) =>
         dispatchDoc({ type: "setTrack", trackId, patch })
@@ -9945,7 +10193,7 @@ function StudioInner(props: Props) {
             side="right"
             value={aiW}
             onChange={setAiW}
-            min={420}
+            min={320}
             max={1100}
             reset={defaultAiW()}
           />

@@ -25,6 +25,7 @@ import type { Job, JobFile, JobStep } from "../jobs/queue";
 import { localFileOf, localSrc } from "../media/localMedia";
 import { fadeAlpha, motionRect } from "../player/layout";
 import { drawText } from "../text/render";
+import { drawBackdrop } from "../backdrops";
 
 export interface LocalExportOptions {
   doc: TimelineDoc;
@@ -488,6 +489,9 @@ export async function exportLocally(
         ctx.fillStyle = doc.canvas.background;
         ctx.fillRect(0, 0, W, H);
       }
+      if (doc.canvas.backdrop) {
+        drawBackdrop(ctx, doc.canvas.backdrop, W, H, t);
+      }
 
       const layers = layersAt(doc, t);
       for (const layer of layers) {
@@ -499,8 +503,14 @@ export async function exportLocally(
         ctx.globalAlpha = Math.max(0, Math.min(1, alpha * clipOp));
 
         if (c.type === "blank") {
-          ctx.fillStyle = c.fill;
-          ctx.fillRect(0, 0, W, H);
+          if (c.backdrop) {
+            ctx.save();
+            drawBackdrop(ctx, c.backdrop, W, H, into);
+            ctx.restore();
+          } else {
+            ctx.fillStyle = c.fill;
+            ctx.fillRect(0, 0, W, H);
+          }
         } else if (c.type === "image") {
           const img = imageElements.get(c.mediaId);
           if (img && img.naturalWidth) {

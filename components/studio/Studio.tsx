@@ -163,6 +163,7 @@ import {
   type ExportPresetId,
   type VideoPresetId,
 } from "@/lib/export/presets";
+import { canExportLocally, exportLocally } from "@/lib/export/localExport";
 import type { Job } from "@/lib/jobs/queue";
 import { useJobPolling } from "@/lib/jobs/useJobPolling";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -861,9 +862,12 @@ function StudioInner(props: Props) {
   const [pausedT, setPausedT] = useState<number | null>(0);
   const [lastT, setLastT] = useState(0);
   const [jobId, setJobId] = useState<string | null>(initialJob?.id ?? null);
+  const [localJob, setLocalJob] = useState<Job | null>(null);
   // the export started on this page (listed in Background tasks from its start, even when it's quick)
   const [ownJob, setOwnJob] = useState<string | null>(null);
+  const localAbortController = useRef<AbortController | null>(null);
   const [starting, setStarting] = useState(false);
+  const [startStatus, setStartStatus] = useState<string | undefined>(undefined);
   const [startError, setStartError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -1121,15 +1125,20 @@ function StudioInner(props: Props) {
     },
   });
 
-  const { job, connection } = useJobPolling(jobId, (j, fresh) => {
-    if (!fresh) return;
-    // the transparent website pack plays in the clip view ("Final file"); an MP4 plays in the Export dialog
-    if (j.files.some((f) => f.kind === "webm")) {
-      setMode("clip");
-      setView("final");
-    }
-    setExportOpen(true);
-  });
+  const { job: serverJob, connection: serverConnection } = useJobPolling(
+    jobId && !jobId.startsWith("local-") ? jobId : null,
+    (j, fresh) => {
+      if (!fresh) return;
+      // the transparent website pack plays in the clip view ("Final file"); an MP4 plays in the Export dialog
+      if (j.files.some((f) => f.kind === "webm")) {
+        setMode("clip");
+        setView("final");
+      }
+      setExportOpen(true);
+    },
+  );
+  const job = localJob ?? serverJob;
+  const connection = localJob ? "ok" : serverConnection;
   const running = !!job && (job.state === "queued" || job.state === "running");
 
   // the address bar always points at the open project
@@ -5124,18 +5133,48 @@ function StudioInner(props: Props) {
         ? { ...single, spec: { ...single.spec, output: d.output } }
         : null;
     setStarting(true);
+    setStartStatus("Preparing media assets…");
     setStartError(null);
+    setLocalJob(null);
     if (activeClip) writeLocal(LAST_SPEC_KEY, clipSpec(d, activeClip));
     try {
+      // Check if we can export locally on device without uploading private media to the server
+      const canLocal = !s && (await canExportLocally(format, d.canvas.width, d.canvas.height));
+      if (canLocal) {
+        setStartStatus("Rendering locally on device…");
+        const ac = new AbortController();
+        localAbortController.current = ac;
+        try {
+          const res = await exportLocally({
+            doc: d,
+            format,
+            size,
+            quality: d.output?.quality,
+            signal: ac.signal,
+            onProgress: (progressJob) => {
+              setLocalJob(progressJob);
+            },
+          });
+          setLocalJob(res.job);
+          setJobId(res.job.id);
+          setOwnJob(res.job.id);
+          return;
+        } finally {
+          localAbortController.current = null;
+        }
+      }
+
       // the export runs on the server: files kept only on this computer are sent now (the top bar shows it)
       const needed = s ? [s.mediaId] : mediaIdsOf(d);
       if (pendingAmong(needed).length) {
+        setStartStatus("Syncing local media…");
         const sent = await ensureOnServer(needed);
         if (!sent.ok)
           throw new Error(
             `${sent.failed.length === 1 ? `“${localItem(sent.failed[0]!)?.name ?? "A file"}”` : `${sent.failed.length} files`} couldn't be sent to the server, so the export can't start. Check the connection and try again.`,
           );
       }
+      setStartStatus("Rasterizing graphics & elements…");
       // drawn pictures (FFmpeg can't draw text or our backdrops): made here like the preview, sent once
       const send = async (key: string, make: () => Promise<Blob | null>) => {
         let id = sentTexts.get(key);
@@ -5160,41 +5199,44 @@ function StudioInner(props: Props) {
       // (a moving text is drawn at its biggest; the export scales and moves it: lib/edit/keyframes textRenderTransform)
       // (typewriter: every step of the typing in one picture, and where its area sits)
       const textSprites: Record<string, ReturnType<typeof textSpriteOf>> = {};
-      if (!s)
-        for (const c of textClipsOf(d)) {
-          const rt = textRenderTransform(c);
-          const drawn = { ...c, transform: rt };
-          const typing =
-            c.anim.in === "typewriter" || c.anim.out === "typewriter";
-          // word-by-word captions: one row per word, so the export highlights like the preview
-          const words = typing
-            ? null
-            : wordSpriteOf(drawn, d.canvas.width, d.canvas.height);
-          if (typing)
-            textSprites[c.id] = textSpriteOf(
-              drawn,
-              d.canvas.width,
-              d.canvas.height,
+      if (!s) {
+        await Promise.all(
+          textClipsOf(d).map(async (c) => {
+            const rt = textRenderTransform(c);
+            const drawn = { ...c, transform: rt };
+            const typing =
+              c.anim.in === "typewriter" || c.anim.out === "typewriter";
+            // word-by-word captions: one row per word, so the export highlights like the preview
+            const words = typing
+              ? null
+              : wordSpriteOf(drawn, d.canvas.width, d.canvas.height);
+            if (typing)
+              textSprites[c.id] = textSpriteOf(
+                drawn,
+                d.canvas.width,
+                d.canvas.height,
+              );
+            else if (words) textSprites[c.id] = words;
+            texts[c.id] = await send(
+              JSON.stringify([
+                c.text,
+                c.style,
+                rt,
+                d.canvas.width,
+                d.canvas.height,
+                typing,
+                !!words,
+              ]),
+              () =>
+                typing
+                  ? renderTextSprite(drawn, d.canvas.width, d.canvas.height)
+                  : words
+                    ? renderWordSprite(drawn, d.canvas.width, d.canvas.height)
+                    : renderTextPng(drawn, d.canvas.width, d.canvas.height),
             );
-          else if (words) textSprites[c.id] = words;
-          texts[c.id] = await send(
-            JSON.stringify([
-              c.text,
-              c.style,
-              rt,
-              d.canvas.width,
-              d.canvas.height,
-              typing,
-              !!words,
-            ]),
-            () =>
-              typing
-                ? renderTextSprite(drawn, d.canvas.width, d.canvas.height)
-                : words
-                  ? renderWordSprite(drawn, d.canvas.width, d.canvas.height)
-                  : renderTextPng(drawn, d.canvas.width, d.canvas.height),
-          );
-        }
+          }),
+        );
+      }
       // elements: drawn like the preview at the size the export shows them (lib/elements/render)
       const elements: Record<
         string,
@@ -5212,38 +5254,46 @@ function StudioInner(props: Props) {
           };
         }
       > = {};
-      if (!s)
-        for (const c of elementClipsOf(d)) {
-          const W = d.canvas.width;
-          const H = d.canvas.height;
-          const key = JSON.stringify([
-            "element",
-            c.el,
-            c.transform.scale,
-            c.keyframes?.map((k) => k.scale),
-            W,
-            H,
-          ]);
-          const parts = await renderElementParts(c, W, H);
-          if (!parts)
-            throw new Error("Couldn't draw an element for the export.");
-          const one = (tag: string, blob: Blob) =>
-            send(`${key}|${tag}`, async () => blob);
-          elements[c.id] = {
-            png: await one("png", parts.png),
-            w: parts.w,
-            h: parts.h,
-            ...(parts.mask ? { mask: await one("mask", parts.mask) } : {}),
-            ...(parts.strip
-              ? {
-                  strip: {
-                    ...parts.strip,
-                    png: await one("words", parts.strip.png),
-                  },
-                }
-              : {}),
-          };
-        }
+      if (!s) {
+        await Promise.all(
+          elementClipsOf(d).map(async (c) => {
+            const W = d.canvas.width;
+            const H = d.canvas.height;
+            const key = JSON.stringify([
+              "element",
+              c.el,
+              c.transform.scale,
+              c.keyframes?.map((k) => k.scale),
+              W,
+              H,
+            ]);
+            const parts = await renderElementParts(c, W, H);
+            if (!parts)
+              throw new Error("Couldn't draw an element for the export.");
+            const one = (tag: string, blob: Blob) =>
+              send(`${key}|${tag}`, async () => blob);
+            const [pngId, maskId, stripId] = await Promise.all([
+              one("png", parts.png),
+              parts.mask ? one("mask", parts.mask) : Promise.resolve(undefined),
+              parts.strip ? one("words", parts.strip.png) : Promise.resolve(undefined),
+            ]);
+            elements[c.id] = {
+              png: pngId,
+              w: parts.w,
+              h: parts.h,
+              ...(maskId ? { mask: maskId } : {}),
+              ...(parts.strip && stripId
+                ? {
+                    strip: {
+                      ...parts.strip,
+                      png: stripId,
+                    },
+                  }
+                : {}),
+            };
+          }),
+        );
+      }
       const bd = d.canvas.backdrop;
       const backdrop =
         !s && bd && bd.kind !== "media"
@@ -5301,6 +5351,7 @@ function StudioInner(props: Props) {
       setExportOpen(true);
     } finally {
       setStarting(false);
+      setStartStatus(undefined);
     }
   };
 
@@ -5338,6 +5389,11 @@ function StudioInner(props: Props) {
   };
 
   const cancel = async () => {
+    if (localAbortController.current) {
+      localAbortController.current.abort();
+      localAbortController.current = null;
+    }
+    setLocalJob(null);
     if (!jobId) return;
     await fetch(`/api/jobs/${jobId}`, { method: "DELETE" }).catch(() => null);
   };
@@ -9000,6 +9056,7 @@ function StudioInner(props: Props) {
           job={job}
           connection={connection}
           starting={starting}
+          startStatus={startStatus}
           startError={startError}
           onCancel={cancel}
           onShowFinal={() => {

@@ -36,6 +36,7 @@ export function ExportDialog(p: {
   job: Job | null;
   connection: "ok" | "retrying" | "gone";
   starting: boolean;
+  startStatus?: string;
   startError: string | null;
   onCancel: () => void;
   onShowFinal: () => void;
@@ -182,7 +183,7 @@ export function ExportDialog(p: {
               </div>
             </>
           )}
-          <GeneratePanel job={done ? null : p.job} starting={p.starting} connection={p.connection} disabledReason={blocked} startError={p.startError} onGenerate={generate} onCancel={p.onCancel} label={label} help={f.detail} />
+          <GeneratePanel job={done ? null : p.job} starting={p.starting} startStatus={p.startStatus} connection={p.connection} disabledReason={blocked} startError={p.startError} onGenerate={generate} onCancel={p.onCancel} label={label} help={f.detail} />
           {done && (
             <button type="button" className="btn btn-secondary" onClick={() => setAgain(false)}>
               Back to the finished files

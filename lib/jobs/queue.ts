@@ -549,14 +549,21 @@ async function speechOnMain(doc: TimelineDoc): Promise<Range[]> {
   }
   const hasAudio = (id: string) => !!metas.get(id)?.info.hasAudio;
   const silences: Record<string, Range[]> = {};
-  for (const c of speakingClips(doc, hasAudio)) {
-    const m = metas.get(c.mediaId)!;
-    silences[c.mediaId] ??= await detectSilences(
+  const speaking = speakingClips(doc, hasAudio);
+  for (const c of speaking) {
+    const m = metas.get(c.mediaId);
+    if (!m) continue;
+    silences[c.mediaId] ??= [];
+    const clipDur = Math.max(0.1, Math.min(m.info.duration - c.in, c.out - c.in));
+    const clipSilences = await detectSilences(
       m.id,
       sourcePath(m.id),
       m.info.duration,
       DUCK_DETECT,
+      undefined,
+      { start: Math.max(0, c.in), duration: clipDur },
     ).catch(() => []);
+    silences[c.mediaId].push(...clipSilences);
   }
   return speechRanges(doc, silences, hasAudio);
 }

@@ -23,6 +23,7 @@ const FILE_TEXT: Record<string, { title: string; note: string }> = {
 const QUALITY_TEXT = { small: "Small file", balanced: "Balanced", best: "Best quality" } as const;
 
 export function fileUrl(job: Job, f: JobFile, download = false) {
+  if ((f as any).blobUrl) return (f as any).blobUrl;
   return `/api/files/${job.id}/${f.name}${download ? "?download=1" : ""}`;
 }
 
@@ -234,7 +235,7 @@ function FileResults({ job, file, onAgain }: { job: Job; file: JobFile; onAgain:
     <div className="flex flex-col gap-3">
       <Notice tone="success" title={file.mime.startsWith("video/") ? "Your video is ready" : `Your ${t.what} is ready`} />
       {media}
-      <a className="btn btn-primary" href={fileUrl(job, file, true)}>
+      <a className="btn btn-primary" href={fileUrl(job, file, true)} download={file.name}>
         Download {t.what} · {formatBytes(file.size)}
       </a>
       <p className="text-sm text-muted">

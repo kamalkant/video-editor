@@ -212,7 +212,7 @@ async function claimDir(dir: string) {
 async function describe(id: string, fileName: string | null, userId?: string | null, { copyLater = false } = {}): Promise<VideoMeta> {
   const { kind, info } = await probeMedia(sourcePath(id));
   // green/blue/black background detection only makes sense for videos
-  const key = kind === "video" ? await detectKeyColor(sourcePath(id), info) : null;
+  const key = kind === "video" && !copyLater ? await detectKeyColor(sourcePath(id), info) : null;
   // a video the browser can't play (ProRes / HEVC .mov, AVI, MKV…): a copy for the preview (lib/ffmpeg/playable)
   const mode = playableMode(kind, info);
   const copy = playableFile(mode);
@@ -241,6 +241,20 @@ async function describe(id: string, fileName: string | null, userId?: string | n
   };
   await writeJson(storagePath("videos", id, "meta.json"), meta);
   if (later) void whenPlayable(meta);
+  if (copyLater && kind === "video") {
+    void detectKeyColor(sourcePath(id), info).then(async (detected) => {
+      if (!detected) return;
+      const now = await getVideo(id);
+      if (!now) return;
+      const updated: VideoMeta = {
+        ...now,
+        suggestedKey: detected.kind !== "black" ? detected.hex : null,
+        keyKind: detected.kind,
+        keyVia: detected.via,
+      };
+      await writeJson(storagePath("videos", id, "meta.json"), updated).catch(() => undefined);
+    }).catch(() => undefined);
+  }
   return meta;
 }
 

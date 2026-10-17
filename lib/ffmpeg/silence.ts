@@ -26,20 +26,28 @@ export function parseSilences(log: string, duration: number): Range[] {
 const g = globalThis as unknown as { __VDOSilences?: Map<string, Range[]> };
 const cache = (g.__VDOSilences ??= new Map());
 
-/** Quiet parts of the clip's sound (for "Remove silences"). Cached per video and options. */
+/** Quiet parts of the clip's sound (for "Remove silences"). Cached per video, range, and options. */
 export async function detectSilences(
   key: string,
   path: string,
   duration: number,
   o: SilenceOptions,
   signal?: AbortSignal,
+  range?: { start: number; duration: number },
 ): Promise<Range[]> {
-  const ck = `${key}|${o.noise}|${o.minSilence}`;
+  const ck = range
+    ? `${key}|${range.start.toFixed(3)}|${range.duration.toFixed(3)}|${o.noise}|${o.minSilence}`
+    : `${key}|${o.noise}|${o.minSilence}`;
   const hit = cache.get(ck);
   if (hit) return hit;
+  const targetDur = range ? range.duration : duration;
+  const inputArgs = range
+    ? ["-ss", range.start.toFixed(3), "-t", range.duration.toFixed(3)]
+    : [];
   const log = await runFfmpegLog(
     [
       ...SAFE_INPUT,
+      ...inputArgs,
       "-i",
       path,
       "-map",
@@ -52,7 +60,10 @@ export async function detectSilences(
     ],
     { signal, timeoutMs: 120_000 },
   );
-  const r = parseSilences(log, duration);
+  const parsed = parseSilences(log, targetDur);
+  const r = range
+    ? parsed.map((rng) => ({ start: rng.start + range.start, end: rng.end + range.start }))
+    : parsed;
   if (cache.size > 100) cache.delete(cache.keys().next().value!);
   cache.set(ck, r);
   return r;

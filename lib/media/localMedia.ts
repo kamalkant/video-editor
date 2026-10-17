@@ -547,8 +547,8 @@ export function setTransport(t: Transport | null) {
   transport = t ?? xhrTransport;
 }
 
-/** Two uploads at a time; more wait (they'd only share the connection). */
-const MAX_UPLOADS = 2;
+const isLocalHost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.hostname === "::1");
+const MAX_UPLOADS = isLocalHost ? 6 : 2;
 const RETRY_MS = [2_000, 8_000, 30_000];
 const queue: string[] = [];
 let active = 0;

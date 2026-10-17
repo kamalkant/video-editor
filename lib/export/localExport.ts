@@ -188,7 +188,7 @@ function seekVideo(video: HTMLVideoElement, targetTime: number): Promise<void> {
     video.addEventListener("seeked", finish, { once: true });
     video.addEventListener("error", finish, { once: true });
     video.currentTime = targetTime;
-    setTimeout(finish, 40);
+    setTimeout(finish, 25);
   });
 }
 
@@ -302,6 +302,7 @@ export async function exportLocally(
   const audioCtx = new OfflineAudioContext(2, Math.ceil(D * sampleRate), sampleRate);
   let hasSound = false;
 
+  const decodedAudioCache = new Map<string, AudioBuffer>();
   for (const track of doc.tracks) {
     if (track.muted) continue;
     const isMain = track.kind === "main";
@@ -311,11 +312,21 @@ export async function exportLocally(
       const clip = track.clips[ci];
       if (clip.type === "audio" || (clip.type === "video" && !(clip as VideoClip).muted)) {
         const mediaId = clip.mediaId;
-        const blob = await localFileOf(mediaId);
-        if (blob) {
+        let audioBuffer = decodedAudioCache.get(mediaId);
+        if (!audioBuffer) {
+          const blob = await localFileOf(mediaId);
+          if (blob) {
+            try {
+              const arrayBuffer = await blob.arrayBuffer();
+              audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+              decodedAudioCache.set(mediaId, audioBuffer);
+            } catch (e) {
+              console.warn("[LocalExport] Failed to decode audio for clip", clip.id, e);
+            }
+          }
+        }
+        if (audioBuffer) {
           try {
-            const arrayBuffer = await blob.arrayBuffer();
-            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
             const source = audioCtx.createBufferSource();
             source.buffer = audioBuffer;
             const gain = audioCtx.createGain();
@@ -340,7 +351,7 @@ export async function exportLocally(
             source.start(startT, inT, dur);
             hasSound = true;
           } catch (e) {
-            console.warn("[LocalExport] Failed to decode audio for clip", clip.id, e);
+            console.warn("[LocalExport] Failed to connect audio for clip", clip.id, e);
           }
         }
       }

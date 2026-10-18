@@ -16,10 +16,12 @@ import { blendOnto, type BlendMode } from "./blend";
 import { logoExpr } from "../player/logo";
 import { textAnchor } from "../text/layout";
 import { elementUnit } from "../elements/geometry";
-import { AUDIO_KBPS, AV1_CRF, GIF_FPS, GIF_MAX_W, MP3_KBPS, videoBitrate, type BitrateCodec } from "../export/rates";
+import { AUDIO_KBPS, AV1_CRF, GIF_FPS, GIF_MAX_W, MP3_KBPS, videoBitrate, X265_ALPHA_CRF, type BitrateCodec } from "../export/rates";
+import { QUALITY } from "../settings";
 import { colorMatrix, cropOf, hasCrop, IDENTITY, isIdentity, maskDistanceExpr, mixerFilter, rotationOf, vignetteExpr, vignetteOf } from "../player/look";
 import { OPS, type AnyOp } from "../ops/registry";
 import { GraphBuilder } from "../ops/types";
+import type { MovEncoder } from "../ffmpeg/capabilities";
 import { APPLE_MEDIA, SAFE_INPUT } from "../ffmpeg/run";
 
 /**
@@ -173,10 +175,20 @@ export type ComposeOptions = {
   progress?: boolean;
   /** Pictures (PNG / JPG): the timeline time of the frame. */
   at?: number;
+  /** What makes the see-through MOV (lib/ffmpeg/capabilities; default: Apple's encoder on a Mac, else ProRes). */
+  movEncoder?: MovEncoder;
+};
+
+/** The see-through MOV's pixel format for each encoder. */
+const MOV_TAIL: Record<MovEncoder, string> = {
+  videotoolbox: "format=bgra",
+  x265: "scale=out_color_matrix=bt709:out_range=tv,format=yuva420p",
+  prores: "scale=out_color_matrix=bt709:out_range=tv,format=yuva444p10le",
 };
 
 /** Full FFmpeg argument list that renders the timeline to one output file. */
 export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: ComposeKind, output: string, o: ComposeOptions = {}): string[] {
+  const movEnc: MovEncoder = o.movEncoder ?? (APPLE_MEDIA ? "videotoolbox" : "prores");
   const W = even(doc.canvas.width);
   const H = even(doc.canvas.height);
   const F = Math.round(doc.canvas.fps);
@@ -420,7 +432,7 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
     g.add(`[${comp}]fps=${Math.min(F, GIF_FPS)},scale=w=min(iw\\,${GIF_MAX_W}):h=-2:flags=lanczos,format=rgb24,split[${g1}][${g2}]`);
     g.add(`[${g1}]palettegen=stats_mode=diff[${gp}]`);
     g.add(`[${g2}][${gp}]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle[${vout}]`);
-  } else if (!audioOnly) g.add(`[${comp}]${TAIL[kind]}[${vout}]`);
+  } else if (!audioOnly) g.add(`[${comp}]${kind === "mov" ? MOV_TAIL[movEnc] : TAIL[kind]}[${vout}]`);
 
   // sound
   const sounds = STILL_KINDS.has(kind) || kind === "gif" ? [] : audioLayers(doc, media);
@@ -486,6 +498,11 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
     const T = Math.round(videoBitrate(c, q, W, H, F, doc.output.capBpp) / 1000);
     return ["-b:v", kb(T), "-maxrate", kb(Math.round(T * 1.5)), "-bufsize", kb(T * 2)];
   };
+  // the see-through MOV aims for a quality (its outline stays clean), the bitrate above only as a ceiling for x265
+  const ceiling = (c: BitrateCodec) => {
+    const T = Math.round(videoBitrate(c, q, W, H, F, doc.output.capBpp) / 1000);
+    return ["-maxrate", kb(Math.round(T * 1.2)), "-bufsize", kb(T * 2)];
+  };
   switch (kind) {
     case "hevc":
       // (Apple's hardware encoder on a Mac; elsewhere libx265, a little smaller than H.264 at the same CRF)
@@ -535,8 +552,14 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
       else args.push("-an");
       break;
     case "mov":
-      if (APPLE_MEDIA) {
-        args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75", ...rate("hevc-alpha"), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart");
+      if (movEnc === "videotoolbox") {
+        // (-q:v 55 at Balanced: prototypes/chroma-alpha-take.mov, the reference)
+        args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75", "-q:v", String(QUALITY[q].hevcQ), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart");
+        if (aout) args.push("-map", `[${aout}]`, "-c:a", "aac", "-b:a", kb(AUDIO_KBPS.mov));
+        else args.push("-an");
+      } else if (movEnc === "x265") {
+        // (no Apple encoder: x265's alpha layer, the same light file Safari plays)
+        args.push("-c:v", "libx265", "-pix_fmt", "yuva420p", "-preset", "fast", "-crf", String(X265_ALPHA_CRF[q]), ...ceiling("hevc-alpha"), "-x265-params", "log-level=error", "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart");
         if (aout) args.push("-map", `[${aout}]`, "-c:a", "aac", "-b:a", kb(AUDIO_KBPS.mov));
         else args.push("-an");
       } else {

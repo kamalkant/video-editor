@@ -4,16 +4,29 @@
 //
 //   - not Linux: nothing to do
 //   - a tool already on the PATH, or its *_PATH variable set: that one is skipped
-//   - else downloads the release file, checks its SHA-256, and puts it in vendor/
-//     (FFmpeg 7.0.2 static: x264, x265, VP9, AV1, Opus, from the ffmpeg-static project)
+//   - else downloads the release file, checks its SHA-256, and puts it in vendor/:
+//     FFmpeg 9.0 static from BtbN/FFmpeg-Builds (x264, x265 with its alpha layer for the
+//     Safari see-through MOV, VP9, AV1, Opus), one .tar.xz for both tools (opened with the
+//     host's tar); if that can't be had, FFmpeg 7.0.2 from the ffmpeg-static project
+//     (no HEVC alpha: the MOV is then ProRes 4444)
 //
 // It never fails the install: on a problem it says so and the site still builds (those features then report it).
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { chmodSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { gunzipSync, inflateRawSync } from "node:zlib";
 
+// a month's last build (BtbN keeps those for good), FFmpeg 9.0.2: the archive for each CPU and its SHA-256
+const BTBN = "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08";
+const ARCHIVE = {
+  x64: [`${BTBN}/ffmpeg-n9.0.2-17-g2a571b6068-linux64-gpl-9.0.tar.xz`, "68ee646831adaae2495618346f3bba94ff207ff83bbd34d643e7004730d66269"],
+  arm64: [`${BTBN}/ffmpeg-n9.0.2-17-g2a571b6068-linuxarm64-gpl-9.0.tar.xz`, "91afcd7695d4bbbb9e0057aa10baaf9875ec4e1a97303f9059ec971336a2ab46"],
+};
+
+// the fallback: one gzip file per tool
 const FF = "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1";
 // per tool: the file for each CPU, and its SHA-256 (of the file as downloaded)
 const TOOLS = [
@@ -81,9 +94,56 @@ async function fetchTool(tool, [url, sha256]) {
   return "downloaded";
 }
 
+/** Both tools out of the BtbN .tar.xz (bin/ffmpeg, bin/ffprobe), streamed to disk and checked. */
+async function fetchArchive(tools, [url, sha256]) {
+  const outs = tools.map((t) => resolve(process.cwd(), t.out));
+  if (outs.every((o) => existsSync(o) && existsSync(`${o}.sha256`) && readFileSync(`${o}.sha256`, "utf8") === sha256)) return "kept";
+  const res = await fetch(url);
+  if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+  mkdirSync(dirname(outs[0]), { recursive: true });
+  const work = mkdtempSync(join(dirname(outs[0]), ".fetch-"));
+  try {
+    const file = join(work, "ffmpeg.tar.xz");
+    const hash = createHash("sha256");
+    const tap = new Transform({ transform: (chunk, _enc, done) => (hash.update(chunk), done(null, chunk)) });
+    await pipeline(Readable.fromWeb(res.body), tap, createWriteStream(file));
+    const sum = hash.digest("hex");
+    if (sum !== sha256) throw new Error(`checksum mismatch (got ${sum})`);
+    const tar = (args) => {
+      const r = spawnSync("tar", args, { encoding: "utf8", maxBuffer: 16 << 20 });
+      if (r.status !== 0) throw new Error(`tar couldn't open it (${(r.stderr || r.error?.message || "").trim().slice(0, 200)})`);
+      return r.stdout;
+    };
+    // the archive's own folder name, then just the two programs (<folder>/bin/<tool>)
+    const names = tar(["-tJf", file]).split("\n");
+    const members = tools.map((t) => names.find((n) => n.endsWith(`/bin/${t.name}`)));
+    if (members.some((m) => !m)) throw new Error("the archive has no bin/ffmpeg or bin/ffprobe");
+    tar(["-xJf", file, "-C", work, "--strip-components=2", ...members]);
+    tools.forEach((t, i) => {
+      const bin = join(work, t.name);
+      chmodSync(bin, 0o755);
+      renameSync(bin, outs[i]);
+      writeFileSync(`${outs[i]}.sha256`, sha256);
+    });
+    return "downloaded";
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
 async function main() {
   if (process.platform !== "linux") return;
   const arch = { x64: "x64", arm64: "arm64" }[process.arch];
+  // both tools wanted from here: the FFmpeg 9 archive first
+  const wanted = TOOLS.filter((t) => !process.env[t.env] && !onPath(t.name));
+  if (arch && wanted.length === TOOLS.length) {
+    try {
+      say(`ffmpeg + ffprobe 9.0: ${await fetchArchive(TOOLS, ARCHIVE[arch])} (vendor/ffmpeg)`);
+      return;
+    } catch (err) {
+      console.warn(`[fetch-tools] couldn't get FFmpeg 9.0 (${err.message}); taking FFmpeg 7.0.2 (the Safari MOV is then ProRes).`);
+    }
+  }
   for (const tool of TOOLS) {
     try {
       if (process.env[tool.env]) say(`${tool.name}: ${tool.env} is set, using it.`);
@@ -96,5 +156,7 @@ async function main() {
   }
 }
 
-// (run as a script; importing it, e.g. in a test, only defines unzipOne)
+export { fetchArchive };
+
+// (run as a script; importing it, e.g. in a test, only defines its helpers)
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop())) await main();

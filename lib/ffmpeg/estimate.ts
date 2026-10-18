@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { EditSpec } from "../edit/spec";
 import { segmentsOf, timelineDuration } from "../edit/timeline";
+import { getCapabilities } from "./capabilities";
 import { findCropBox } from "./cropbox";
 import { buildEncodeArgs, type OutputKind } from "./encode";
 import type { VideoInfo } from "./probe";
@@ -57,6 +58,7 @@ export async function estimateSizes(
           crop,
           mask,
           timeline: false,
+          movEncoder: (await getCapabilities()).movEncoder,
         }),
         { signal, timeoutMs: 120_000 },
       );

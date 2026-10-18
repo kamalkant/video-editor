@@ -3,6 +3,7 @@ import { readFile, stat, writeFile } from "node:fs/promises";
 import type { CropBox } from "../edit/geometry";
 import { createZipArchive } from "../storage/VDO/container";
 import { ensureMask } from "../ai/masks";
+import { getCapabilities } from "../ffmpeg/capabilities";
 import { findCropBox } from "../ffmpeg/cropbox";
 import {
   buildEncodeArgs,
@@ -665,6 +666,7 @@ async function runDocJob(job: Job, doc: TimelineDoc, signal: AbortSignal) {
       const out = storagePath("jobs", job.id, spec.name);
       await runFfmpeg(
         buildComposeArgs(doc, media, kind, out, {
+          movEncoder: (await getCapabilities()).movEncoder,
           maskOf: (c) => masks.get(maskKeyOf(c) ?? "") ?? null,
           speech,
           textOf: (c) =>
@@ -899,7 +901,7 @@ async function runJob(job: Job, signal: AbortSignal) {
     step.state = "running";
     await save(job);
     await runFfmpeg(
-      buildEncodeArgs(kind, job.spec, video.info, src, out, { crop, mask }),
+      buildEncodeArgs(kind, job.spec, video.info, src, out, { crop, mask, movEncoder: (await getCapabilities()).movEncoder }),
       {
         signal,
         timeoutMs: 15 * 60 * 1000,

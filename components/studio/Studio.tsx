@@ -5328,6 +5328,11 @@ function StudioInner(props: Props) {
       format !== "png"
     )
       d = { ...d, canvas: { ...d.canvas, background: "#000000" } };
+    // When exporting an alpha format and background removal is active on a clip, auto-set the
+    // canvas background to transparent so the server's formatBlocked check passes. The user's
+    // actual project background is not changed — only the export copy of the doc is modified.
+    if (needsAlpha(format) && anyRemoval && d.canvas.background !== "transparent" && !d.canvas.backdrop)
+      d = { ...d, canvas: { ...d.canvas, background: "transparent" } };
     if (size)
       d = {
         ...d,
@@ -5681,8 +5686,11 @@ function StudioInner(props: Props) {
         : f === "mov-alpha" && !serverCaps.safariAlpha
           ? "Safari's see-through file (HEVC + alpha) needs Apple's encoder, which this server doesn't have. Use WebM (VP9 + alpha): it works in Chrome, Edge, Firefox and Android."
         : (formatBlocked(f, {
+            // When any clip has background removal active, treat the project as transparent so
+            // the alpha formats (mov-alpha, webm-alpha, webm-alpha) aren't unnecessarily blocked.
+            // generate() will auto-set canvas.background = "transparent" before the actual export.
             transparent:
-              doc.canvas.background === "transparent" && !doc.canvas.backdrop,
+              (doc.canvas.background === "transparent" || anyRemoval) && !doc.canvas.backdrop,
             hasSound: docHasSound,
             duration: docDuration(doc),
           }) ??

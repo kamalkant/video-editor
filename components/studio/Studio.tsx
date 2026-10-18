@@ -51,6 +51,7 @@ import {
   clipLength,
   clipSpec,
   clipStart,
+  coverMediaIdOrNull,
   docDuration,
   docFromSpec,
   drawnSlot,
@@ -9273,7 +9274,24 @@ function StudioInner(props: Props) {
         <ExportDialog
           open={exportOpen}
           onClose={() => setExportOpen(false)}
-          video={single ? video : null}
+          video={
+            video ??
+            firstVideo ??
+            Object.values(metas).find((m) => (m.kind ?? "video") === "video") ??
+            Object.values(metas)[0] ??
+            null
+          }
+          doc={doc}
+          thumbUrl={(() => {
+            const f = mainFrameAt(doc, clock.get()) ?? mainFrameAt(doc, 0);
+            if (f) return `/api/videos/${f.mediaId}/frame?t=${f.src.toFixed(3)}`;
+            const firstId =
+              coverMediaIdOrNull(doc) ??
+              video?.id ??
+              firstVideo?.id ??
+              Object.keys(metas)[0];
+            return firstId ? (localThumb(firstId) ?? `/api/videos/${firstId}/thumb`) : undefined;
+          })()}
           spec={
             single && exportFormat === "pack"
               ? single.spec
@@ -9309,11 +9327,15 @@ function StudioInner(props: Props) {
           onFormat={setExportFormat}
           blockedOf={exportBlocked}
           onGenerate={(id) => {
-            const v = id ? videoPreset(id) : null;
-            void generate(
-              undefined,
-              v ? { width: v.width, height: v.height } : undefined,
-            );
+            if (id && typeof id === "object" && "width" in id && "height" in id) {
+              void generate(undefined, id as { width: number; height: number });
+            } else {
+              const v = typeof id === "string" ? videoPreset(id) : null;
+              void generate(
+                undefined,
+                v ? { width: v.width, height: v.height } : undefined,
+              );
+            }
           }}
           onSwitchSize={(id) => {
             const v = videoPreset(id);

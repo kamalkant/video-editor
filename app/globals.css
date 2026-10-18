@@ -35,6 +35,13 @@
   --color-disabled-ink: #cbd5e1;
   --color-soon: #24314f; /* "Soon" badge */
   --color-backdrop: rgb(17 24 39 / 0.55); /* behind dialogs */
+  /* dialog elevation and contrast tokens */
+  --color-dialog-bg: #151821;
+  --color-dialog-header: #1c202c;
+  --color-dialog-card: #0f1118;
+  --color-dialog-card-hover: #171b26;
+  --color-dialog-card-border: #283044;
+  --color-dialog-border: #3b455b;
   /* timeline clip fills */
   --color-tl-video: transparent;
   --color-tl-image: #2a1a55;
@@ -79,6 +86,12 @@
   --color-disabled-ink: #475569;
   --color-soon: #e2e8f0;
   --color-backdrop: rgb(15 23 42 / 0.35);
+  --color-dialog-bg: #ffffff;
+  --color-dialog-header: #f1f5f9;
+  --color-dialog-card: #f8fafc;
+  --color-dialog-card-hover: #f1f5f9;
+  --color-dialog-card-border: #cbd5e1;
+  --color-dialog-border: #94a3b8;
   --color-tl-video: transparent;
   --color-tl-image: #eadfff;
   --color-tl-text: #fdecc8;
@@ -124,6 +137,12 @@
     --color-disabled-ink: #475569;
     --color-soon: #e2e8f0;
     --color-backdrop: rgb(15 23 42 / 0.35);
+    --color-dialog-bg: #ffffff;
+    --color-dialog-header: #f1f5f9;
+    --color-dialog-card: #f8fafc;
+    --color-dialog-card-hover: #f1f5f9;
+    --color-dialog-card-border: #cbd5e1;
+    --color-dialog-border: #94a3b8;
     --color-tl-video: transparent;
     --color-tl-image: #eadfff;
     --color-tl-text: #fdecc8;
@@ -425,7 +444,9 @@
     background: var(--color-danger-soft);
   }
   dialog.VDO-dialog::backdrop {
-    background: var(--color-backdrop);
+    background: rgba(10, 15, 30, 0.78);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
   }
   kbd {
     display: inline-block;

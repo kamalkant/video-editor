@@ -27,22 +27,31 @@ export const videoPreset = (id: string) => VIDEO_PRESETS.find((p) => p.id === id
  * need a transparent project background. Pictures are the frame at the playhead.
  */
 export const EXPORT_FORMATS = [
-  { id: "mp4", group: "video", label: "MP4 (H.264)", short: "MP4", detail: "Plays everywhere: YouTube, Instagram, WhatsApp, phones, TVs", recommended: true },
-  { id: "hevc", group: "video", label: "MP4 (H.265 / HEVC)", short: "HEVC MP4", detail: "Newer codec: iPhone, Mac, newer Android and TVs" },
-  { id: "av1", group: "video", label: "MP4 (AV1)", short: "AV1 MP4", detail: "Newest codec. Chrome, Firefox, YouTube. Slower to make" },
-  { id: "webm", group: "video", label: "WebM (VP9)", short: "WebM", detail: "For websites: Chrome, Edge, Firefox, Android" },
-  { id: "prores", group: "video", label: "MOV (ProRes 422 HQ)", short: "ProRes", detail: "Very large, top quality, for Premiere, Final Cut, DaVinci" },
-  { id: "webm-alpha", group: "alpha", label: "WebM (VP9 + alpha)", short: "WebM + alpha", detail: "See-through video for Chrome, Edge, Firefox, Android" },
-  { id: "mov-alpha", group: "alpha", label: "MOV (HEVC + alpha)", short: "MOV + alpha", detail: "See-through video for Safari, iPhone, iPad" },
-  { id: "pack", group: "alpha", label: "Website pack (VP9 + HEVC alpha)", short: "website pack", detail: "Both files above + a poster + embed code, in one zip" },
-  { id: "prores4444", group: "alpha", label: "MOV (ProRes 4444 + alpha)", short: "ProRes 4444", detail: "See-through master for video editing (very large)" },
-  { id: "gif", group: "image", label: "GIF (animated)", short: "GIF", detail: "Short loops for chats and slides. No sound, 15 fps, up to 640 px wide" },
-  { id: "png", group: "image", label: "PNG picture", short: "PNG", detail: "The frame at the playhead. Keeps see-through parts" },
-  { id: "jpg", group: "image", label: "JPG picture", short: "JPG", detail: "The frame at the playhead, a small file" },
-  { id: "mp3", group: "audio", label: "MP3", short: "MP3", detail: "Sound only. Podcasts, music players, WhatsApp" },
-  { id: "m4a", group: "audio", label: "M4A (AAC)", short: "M4A", detail: "Sound only. Apple devices; small and clear" },
-  { id: "wav", group: "audio", label: "WAV", short: "WAV", detail: "Sound only, uncompressed, for audio editing" },
+  { id: "mp4", group: "video", label: "MP4 (H.264)", short: "MP4", badge: "MP4", color: "blue", detail: "Plays everywhere: YouTube, Instagram, WhatsApp, phones, TVs", recommended: true },
+  { id: "hevc", group: "video", label: "MP4 (H.265 / HEVC)", short: "HEVC MP4", badge: "HEVC", color: "purple", detail: "Smaller size, higher quality for modern devices" },
+  { id: "av1", group: "video", label: "MP4 (AV1)", short: "AV1 MP4", badge: "AV1", color: "amber", detail: "Newest codec. Good quality, smaller size. Slower to export" },
+  { id: "webm", group: "video", label: "WebM (VP9)", short: "WebM", badge: "WEBM", color: "emerald", detail: "Ideal for web. Supports transparency (with alpha)." },
+  { id: "prores", group: "video", label: "MOV (ProRes 422 HQ)", short: "ProRes", badge: "MOV", color: "slate", detail: "Professional quality for editing. Large file size." },
+  { id: "webm-alpha", group: "alpha", label: "WebM (VP9 + alpha)", short: "WebM + alpha", badge: "ALPHA", color: "pink", detail: "With transparency support. Turn on background removal first." },
+  { id: "mov-alpha", group: "alpha", label: "MOV (HEVC + alpha)", short: "MOV + alpha", badge: "ALPHA", color: "pink", detail: "See-through video for Safari, iPhone, iPad" },
+  { id: "pack", group: "alpha", label: "Website pack (VP9 + HEVC alpha)", short: "website pack", badge: "PACK", color: "indigo", detail: "Both files above + a poster + embed code, in one zip" },
+  { id: "prores4444", group: "alpha", label: "MOV (ProRes 4444 + alpha)", short: "ProRes 4444", badge: "MOV", color: "slate", detail: "See-through master for video editing (very large)" },
+  { id: "gif", group: "image", label: "GIF (animated)", short: "GIF", badge: "GIF", color: "amber", detail: "Short loops for chats and slides. No sound, 15 fps, up to 640 px wide" },
+  { id: "png", group: "image", label: "PNG picture", short: "PNG", badge: "PNG", color: "sky", detail: "The frame at the playhead. Keeps see-through parts" },
+  { id: "jpg", group: "image", label: "JPG picture", short: "JPG", badge: "JPG", color: "blue", detail: "The frame at the playhead, a small file" },
+  { id: "mp3", group: "audio", label: "MP3", short: "MP3", badge: "MP3", color: "rose", detail: "Sound only. Podcasts, music players, WhatsApp" },
+  { id: "m4a", group: "audio", label: "M4A (AAC)", short: "M4A", badge: "M4A", color: "violet", detail: "Sound only. Apple devices; small and clear" },
+  { id: "wav", group: "audio", label: "WAV", short: "WAV", badge: "WAV", color: "teal", detail: "Sound only, uncompressed, for audio editing" },
 ] as const;
+
+export const ASPECT_PRESETS = [
+  { id: "16:9", label: "16:9", ratio: 16 / 9 },
+  { id: "9:16", label: "9:16", ratio: 9 / 16 },
+  { id: "1:1", label: "1:1", ratio: 1 },
+  { id: "4:5", label: "4:5", ratio: 4 / 5 },
+  { id: "custom", label: "Custom", ratio: null },
+] as const;
+export type AspectPresetId = (typeof ASPECT_PRESETS)[number]["id"];
 export type ExportFormat = (typeof EXPORT_FORMATS)[number]["id"];
 export const FORMAT_IDS = EXPORT_FORMATS.map((f) => f.id) as [ExportFormat, ...ExportFormat[]];
 export const DEFAULT_FORMAT: ExportFormat = "mp4";

@@ -1254,11 +1254,11 @@ export function Timeline(p: TimelineProps) {
       if (d.edge === "in") {
         curLen = Math.max(minL, d.end0 - targetTime);
         activeTime = d.end0 - curLen;
-        delta = activeTime - d.s0;
+        delta = Math.max(0, d.len0 - curLen);
       } else {
         curLen = Math.max(minL, targetTime - d.s0);
         activeTime = d.s0 + curLen;
-        delta = curLen - d.len0;
+        delta = Math.max(0, d.len0 - curLen);
       }
       setActiveTrimTip({
         clipId: d.id,
@@ -3346,11 +3346,7 @@ export function Timeline(p: TimelineProps) {
                       style={{ left: x(activeTrimTip.time), top: tipTop }}
                     >
                       {activeTrimTip.edge === "in"
-                        ? (() => {
-                            const d = activeTrimTip.delta ?? 0;
-                            const safe = Math.abs(d) < 0.05 ? 0 : d;
-                            return `${safe >= 0 ? "+" : ""}${safe.toFixed(1)}s`;
-                          })()
+                        ? `${Math.abs(activeTrimTip.delta ?? 0).toFixed(1)}s`
                         : `${activeTrimTip.duration.toFixed(1)}s`}
                     </div>
                   </div>

@@ -64,7 +64,7 @@ const TAIL: Record<ComposeKind, string> = {
   wav: "",
   poster: "format=rgba",
   webm: "scale=out_color_matrix=bt709:out_range=tv,format=yuva420p",
-  mov: "format=bgra",
+  mov: APPLE_MEDIA ? "format=bgra" : "scale=out_color_matrix=bt709:out_range=tv,format=yuva444p10le",
   master: "scale=out_color_matrix=bt709:out_range=tv,format=yuva444p10le",
 };
 const BT709 = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"];
@@ -531,9 +531,15 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
       else args.push("-an");
       break;
     case "mov":
-      args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75", "-q:v", String(QUALITY[qualityOf(doc)].hevcQ), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart");
-      if (aout) args.push("-map", `[${aout}]`, "-c:a", "aac", "-b:a", kb(AUDIO_KBPS.mov));
-      else args.push("-an");
+      if (APPLE_MEDIA) {
+        args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75", "-q:v", String(QUALITY[qualityOf(doc)].hevcQ), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart");
+        if (aout) args.push("-map", `[${aout}]`, "-c:a", "aac", "-b:a", kb(AUDIO_KBPS.mov));
+        else args.push("-an");
+      } else {
+        args.push("-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le", ...BT709, "-movflags", "+faststart");
+        if (aout) args.push("-map", `[${aout}]`, "-c:a", "pcm_s16le");
+        else args.push("-an");
+      }
       break;
     case "master":
       args.push("-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le", ...BT709, "-movflags", "+faststart");

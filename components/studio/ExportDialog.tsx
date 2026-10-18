@@ -19,6 +19,7 @@ import {
 import { formatBytes, formatTime } from "@/lib/format";
 import { estimateBytes, type SizeBasis } from "@/lib/export/size";
 import { useExportSize } from "@/lib/editor/useExportSize";
+import { useServerCaps } from "@/lib/editor/useServerCaps";
 import type { Job } from "@/lib/jobs/queue";
 import type { VideoMeta } from "@/lib/videos";
 import { coverMediaIdOrNull, type TimelineDoc, type VideoClip } from "@/lib/edit/doc";
@@ -39,6 +40,21 @@ function KeyedPreviewVideo({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isMuted, setIsMuted] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = false;
+    video.volume = 1;
+    video.play().catch(() => {
+      if (video) {
+        video.muted = true;
+        setIsMuted(true);
+        video.play().catch(() => {});
+      }
+    });
+  }, [src]);
 
   useEffect(() => {
     if (!liveKey || !canvasRef.current || !videoRef.current) return;
@@ -67,17 +83,14 @@ function KeyedPreviewVideo({
     };
   }, [liveKey, src]);
 
-  if (!liveKey) {
-    return (
-      <video
-        src={src}
-        autoPlay
-        loop
-        playsInline
-        className="size-full object-cover bg-black"
-      />
-    );
-  }
+  const toggleMute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    const next = !video.muted;
+    video.muted = next;
+    setIsMuted(next);
+  };
 
   return (
     <div className="relative size-full flex items-center justify-center bg-checker overflow-hidden">
@@ -86,14 +99,31 @@ function KeyedPreviewVideo({
         src={src}
         autoPlay
         loop
-        muted
         playsInline
-        className="hidden"
+        className={liveKey ? "absolute opacity-0 pointer-events-none w-px h-px -left-[9999px]" : "size-full object-cover bg-black"}
       />
-      <canvas
-        ref={canvasRef}
-        className="size-full object-contain"
-      />
+      {liveKey && (
+        <canvas
+          ref={canvasRef}
+          className="size-full object-contain"
+        />
+      )}
+      <button
+        type="button"
+        onClick={toggleMute}
+        title={isMuted ? "Unmute preview" : "Mute preview"}
+        className="absolute top-1.5 right-1.5 z-20 flex size-6 items-center justify-center rounded-full bg-black/70 hover:bg-black text-white transition-all shadow pointer-events-auto"
+      >
+        {isMuted ? (
+          <svg className="size-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+          </svg>
+        ) : (
+          <svg className="size-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+          </svg>
+        )}
+      </button>
     </div>
   );
 }
@@ -397,6 +427,7 @@ export function ExportDialog(p: {
   };
 
   // Size estimation
+  const { safariAlpha } = useServerCaps();
   const busy = useExportSize(p.sizeBasis ?? null, p.open && !running && !done && !!pr);
   const sizeOf = (fmt: ExportFormat): number | null => {
     if (!pr || p.blockedOf(fmt) || (fmt === "pack" && packOfVideo)) return null;
@@ -411,6 +442,7 @@ export function ExportDialog(p: {
       measuredAt: busy.measuredAt,
       master: p.master,
       transparent: pr.transparent,
+      safariAlpha,
     });
   };
   // Live snapshot and media preview

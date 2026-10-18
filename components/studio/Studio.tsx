@@ -5683,8 +5683,6 @@ function StudioInner(props: Props) {
       ? `Can't make videos yet: ${capability.message}`
       : !hasClips
         ? "Add a video or picture first."
-        : f === "mov-alpha" && !serverCaps.safariAlpha
-          ? "Safari's see-through file (HEVC + alpha) needs Apple's encoder, which this server doesn't have. Use WebM (VP9 + alpha): it works in Chrome, Edge, Firefox and Android."
         : (formatBlocked(f, {
             // When any clip has background removal active, treat the project as transparent so
             // the alpha formats (mov-alpha, webm-alpha, webm-alpha) aren't unnecessarily blocked.

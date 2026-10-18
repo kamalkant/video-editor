@@ -64,8 +64,8 @@ export class FormatError extends Error {}
 /** Safari's see-through file is HEVC with alpha, which only Apple's encoder makes (a Mac server). */
 const NO_SAFARI_ALPHA =
   "The Safari / iPhone see-through file (HEVC + alpha) needs Apple's encoder, which this server doesn't have. Export \"WebM (transparent)\" instead: it works in Chrome, Edge, Firefox and Android.";
-/** Off a Mac, see-through exports skip the Safari file and make the WebM (and poster) only. */
-const withoutSafariFile = <K extends string>(kinds: K[]): K[] => (APPLE_MEDIA ? kinds : kinds.filter((k) => k !== "mov"));
+/** Off a Mac, see-through exports use ProRes 4444 fallback for mov. */
+const withoutSafariFile = <K extends string>(kinds: K[]): K[] => kinds;
 
 export type JobState = "queued" | "running" | "done" | "failed" | "canceled";
 export type FileKind = OutputKind | ComposeKind | "zip";
@@ -336,7 +336,6 @@ export async function createDocJob(
       duration: docDuration(doc),
     });
     if (why) throw new FormatError(why);
-    if (format === "mov-alpha" && !APPLE_MEDIA) throw new FormatError(NO_SAFARI_ALPHA);
   }
   const kinds: ComposeKind[] = withoutSafariFile(
     format

@@ -4,7 +4,7 @@ import type { EditSpec } from "../edit/spec";
 import { LIMITS, QUALITY } from "../settings";
 import { buildFilterGraph, type Target } from "./graph";
 import type { VideoInfo } from "./probe";
-import { SAFE_INPUT } from "./run";
+import { APPLE_MEDIA, SAFE_INPUT } from "./run";
 
 export type OutputKind = "webm" | "mov" | "poster" | "master";
 
@@ -75,12 +75,18 @@ export function buildEncodeArgs(
       else args.push("-an");
       break;
     case "mov":
-      args.push(
-        "-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75",
-        "-q:v", String(q.hevcQ), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart",
-      );
-      if (keepAudio) args.push(...audioMap, "-c:a", "aac", "-b:a", "96k");
-      else args.push("-an");
+      if (APPLE_MEDIA) {
+        args.push(
+          "-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75",
+          "-q:v", String(q.hevcQ), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart",
+        );
+        if (keepAudio) args.push(...audioMap, "-c:a", "aac", "-b:a", "96k");
+        else args.push("-an");
+      } else {
+        args.push("-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le", ...BT709, "-movflags", "+faststart");
+        if (keepAudio) args.push(...audioMap, "-c:a", "pcm_s16le");
+        else args.push("-an");
+      }
       break;
     case "master":
       args.push("-c:v", "prores_ks", "-profile:v", "4", "-pix_fmt", "yuva444p10le", ...BT709, "-movflags", "+faststart");

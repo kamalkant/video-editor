@@ -48,6 +48,8 @@ export type SizeInput = {
   master?: boolean;
   /** transparent canvas or keyed subject video */
   transparent?: boolean;
+  /** whether server supports hardware HEVC alpha (false on Linux => uses ProRes 4444) */
+  safariAlpha?: boolean;
 };
 
 const bytes = (bits: number) => Math.max(0, Math.round(bits / 8));
@@ -74,6 +76,9 @@ export function estimateBytes(format: ExportFormat, p: SizeInput): number {
     case "webm":
     case "webm-alpha":
     case "mov-alpha": {
+      if (format === "mov-alpha" && p.safariAlpha === false) {
+        return estimateBytes("prores4444", p);
+      }
       const a = format === "webm" ? AUDIO_KBPS.vp9 : format === "webm-alpha" ? AUDIO_KBPS.webm : format === "mov-alpha" ? AUDIO_KBPS.mov : AUDIO_KBPS.mp4;
       return bytes((video(RATIO[format][p.quality]) + sound(a)) * box);
     }

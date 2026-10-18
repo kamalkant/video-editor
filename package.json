@@ -35,6 +35,7 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "webm-muxer": "^5.1.4",
+    "xz-decompress": "0.2.3",
     "zod": "^4.6.5"
   },
   "devDependencies": {

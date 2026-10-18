@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getCapabilities } from "@/lib/ffmpeg/capabilities";
+import { fetchStatus } from "@/lib/ffmpeg/ensure";
 
 export const runtime = "nodejs";
 
@@ -20,6 +21,8 @@ export async function GET(request: Request) {
     {
       build: BUILD,
       ...caps,
+      // what the FFmpeg download on this host last did (Linux): why it's still the older one, if it is
+      ...(process.platform === "linux" ? { ffmpegFetch: fetchStatus() } : {}),
     },
     { status: caps.ok ? 200 : 503 },
   );

@@ -1,5 +1,5 @@
-import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dataRoot } from "../dataRoot";
@@ -71,3 +71,44 @@ export function ensureFfmpeg(root: string = /*turbopackIgnore: true*/ process.cw
     }
   }
 }
+
+/** What scripts/fetch-ffmpeg.mjs last did (vendor/ffmpeg/fetch-status.json), or null. */
+export function fetchStatus(root: string = /*turbopackIgnore: true*/ process.cwd()): { at?: string; by?: string; ffmpeg?: string | null; result?: string; error?: string } | null {
+  try {
+    return JSON.parse(readFileSync(join(root, "vendor", "ffmpeg", "fetch-status.json"), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+/** The FFmpeg the fetcher aims for (x265 with its alpha layer: the light Safari MOV). */
+const WANTED = "9.0.2";
+const RETRY_MS = 60 * 60 * 1000;
+
+/**
+ * A Linux server still on the older fetched FFmpeg (its install couldn't get FFmpeg 9, or ran
+ * before it was wanted): fetch it again in the background, the site keeps working meanwhile;
+ * then FFmpeg's abilities are read again (the Safari MOV becomes HEVC + alpha). At most once an hour.
+ */
+export function upgradeFfmpegLater(root: string = /*turbopackIgnore: true*/ process.cwd(), onDone?: () => void): boolean {
+  if (process.platform !== "linux") return false;
+  const vendored = TOOLS.every((t) => process.env[t.key] === join(root, ...t.path));
+  if (!vendored) return false; // the host's own FFmpeg (or a copy elsewhere): not ours to replace
+  const st = fetchStatus(root);
+  if (st?.ffmpeg === WANTED) return false;
+  // (an install that failed: try now; a try from here that failed: not again for an hour)
+  if (st?.by === "server" && st.at && Date.now() - Date.parse(st.at) < RETRY_MS) return false;
+  const script = join(root, "scripts", "fetch-ffmpeg.mjs");
+  if (!existsSync(script)) return false;
+  const env = { ...process.env };
+  for (const t of TOOLS) delete env[t.key];
+  env.FETCH_BY = "server";
+  const child = spawn(process.execPath, [script], { cwd: root, env, stdio: "inherit" });
+  child.on("exit", () => {
+    console.log(`[tools] FFmpeg upgrade: ${JSON.stringify(fetchStatus(root))}`);
+    onDone?.();
+  });
+  child.on("error", (err) => console.warn(`[tools] FFmpeg upgrade couldn't start: ${err.message}`));
+  return true;
+}
+

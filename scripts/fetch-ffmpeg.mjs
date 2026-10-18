@@ -13,7 +13,7 @@
 // It never fails the install: on a problem it says so and the site still builds (those features then report it).
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { chmodSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, createReadStream, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -94,6 +94,91 @@ async function fetchTool(tool, [url, sha256]) {
   return "downloaded";
 }
 
+/** The named members of a .tar.xz into `dir` (each under its last path part): the host's tar, else in JS. */
+async function untarXz(file, dir, members) {
+  const r = spawnSync("tar", ["-tJf", file], { encoding: "utf8", maxBuffer: 16 << 20 });
+  if (r.status === 0) {
+    const names = r.stdout.split("\n");
+    const found = members.map((m) => names.find((n) => n.endsWith(m)));
+    if (found.some((n) => !n)) throw new Error(`the archive has no ${members.join(" / ")}`);
+    const x = spawnSync("tar", ["-xJf", file, "-C", dir, "--strip-components=2", ...found], { encoding: "utf8" });
+    if (x.status === 0) return "tar";
+  }
+  // no xz on this host (tar can't open .xz): decompress here (WebAssembly) and read the tar ourselves
+  return untarXzJs(file, dir, members);
+}
+
+/** A plain .tar reader over the decompressed stream: 512-byte headers, data padded to 512. */
+async function untarXzJs(file, dir, members) {
+  const xz = await import("xz-decompress");
+  const { XzReadableStream } = xz.XzReadableStream ? xz : xz.default;
+  const reader = new XzReadableStream(Readable.toWeb(createReadStream(file))).getReader();
+  let buf = Buffer.alloc(0);
+  let out = null; // { fd stream, left } while inside a wanted member
+  let skip = 0;
+  let longName = null;
+  const got = new Set();
+  const take = async () => {
+    const { value, done } = await reader.read();
+    if (done) return false;
+    buf = buf.length ? Buffer.concat([buf, Buffer.from(value)]) : Buffer.from(value);
+    return true;
+  };
+  for (;;) {
+    if (out) {
+      if (!buf.length && !(await take())) break;
+      const n = Math.min(out.left, buf.length);
+      if (n) await new Promise((res, rej) => out.stream.write(buf.subarray(0, n), (e) => (e ? rej(e) : res())));
+      buf = buf.subarray(n);
+      out.left -= n;
+      if (out.left === 0) {
+        await new Promise((res) => out.stream.end(res));
+        skip = out.pad;
+        out = null;
+      }
+      continue;
+    }
+    if (skip) {
+      if (!buf.length && !(await take())) break;
+      const n = Math.min(skip, buf.length);
+      buf = buf.subarray(n);
+      skip -= n;
+      continue;
+    }
+    while (buf.length < 512) if (!(await take())) break;
+    if (buf.length < 512) break;
+    const h = buf.subarray(0, 512);
+    buf = buf.subarray(512);
+    if (h.every((b) => b === 0)) break; // the end
+    const str = (a, b) => h.subarray(a, b).toString("utf8").replace(/\0.*$/s, "");
+    const size = parseInt(str(124, 136).trim() || "0", 8);
+    const type = String.fromCharCode(h[156]);
+    const pad = (512 - (size % 512)) % 512;
+    const name = longName ?? (str(345, 500) ? `${str(345, 500)}/${str(0, 100)}` : str(0, 100));
+    longName = null;
+    if (type === "L") {
+      // a GNU long name: the next entry's name is this entry's data
+      while (buf.length < size + pad) if (!(await take())) break;
+      longName = buf.subarray(0, size).toString("utf8").replace(/\0.*$/s, "");
+      buf = buf.subarray(size + pad);
+      continue;
+    }
+    const want = members.find((m) => name.endsWith(m));
+    if (want && (type === "0" || type === "\0")) {
+      got.add(want);
+      out = { stream: createWriteStream(join(dir, want.split("/").pop())), left: size, pad };
+      if (size === 0) {
+        await new Promise((res) => out.stream.end(res));
+        out = null;
+        skip = pad;
+      }
+    } else skip = size + pad;
+  }
+  await reader.cancel().catch(() => {});
+  if (got.size !== members.length) throw new Error(`the archive has no ${members.filter((m) => !got.has(m)).join(" / ")}`);
+  return "js";
+}
+
 /** Both tools out of the BtbN .tar.xz (bin/ffmpeg, bin/ffprobe), streamed to disk and checked. */
 async function fetchArchive(tools, [url, sha256]) {
   const outs = tools.map((t) => resolve(process.cwd(), t.out));
@@ -109,25 +194,27 @@ async function fetchArchive(tools, [url, sha256]) {
     await pipeline(Readable.fromWeb(res.body), tap, createWriteStream(file));
     const sum = hash.digest("hex");
     if (sum !== sha256) throw new Error(`checksum mismatch (got ${sum})`);
-    const tar = (args) => {
-      const r = spawnSync("tar", args, { encoding: "utf8", maxBuffer: 16 << 20 });
-      if (r.status !== 0) throw new Error(`tar couldn't open it (${(r.stderr || r.error?.message || "").trim().slice(0, 200)})`);
-      return r.stdout;
-    };
-    // the archive's own folder name, then just the two programs (<folder>/bin/<tool>)
-    const names = tar(["-tJf", file]).split("\n");
-    const members = tools.map((t) => names.find((n) => n.endsWith(`/bin/${t.name}`)));
-    if (members.some((m) => !m)) throw new Error("the archive has no bin/ffmpeg or bin/ffprobe");
-    tar(["-xJf", file, "-C", work, "--strip-components=2", ...members]);
+    const how = await untarXz(file, work, tools.map((t) => `/bin/${t.name}`));
     tools.forEach((t, i) => {
       const bin = join(work, t.name);
       chmodSync(bin, 0o755);
       renameSync(bin, outs[i]);
       writeFileSync(`${outs[i]}.sha256`, sha256);
     });
-    return "downloaded";
+    return `downloaded (opened with ${how})`;
   } finally {
     rmSync(work, { recursive: true, force: true });
+  }
+}
+
+/** What the last run did, for GET /api/health (a host's install log is often out of reach). */
+function writeStatus(status) {
+  try {
+    const file = resolve(process.cwd(), "vendor/ffmpeg/fetch-status.json");
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ at: new Date().toISOString(), by: process.env.FETCH_BY || "install", ...status }));
+  } catch {
+    // only a note
   }
 }
 
@@ -138,12 +225,15 @@ async function main() {
   const wanted = TOOLS.filter((t) => !process.env[t.env] && !onPath(t.name));
   if (arch && wanted.length === TOOLS.length) {
     try {
-      say(`ffmpeg + ffprobe 9.0: ${await fetchArchive(TOOLS, ARCHIVE[arch])} (vendor/ffmpeg)`);
+      const how = await fetchArchive(TOOLS, ARCHIVE[arch]);
+      say(`ffmpeg + ffprobe 9.0: ${how} (vendor/ffmpeg)`);
+      writeStatus({ ffmpeg: "9.0.2", result: how });
       return;
     } catch (err) {
       console.warn(`[fetch-tools] couldn't get FFmpeg 9.0 (${err.message}); taking FFmpeg 7.0.2 (the Safari MOV is then ProRes).`);
+      writeStatus({ ffmpeg: "7.0.2", error: String(err.message).slice(0, 300) });
     }
-  }
+  } else writeStatus({ ffmpeg: null, result: `not fetched: ${TOOLS.filter((t) => !wanted.includes(t)).map((t) => (process.env[t.env] ? `${t.env} set` : `${t.name} on the PATH`)).join(", ") || `no build for ${process.arch}`}` });
   for (const tool of TOOLS) {
     try {
       if (process.env[tool.env]) say(`${tool.name}: ${tool.env} is set, using it.`);
@@ -156,7 +246,7 @@ async function main() {
   }
 }
 
-export { fetchArchive };
+export { fetchArchive, untarXzJs };
 
 // (run as a script; importing it, e.g. in a test, only defines its helpers)
 if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop())) await main();

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 // (a plain .mjs script, scripts/fetch-ffmpeg.mjs: importing it only defines its helpers)
-import { fetchArchive, unzipOne } from "../../scripts/fetch-ffmpeg.mjs";
+import { fetchArchive, untarXzJs, unzipOne } from "../../scripts/fetch-ffmpeg.mjs";
 
 const dir = mkdtempSync(join(tmpdir(), "VDO-unzip-"));
 afterAll(() => rmSync(dir, { recursive: true, force: true }));
@@ -44,12 +44,29 @@ describe("the Linux tool fetcher takes FFmpeg 9 out of BtbN's .tar.xz", () => {
     ];
     try {
       await expect(fetchArchive(tools, [url, "0".repeat(64)])).rejects.toThrow(/checksum mismatch/);
-      expect(await fetchArchive(tools, [url, sha])).toBe("downloaded");
+      expect(await fetchArchive(tools, [url, sha])).toBe("downloaded (opened with tar)");
       expect(readFileSync(join(dir, "vendor", "ffprobe"), "utf8")).toContain("echo ffprobe");
       expect(await fetchArchive(tools, [url, sha])).toBe("kept");
       expect(hits).toBe(2);
     } finally {
       server.close();
     }
+  });
+});
+
+describe("a host without xz: the .tar.xz is opened in JS", () => {
+  it("finds both programs under any folder (also past a long GNU name) and writes them byte for byte", async () => {
+    const top = join(dir, "js-" + "x".repeat(120)); // a name longer than tar's 100 characters
+    mkdirSync(join(top, "bin"), { recursive: true });
+    const big = Buffer.alloc(700_000, 7); // more than one decompressed chunk, not a multiple of 512
+    writeFileSync(join(top, "bin", "ffmpeg"), big);
+    writeFileSync(join(top, "bin", "ffprobe"), "probe");
+    writeFileSync(join(top, "bin", "ffplay"), "play");
+    execFileSync("tar", ["--format=gnutar", "-cJf", "js.tar.xz", top.split("/").pop()!], { cwd: dir });
+    const out = mkdtempSync(join(dir, "out-"));
+    expect(await untarXzJs(join(dir, "js.tar.xz"), out, ["/bin/ffmpeg", "/bin/ffprobe"])).toBe("js");
+    expect(readFileSync(join(out, "ffmpeg")).equals(big)).toBe(true);
+    expect(readFileSync(join(out, "ffprobe"), "utf8")).toBe("probe");
+    await expect(untarXzJs(join(dir, "js.tar.xz"), out, ["/bin/missing"])).rejects.toThrow(/no \/bin\/missing/);
   });
 });

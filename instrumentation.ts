@@ -4,7 +4,9 @@ export async function register() {
   // Linux hosts without FFmpeg: scripts/fetch-ffmpeg.mjs runs at install, but some hosts install in one place and
   // run the site from another; then fetch it here, before the first upload or export (a no-op when it's there)
   if (process.platform === "linux") {
-    const { ensureFfmpeg } = await import("./lib/ffmpeg/ensure");
+    const { ensureFfmpeg, upgradeFfmpegLater } = await import("./lib/ffmpeg/ensure");
     ensureFfmpeg();
+    // still the older FFmpeg (no x265 alpha: the Safari MOV would be ProRes): fetched again in the background
+    upgradeFfmpegLater(undefined, () => void import("./lib/ffmpeg/capabilities").then((m) => m.getCapabilities(true)));
   }
 }

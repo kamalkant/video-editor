@@ -77,19 +77,15 @@ export function estimateBytes(format: ExportFormat, p: SizeInput): number {
     case "webm-alpha":
     case "mov-alpha": {
       if (format === "mov-alpha" && p.safariAlpha === false) {
-        return estimateBytes("prores4444", p);
+        return bytes((px * p.fps * D * PRORES4444_BPP + sound(AUDIO_KBPS.pcm)) * box);
       }
       const a = format === "webm" ? AUDIO_KBPS.vp9 : format === "webm-alpha" ? AUDIO_KBPS.webm : format === "mov-alpha" ? AUDIO_KBPS.mov : AUDIO_KBPS.mp4;
       return bytes((video(RATIO[format][p.quality]) + sound(a)) * box);
     }
-    case "prores":
-      return bytes((px * p.fps * D * PRORES_BPP + sound(AUDIO_KBPS.pcm)) * box);
-    case "prores4444":
-      return bytes((px * p.fps * D * PRORES4444_BPP + sound(AUDIO_KBPS.pcm)) * box);
     case "pack": {
       // one zip (not compressed again): WebM + MOV + a poster (+ the ProRes master)
       const poster = px * 0.6;
-      const master = p.master ? estimateBytes("prores4444", p) : 0;
+      const master = p.master ? bytes((px * p.fps * D * PRORES4444_BPP + sound(AUDIO_KBPS.pcm)) * box) : 0;
       return Math.round(estimateBytes("webm-alpha", p) + estimateBytes("mov-alpha", p) + poster + master);
     }
     case "gif": {
@@ -113,7 +109,7 @@ export function estimateBytes(format: ExportFormat, p: SizeInput): number {
 }
 
 /** Whether a format's size needs the picture measured (the others are known right away). */
-export const needsBusyness = (f: ExportFormat) => !["png", "jpg", "mp3", "m4a", "wav", "prores", "prores4444"].includes(f);
+export const needsBusyness = (f: ExportFormat) => !["png", "jpg", "mp3", "m4a", "wav"].includes(f);
 
 /** What to measure for a timeline: its longest video clips (a sample from each one's middle) and how much of it is video. */
 export type SizeBasis = {

@@ -39,8 +39,7 @@ describe("export size estimate", () => {
     const expected = ((1920 * 1080 * 30 * 60 * 0.1 + 160_000 * 60) / 8) * 1.015;
     expect(estimateBytes("mp4", p)).toBeCloseTo(expected, -3);
   });
-  it("ProRes hardly depends on the picture; sound-only files are rate × length", () => {
-    expect(estimateBytes("prores", { ...p, bpp: 0.01 })).toBe(estimateBytes("prores", { ...p, bpp: 0.5 }));
+  it("sound-only files are rate × length", () => {
     expect(estimateBytes("mp3", p)).toBe((192_000 * 60) / 8);
     expect(estimateBytes("mp3", { ...p, quality: "best" })).toBe((320_000 * 60) / 8);
     expect(estimateBytes("wav", p)).toBe(192_000 * 60 + 44);
@@ -53,7 +52,7 @@ describe("export size estimate", () => {
   it("the website pack is both see-through files and a poster (+ the ProRes master)", () => {
     const pack = estimateBytes("pack", p);
     expect(pack).toBeGreaterThan(estimateBytes("webm-alpha", p) + estimateBytes("mov-alpha", p));
-    expect(estimateBytes("pack", { ...p, master: true })).toBeGreaterThan(pack + estimateBytes("prores4444", p) * 0.99);
+    expect(estimateBytes("pack", { ...p, master: true })).toBeGreaterThan(pack);
   });
   it("measures the two longest visible video clips, weighted by length", () => {
     const d = twoVideos();

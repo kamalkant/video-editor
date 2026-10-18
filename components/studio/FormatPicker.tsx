@@ -58,7 +58,7 @@ export function FormatPicker({
 
   const formats = EXPORT_FORMATS.filter((f) => {
     if (category === "video") {
-      return ["mp4", "hevc", "av1", "webm", "prores", "webm-alpha", "mov-alpha"].includes(f.id);
+      return ["mp4", "hevc", "av1", "webm", "webm-alpha", "mov-alpha"].includes(f.id);
     }
     if (category === "image") return f.group === "image";
     if (category === "audio") return f.group === "audio";

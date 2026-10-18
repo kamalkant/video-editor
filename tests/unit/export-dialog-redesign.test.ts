@@ -50,7 +50,6 @@ describe("Export & Share Redesign Unit Tests", () => {
     const hevc = EXPORT_FORMATS.find((f) => f.id === "hevc")!;
     const av1 = EXPORT_FORMATS.find((f) => f.id === "av1")!;
     const webm = EXPORT_FORMATS.find((f) => f.id === "webm")!;
-    const prores = EXPORT_FORMATS.find((f) => f.id === "prores")!;
     const webmAlpha = EXPORT_FORMATS.find((f) => f.id === "webm-alpha")!;
 
     expect(mp4.badge).toBe("MP4");
@@ -65,9 +64,6 @@ describe("Export & Share Redesign Unit Tests", () => {
 
     expect(webm.badge).toBe("WEBM");
     expect(webm.color).toBe("emerald");
-
-    expect(prores.badge).toBe("MOV");
-    expect(prores.color).toBe("slate");
 
     expect(webmAlpha.badge).toBe("ALPHA");
     expect(webmAlpha.color).toBe("pink");
@@ -84,7 +80,6 @@ describe("Export & Share Redesign Unit Tests", () => {
     expect(videoFormats.map((f) => f.id)).toContain("hevc");
     expect(videoFormats.map((f) => f.id)).toContain("av1");
     expect(videoFormats.map((f) => f.id)).toContain("webm");
-    expect(videoFormats.map((f) => f.id)).toContain("prores");
     expect(videoFormats.map((f) => f.id)).toContain("webm-alpha");
     expect(videoFormats.map((f) => f.id)).toContain("mov-alpha");
 

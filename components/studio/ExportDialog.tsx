@@ -21,7 +21,7 @@ import { estimateBytes, type SizeBasis } from "@/lib/export/size";
 import { useExportSize } from "@/lib/editor/useExportSize";
 import type { Job } from "@/lib/jobs/queue";
 import type { VideoMeta } from "@/lib/videos";
-import { coverMediaIdOrNull, type TimelineDoc } from "@/lib/edit/doc";
+import { coverMediaIdOrNull, type TimelineDoc, type VideoClip } from "@/lib/edit/doc";
 import { localSrc, localThumb } from "@/lib/media/localMedia";
 import { ExportResults, ExportSummary } from "./ExportResults";
 import { FormatPicker } from "./FormatPicker";
@@ -394,7 +394,19 @@ export function ExportDialog(p: {
 
   const activeMediaId = p.video?.id || (p.doc ? coverMediaIdOrNull(p.doc) : null) || null;
   const clipThumb = activeMediaId ? (localThumb(activeMediaId) ?? `/api/videos/${activeMediaId}/thumb`) : null;
-  const videoPlayUrl = activeMediaId ? (localSrc(activeMediaId) ?? `/api/videos/${activeMediaId}/play`) : null;
+  // If any clip has background removal enabled, the raw play URL would show the unkeyed green-screen
+  // footage. Suppress it so the export dialog shows the canvas-captured thumbnail (which already has
+  // the live WebGL keying applied) instead of a raw video with green background.
+  const hasRemoval = p.doc?.tracks.some((t) =>
+    t.clips.some(
+      (c) => c.type === "video" && (c as VideoClip).ops.some((o) => o.enabled),
+    ),
+  ) ?? false;
+  const videoPlayUrl = hasRemoval
+    ? null
+    : activeMediaId
+      ? (localSrc(activeMediaId) ?? `/api/videos/${activeMediaId}/play`)
+      : null;
 
   const thumbSrc =
     liveSnapshot ||
@@ -749,7 +761,7 @@ export function ExportDialog(p: {
           <div className="flex flex-col gap-2.5 lg:sticky lg:top-0 lg:self-start">
             {/* Video Preview Box with Dynamic Aspect Ratio Stage */}
             <div
-              className="group relative h-36 sm:h-40 w-full overflow-hidden rounded-xl border border-dialog-card-border bg-dialog-card/80 p-2 shadow-xs cursor-pointer flex items-center justify-center"
+              className="group relative h-36 sm:h-40 w-full overflow-hidden rounded-xl border border-dialog-card-border bg-dialog-card/80 p-0 shadow-xs cursor-pointer flex items-center justify-center"
               onClick={() => setPreviewPlaying((v) => !v)}
             >
               {/* Screen Frame matching selected aspect ratio */}

@@ -16,17 +16,17 @@ import type { ExportFormat } from "./presets";
 /** A calm picture (pictures, text, slides) when there's no video to measure. */
 export const STILL_BPP = 0.02;
 /** A typical video when the measurement isn't back (or failed). */
-export const TYPICAL_BPP = 0.08;
+export const TYPICAL_BPP = 0.035;
 
 /** Size of each video codec (at each quality) next to H.264 CRF 23 (measured on moving test clips). */
 const RATIO: Record<"mp4" | "hevc" | "av1" | "webm" | "webm-alpha" | "mov-alpha", Record<Quality, number>> = {
-  mp4: { small: 0.47, balanced: 1, best: 1.7 },
-  hevc: { small: 0.6, balanced: 1.2, best: 1.8 },
-  av1: { small: 0.62, balanced: 1.17, best: 1.9 },
-  webm: { small: 0.93, balanced: 1.4, best: 2 },
+  mp4: { small: 0.5, balanced: 1, best: 1.8 },
+  hevc: { small: 0.35, balanced: 0.7, best: 1.25 },
+  av1: { small: 0.32, balanced: 0.65, best: 1.15 },
+  webm: { small: 0.42, balanced: 0.85, best: 1.5 },
   // see-through files also carry the alpha (the outline): a bit more
-  "webm-alpha": { small: 0.92, balanced: 1.3, best: 1.8 },
-  "mov-alpha": { small: 0.7, balanced: 1.4, best: 2 },
+  "webm-alpha": { small: 0.4, balanced: 0.75, best: 1.3 },
+  "mov-alpha": { small: 0.35, balanced: 0.65, best: 1.1 },
 };
 /** ProRes: about this many bits per pixel per frame, whatever the picture. */
 const PRORES_BPP = 3.9;
@@ -46,6 +46,8 @@ export type SizeInput = {
   measuredAt?: { width: number; height: number };
   /** the website pack also holds the ProRes master */
   master?: boolean;
+  /** transparent canvas or keyed subject video */
+  transparent?: boolean;
 };
 
 const bytes = (bits: number) => Math.max(0, Math.round(bits / 8));
@@ -55,6 +57,11 @@ export function estimateBytes(format: ExportFormat, p: SizeInput): number {
   const D = Math.max(0, p.duration);
   const px = Math.max(1, p.width * p.height);
   let bpp = p.bpp ?? TYPICAL_BPP;
+  // If video is transparent / keyed avatar, background is removed so active pixels take fewer bits
+  const isAlphaFormat = format === "webm-alpha" || format === "mov-alpha";
+  if (p.transparent || isAlphaFormat) {
+    bpp *= 0.65;
+  }
   // fewer pixels need a little more per pixel (and the other way round)
   if (p.bpp != null && p.measuredAt) bpp *= Math.min(2, Math.max(0.5, ((p.measuredAt.width * p.measuredAt.height) / px) ** 0.25));
   const video = (ratio: number) => px * p.fps * D * bpp * ratio;
@@ -105,7 +112,7 @@ export const needsBusyness = (f: ExportFormat) => !["png", "jpg", "mp3", "m4a", 
 
 /** What to measure for a timeline: its longest video clips (a sample from each one's middle) and how much of it is video. */
 export type SizeBasis = {
-  samples: { mediaId: string; at: number; weight: number }[];
+  samples: { mediaId: string; at: number; weight: number; len?: number }[];
   /** share of the timeline that is video (the rest: pictures, text, backgrounds) */
   videoShare: number;
   width: number;
@@ -127,7 +134,7 @@ export function sizeBasisOf(doc: TimelineDoc): SizeBasis {
   const top = [...vids].sort((a, b) => b.len - a.len).slice(0, 2);
   const total = top.reduce((a, v) => a + v.len, 0) || 1;
   return {
-    samples: top.map((v) => ({ mediaId: v.mediaId, at: Math.max(0, Math.round(v.mid - SAMPLE / 2)), weight: Math.round((v.len / total) * 1000) / 1000 })),
+    samples: top.map((v) => ({ mediaId: v.mediaId, at: Math.max(0, Math.round(v.mid - SAMPLE / 2)), weight: Math.round((v.len / total) * 1000) / 1000, len: v.len })),
     videoShare: D > 0 ? Math.round((covered / D) * 1000) / 1000 : 0,
     width: doc.canvas.width,
     height: doc.canvas.height,

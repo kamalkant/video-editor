@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { bppOf, STILL_BPP, type SizeBasis } from "../export/size";
-import { notOnServer } from "../media/localMedia";
+import { bppOf, STILL_BPP, TYPICAL_BPP, type SizeBasis } from "../export/size";
+import { localInfo, localItem, notOnServer } from "../media/localMedia";
 
 type Measured = { key: string; bpp: number; measuredAt: { width: number; height: number } };
 
@@ -20,8 +20,27 @@ export function useExportSize(basis: SizeBasis | null, enabled: boolean) {
     if (!enabled || !key) return;
     const b = JSON.parse(key) as SizeBasis;
     if (!b.samples.length) return;
-    // (files kept only on this computer aren't sent just to measure: the estimate uses the usual rate)
-    if (b.samples.some((x) => notOnServer(x.mediaId))) return;
+    // For local-first media, estimate bpp directly and accurately from the local file's actual bitrate
+    if (b.samples.some((x) => notOnServer(x.mediaId))) {
+      const localSamples = b.samples.map((s) => {
+        const item = localItem(s.mediaId);
+        if (item && item.size > 0) {
+          const fps = Math.max(1, b.fps || 30);
+          const px = Math.max(1, b.width * b.height);
+          const info = localInfo(s.mediaId);
+          const dur = Math.max(1, info?.duration || s.len || 10);
+          const bpp = (item.size * 8) / (px * fps * dur);
+          return Math.min(0.06, Math.max(0.015, bpp));
+        }
+        return TYPICAL_BPP;
+      });
+      setRes({
+        key,
+        bpp: bppOf(b, localSamples),
+        measuredAt: { width: b.width, height: b.height },
+      });
+      return;
+    }
     const ac = new AbortController();
     const timer = setTimeout(async () => {
       try {

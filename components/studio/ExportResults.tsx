@@ -217,6 +217,9 @@ const KIND_TEXT: Record<string, { what: string; note: string }> = {
 /** A finished export of one file: play or look at it, then download. */
 function FileResults({ job, file, onAgain }: { job: Job; file: JobFile; onAgain: () => void }) {
   const poster = job.files.find((x) => x.kind === "poster");
+  const t = KIND_TEXT[file.kind] ?? { what: "file", note: "" };
+  const src = fileUrl(job, file);
+  const cap = t.what.charAt(0).toUpperCase() + t.what.slice(1);
   // a GIF is made at most 640 px wide
   const gw = file.kind === "gif" ? Math.min(640, job.output.width) : job.output.width;
   const gh = file.kind === "gif" ? Math.round((job.output.height * gw) / job.output.width / 2) * 2 : job.output.height;

@@ -50,15 +50,11 @@ export function FormatPicker({
   const labelOf = (f: (typeof EXPORT_FORMATS)[number]) =>
     f.id === "pack" && !safariAlpha
       ? "Website pack (VP9 alpha)"
-      : f.id === "mov-alpha" && !safariAlpha
-        ? "MOV (ProRes 4444 + alpha)"
-        : f.label;
+      : f.label;
   const detailOf = (f: (typeof EXPORT_FORMATS)[number]) =>
     f.id === "pack" && !safariAlpha
       ? "WebM see-through video + a poster + embed code, in one zip"
-      : f.id === "mov-alpha" && !safariAlpha
-        ? "Lossless see-through video for Safari, iPhone, Mac & editing"
-        : f.detail;
+      : f.detail;
 
   const formats = EXPORT_FORMATS.filter((f) => {
     if (category === "video") {

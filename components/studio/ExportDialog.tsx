@@ -150,6 +150,8 @@ export function ExportDialog(p: {
 }) {
   const [tab, setTab] = useState<CategoryTab>("video");
   const [again, setAgain] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [showDoneDelay, setShowDoneDelay] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -178,14 +180,61 @@ export function ExportDialog(p: {
     }
   }, [pr?.width, pr?.height]);
 
+  // Handle completion delay transition so user sees 100% finished
+  useEffect(() => {
+    if (exporting && p.job?.state === "done") {
+      setExporting(false);
+      setShowDoneDelay(true);
+      const timer = setTimeout(() => {
+        setShowDoneDelay(false);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+    if (exporting && (p.startError || p.job?.state === "error")) {
+      setExporting(false);
+      setShowDoneDelay(false);
+    }
+  }, [exporting, p.job?.state, p.startError]);
+
   const f = formatOf(p.format) ?? formatOf("mp4")!;
-  const done = p.job?.state === "done";
-  const running = p.starting || p.job?.state === "queued" || p.job?.state === "running";
+  const running = exporting || p.starting || p.job?.state === "queued" || p.job?.state === "running";
+  const done = !running && !showDoneDelay && p.job?.state === "done" && !again;
   const packOfVideo = !!p.video && p.format === "pack";
   const blocked = pr ? p.blockedOf(p.format) : "Add a video or picture first.";
 
+  const getProgress = (): number => {
+    if (showDoneDelay || (p.job?.state === "done" && !exporting)) return 100;
+    if (!p.job || !p.job.steps || p.job.steps.length === 0) {
+      return p.starting || exporting ? 8 : 0;
+    }
+    // Check if an encoding step is running
+    const renderStep = p.job.steps.find(
+      (s) => s.kind === p.format || s.kind === "mp4" || s.kind === "webm" || s.kind === "export"
+    );
+    if (renderStep && renderStep.state === "running") {
+      const pPct = renderStep.percent ?? 0;
+      return Math.min(94, Math.max(10, Math.round(10 + pPct * 0.82)));
+    }
+    // If derive/prep is running
+    const prepStep = p.job.steps.find((s) => s.kind === "derive" || s.kind === "matte" || s.kind === "crop");
+    if (prepStep && prepStep.state === "running") {
+      return Math.min(10, Math.max(2, Math.round((prepStep.percent ?? 0) * 0.1)));
+    }
+    // Poster or finalizing
+    const posterStep = p.job.steps.find((s) => s.kind === "poster" || s.kind === "zip");
+    if (posterStep && (posterStep.state === "running" || posterStep.state === "done")) {
+      return Math.min(99, Math.max(94, Math.round(94 + (posterStep.percent ?? 0) * 0.05)));
+    }
+    // Fallback: average of all steps
+    const total = p.job.steps.reduce((acc, s) => acc + (s.state === "done" ? 100 : (s.percent ?? 0)), 0);
+    const avg = Math.round(total / p.job.steps.length);
+    return Math.min(99, Math.max(5, avg));
+  };
+
   const close = () => {
     setAgain(false);
+    setExporting(false);
+    setShowDoneDelay(false);
     p.onClose();
   };
 
@@ -260,6 +309,8 @@ export function ExportDialog(p: {
 
   const generate = () => {
     setAgain(false);
+    setExporting(true);
+    setShowDoneDelay(false);
     p.onGenerate({ width: customW, height: customH });
   };
 
@@ -355,16 +406,22 @@ export function ExportDialog(p: {
 
   if (done && p.job && !again) {
     return (
-      <Dialog open={p.open} onClose={close} title="Export & Share" size="lg">
+      <Dialog open={p.open} onClose={close} title="Export & Share" size="md">
         <ExportResults job={p.job} spec={p.spec} onGenerate={generate} onShowFinal={p.onShowFinal} onAgain={() => setAgain(true)} />
       </Dialog>
     );
   }
 
-  const primaryLabel = running
-    ? p.job?.state === "queued"
-      ? "Queued..."
-      : `Rendering (${Math.round(((p.job as any)?.progress ?? 0) * 100)}%)...`
+  const progressPct = getProgress();
+
+  const primaryLabel = running || showDoneDelay
+    ? showDoneDelay
+      ? "Export complete! (100%)"
+      : p.job?.state === "queued"
+        ? "Queued in background..."
+        : p.starting && !p.job
+          ? (p.startStatus || "Preparing media assets…")
+          : `Rendering (${progressPct}%)...`
     : p.format === "mp4"
       ? "Make video (MP4)"
       : p.format === "pack"
@@ -553,7 +610,7 @@ export function ExportDialog(p: {
                   <h3 className="text-xs font-semibold text-ink">Recommended for you</h3>
                   <span className="text-[0.5625rem] text-muted">Scroll for more →</span>
                 </div>
-                <div className="flex items-stretch gap-1.5 overflow-x-auto pb-1.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <div className="scrollbar-hover-visible flex items-stretch gap-2 overflow-x-auto pt-0.5 pb-3.5 px-0.5">
                   {RECOMMENDED_PLATFORMS.map((rec) => {
                     const isRecActive =
                       activePreset === rec.id &&
@@ -631,115 +688,125 @@ export function ExportDialog(p: {
             {tab === "video" && (
               <div>
                 <h3 className="mb-1.5 text-xs font-semibold text-ink">Quick presets</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("project")}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
                       activePreset === "project"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
-                    <svg className="size-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
-                      <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
-                      <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
-                    </svg>
-                    <div className="min-w-0">
-                      <div className="text-[0.6875rem] font-semibold leading-tight truncate">Project size</div>
-                      <div className="text-[0.5625rem] text-muted tabular-nums leading-none">
-                        {pr ? `${pr.width} × ${pr.height}` : "Original"}
-                      </div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <svg className="size-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
+                        <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
+                        <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
+                      </svg>
+                      <span className="text-xs font-semibold text-ink truncate">Project size</span>
+                    </div>
+                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                      {pr ? `${pr.width}×${pr.height}` : "Original"}
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("youtube")}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
                       activePreset === "youtube"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
-                    <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-red-600 text-[0.45rem] font-bold text-white">
-                      ▶
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[0.6875rem] font-semibold leading-tight truncate">YouTube</div>
-                      <div className="text-[0.5625rem] text-muted tabular-nums leading-none">1920 × 1080</div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-red-600 text-[0.45rem] font-bold text-white">
+                        ▶
+                      </span>
+                      <span className="text-xs font-semibold text-ink truncate">YouTube</span>
+                    </div>
+                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                      1920×1080
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("shorts")}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
                       activePreset === "shorts"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
-                    <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-black text-[0.45rem] font-bold text-white">
-                      📱
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[0.6875rem] font-semibold leading-tight truncate">Shorts / Reels</div>
-                      <div className="text-[0.5625rem] text-muted tabular-nums leading-none">1080 × 1920</div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-black text-[0.45rem] font-bold text-white">
+                        📱
+                      </span>
+                      <span className="text-xs font-semibold text-ink truncate">Shorts / Reels</span>
+                    </div>
+                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                      1080×1920
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("portrait")}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
                       activePreset === "portrait"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
-                    <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-gradient-to-tr from-amber-500 to-rose-600 text-[0.45rem] font-bold text-white">
-                      📷
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[0.6875rem] font-semibold leading-tight truncate">Instagram</div>
-                      <div className="text-[0.5625rem] text-muted tabular-nums leading-none">1080 × 1350</div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-gradient-to-tr from-amber-500 to-rose-600 text-[0.45rem] font-bold text-white">
+                        📷
+                      </span>
+                      <span className="text-xs font-semibold text-ink truncate">Instagram</span>
+                    </div>
+                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                      1080×1350
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("square")}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
                       activePreset === "square"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
-                    <span className="size-3 shrink-0 rounded-xs border border-current" />
-                    <div className="min-w-0">
-                      <div className="text-[0.6875rem] font-semibold leading-tight truncate">Square</div>
-                      <div className="text-[0.5625rem] text-muted tabular-nums leading-none">1080 × 1080</div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="size-3 shrink-0 rounded-xs border border-current" />
+                      <span className="text-xs font-semibold text-ink truncate">Square</span>
+                    </div>
+                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                      1080×1080
                     </div>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setActivePreset("custom")}
-                    className={`flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
                       activePreset === "custom"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
-                    <svg className="size-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M6 2v14a2 2 0 0 0 2 2h14" />
-                      <path d="M18 22V8a2 2 0 0 0-2-2H2" />
-                    </svg>
-                    <div className="min-w-0">
-                      <div className="text-[0.6875rem] font-semibold leading-tight truncate">Custom</div>
-                      <div className="text-[0.5625rem] text-muted tabular-nums leading-none">Set size</div>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <svg className="size-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+                        <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+                      </svg>
+                      <span className="text-xs font-semibold text-ink truncate">Custom</span>
+                    </div>
+                    <div className="text-[0.6875rem] text-muted tabular-nums whitespace-nowrap mt-1">
+                      Set size
                     </div>
                   </button>
                 </div>
@@ -751,53 +818,76 @@ export function ExportDialog(p: {
 
       {/* Right Column / Output Sidebar */}
           <div className="flex flex-col gap-2.5 lg:sticky lg:top-0 lg:self-start">
-            {/* Video Preview Box */}
+            {/* Video Preview Box with Dynamic Aspect Ratio Stage */}
             <div
-              className="group relative h-32 sm:h-36 w-full overflow-hidden rounded-xl border border-dialog-card-border bg-black shadow-xs cursor-pointer"
+              className="group relative h-36 sm:h-40 w-full overflow-hidden rounded-xl border border-dialog-card-border bg-dialog-card/80 p-2 shadow-xs cursor-pointer flex items-center justify-center"
               onClick={() => setPreviewPlaying((v) => !v)}
             >
-              {previewPlaying && videoPlayUrl ? (
-                <video
-                  src={videoPlayUrl}
-                  autoPlay
-                  loop
-                  playsInline
-                  className="size-full object-contain bg-black"
-                />
-              ) : (
-                <img
-                  src={thumbSrc}
-                  alt="Video Preview"
-                  className="size-full object-contain bg-black"
-                />
-              )}
-              {/* Play overlay button */}
+              {/* Screen Frame matching selected aspect ratio */}
               <div
-                className={`absolute inset-0 flex items-center justify-center transition-all pointer-events-none ${
-                  previewPlaying
-                    ? "opacity-0 group-hover:opacity-100 bg-black/25 backdrop-blur-[1px]"
-                    : "bg-black/20 backdrop-blur-[1px] group-hover:bg-black/35"
-                }`}
+                style={{
+                  aspectRatio: `${customW || 16} / ${customH || 9}`,
+                }}
+                className="relative h-full max-h-full max-w-full overflow-hidden rounded-lg bg-black shadow-md border border-dialog-border transition-all duration-300 flex items-center justify-center"
               >
-                <div className="flex size-10 items-center justify-center rounded-full bg-white/30 text-white shadow-md backdrop-blur-md transition-transform group-hover:scale-105">
-                  {previewPlaying ? (
-                    <svg className="size-4.5 fill-current" viewBox="0 0 24 24">
-                      <rect x="6" y="4" width="4" height="16" rx="1" />
-                      <rect x="14" y="4" width="4" height="16" rx="1" />
-                    </svg>
-                  ) : (
-                    <svg className="ml-0.5 size-4.5 fill-current" viewBox="0 0 24 24">
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>
-                  )}
+                {previewPlaying && videoPlayUrl ? (
+                  <video
+                    src={videoPlayUrl}
+                    autoPlay
+                    loop
+                    playsInline
+                    className="size-full object-cover bg-black"
+                  />
+                ) : (
+                  <img
+                    src={thumbSrc}
+                    alt="Video Preview"
+                    className="size-full object-cover bg-black"
+                  />
+                )}
+
+                {/* Play overlay button - 100% crisp, no backdrop blur */}
+                <div
+                  className={`absolute inset-0 flex items-center justify-center transition-opacity pointer-events-none ${
+                    previewPlaying
+                      ? "opacity-0 group-hover:opacity-100"
+                      : "opacity-90 group-hover:opacity-100"
+                  }`}
+                >
+                  <div className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white shadow-lg ring-1 ring-white/20 transition-transform group-hover:scale-105">
+                    {previewPlaying ? (
+                      <svg className="size-4 fill-current" viewBox="0 0 24 24">
+                        <rect x="6" y="4" width="4" height="16" rx="1" />
+                        <rect x="14" y="4" width="4" height="16" rx="1" />
+                      </svg>
+                    ) : (
+                      <svg className="ml-0.5 size-4 fill-current" viewBox="0 0 24 24">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                    )}
+                  </div>
                 </div>
+
+                {/* Aspect ratio chip on preview frame */}
+                <span className="absolute bottom-1 left-1 rounded bg-black/80 px-1 py-0.25 text-[0.5rem] font-bold text-white/90 border border-white/10 pointer-events-none uppercase tracking-wider">
+                  {(() => {
+                    const r = (customW || 16) / (customH || 9);
+                    if (Math.abs(r - 16 / 9) < 0.05) return "16:9";
+                    if (Math.abs(r - 9 / 16) < 0.05) return "9:16";
+                    if (Math.abs(r - 1) < 0.05) return "1:1";
+                    if (Math.abs(r - 4 / 5) < 0.05) return "4:5";
+                    return `${customW}×${customH}`;
+                  })()}
+                </span>
               </div>
-              {/* Top-left live badge */}
-              <span className="absolute top-1.5 left-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-white/90 backdrop-blur-xs border border-white/10 pointer-events-none">
+
+              {/* Top-left live badge on stage */}
+              <span className="absolute top-1.5 left-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-white/90 border border-white/10 pointer-events-none">
                 {previewPlaying ? "● Live Preview" : "Preview"}
               </span>
-              {/* Duration badge */}
-              <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular-nums shadow pointer-events-none">
+
+              {/* Duration badge on stage */}
+              <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular-nums shadow border border-white/10 pointer-events-none">
                 {pr ? formatTime(pr.duration) : "00:00"}
               </span>
             </div>
@@ -937,27 +1027,42 @@ export function ExportDialog(p: {
 
             {/* Primary Action Button / Progress */}
             <div className="flex flex-col gap-1.5">
-              {running ? (
-                <div className="flex flex-col gap-1.5 rounded-xl border border-primary/30 bg-primary-soft/30 p-2.5">
+              {running || showDoneDelay ? (
+                <div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary-soft/30 p-3 shadow-xs">
                   <div className="flex items-center justify-between text-xs font-semibold text-ink">
-                    <span>{primaryLabel}</span>
-                    <span className="tabular-nums font-mono text-primary">
-                      {Math.round(((p.job as any)?.progress ?? 0) * 100)}%
+                    <span className="flex items-center gap-2">
+                      {!showDoneDelay && (
+                        <span className="relative flex size-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                          <span className="relative inline-flex rounded-full size-2 bg-primary" />
+                        </span>
+                      )}
+                      <span>{primaryLabel}</span>
+                    </span>
+                    <span className="tabular-nums font-mono text-primary font-bold text-xs">
+                      {progressPct}%
                     </span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/60">
                     <div
-                      className="h-full bg-primary transition-all duration-300"
-                      style={{ width: `${Math.round(((p.job as any)?.progress ?? 0) * 100)}%` }}
+                      className={`h-full transition-all duration-200 rounded-full ${
+                        showDoneDelay ? "bg-emerald-500" : "bg-primary"
+                      }`}
+                      style={{ width: `${progressPct}%` }}
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={p.onCancel}
-                    className="text-center text-[0.6875rem] font-medium text-danger hover:underline"
-                  >
-                    Cancel export
-                  </button>
+                  {!showDoneDelay && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setExporting(false);
+                        p.onCancel();
+                      }}
+                      className="text-center text-[0.6875rem] font-medium text-danger hover:underline pt-0.5"
+                    >
+                      Cancel export
+                    </button>
+                  )}
                 </div>
               ) : (
                 <button

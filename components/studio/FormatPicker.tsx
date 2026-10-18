@@ -54,7 +54,7 @@ export function FormatPicker({
 
   const formats = EXPORT_FORMATS.filter((f) => {
     if (category === "video") {
-      return ["mp4", "hevc", "av1", "webm", "prores", "webm-alpha"].includes(f.id);
+      return ["mp4", "hevc", "av1", "webm", "prores", "webm-alpha", "mov-alpha"].includes(f.id);
     }
     if (category === "image") return f.group === "image";
     if (category === "audio") return f.group === "audio";
@@ -72,7 +72,11 @@ export function FormatPicker({
           ?
         </span>
       </legend>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2" role="radiogroup" aria-label="Format selection">
+      <div
+        className="scrollbar-hover-visible grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[12.5rem] overflow-y-auto py-1 pl-0.5 pr-3.5"
+        role="radiogroup"
+        aria-label="Format selection"
+      >
         {formats.map((f) => {
           const anyF = f as any;
           const why = blockedOf(f.id);

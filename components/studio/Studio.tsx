@@ -5342,6 +5342,7 @@ function StudioInner(props: Props) {
     setStartStatus("Preparing media assets…");
     setStartError(null);
     setLocalJob(null);
+    setJobId(null);
     if (activeClip) writeLocal(LAST_SPEC_KEY, clipSpec(d, activeClip));
     try {
       // True Local-First Export: Render directly on device via WebCodecs with zero network uploads

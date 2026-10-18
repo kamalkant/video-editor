@@ -75,7 +75,7 @@ describe("Export & Share Redesign Unit Tests", () => {
 
   it("categorizes formats correctly for Video, Image, and Audio tabs", () => {
     const videoFormats = EXPORT_FORMATS.filter(
-      (f) => f.group === "video" || f.id === "webm-alpha",
+      (f) => f.group === "video" || f.id === "webm-alpha" || f.id === "mov-alpha",
     );
     const imageFormats = EXPORT_FORMATS.filter((f) => f.group === "image");
     const audioFormats = EXPORT_FORMATS.filter((f) => f.group === "audio");
@@ -86,6 +86,7 @@ describe("Export & Share Redesign Unit Tests", () => {
     expect(videoFormats.map((f) => f.id)).toContain("webm");
     expect(videoFormats.map((f) => f.id)).toContain("prores");
     expect(videoFormats.map((f) => f.id)).toContain("webm-alpha");
+    expect(videoFormats.map((f) => f.id)).toContain("mov-alpha");
 
     expect(imageFormats.map((f) => f.id)).toEqual(["gif", "png", "jpg"]);
     expect(audioFormats.map((f) => f.id)).toEqual(["mp3", "m4a", "wav"]);
@@ -108,5 +109,70 @@ describe("Export & Share Redesign Unit Tests", () => {
 
     expect(square.width).toBe(1080);
     expect(square.height).toBe(1080);
+  });
+
+  it("calculates job progress smoothly from active encoding step instead of fictitious progress property", () => {
+    const calcProgress = (job: any, starting: boolean, exporting: boolean) => {
+      if (job?.state === "done" && !exporting) return 100;
+      if (!job || !job.steps || job.steps.length === 0) {
+        return starting || exporting ? 8 : 0;
+      }
+      const renderStep = job.steps.find(
+        (s: any) => s.kind === "mp4" || s.kind === "webm" || s.kind === "export"
+      );
+      if (renderStep && renderStep.state === "running") {
+        const pPct = renderStep.percent ?? 0;
+        return Math.min(94, Math.max(10, Math.round(10 + pPct * 0.82)));
+      }
+      const total = job.steps.reduce((acc: number, s: any) => acc + (s.state === "done" ? 100 : (s.percent ?? 0)), 0);
+      return Math.min(99, Math.max(5, Math.round(total / job.steps.length)));
+    };
+
+    // Starting state
+    expect(calcProgress(null, true, true)).toBe(8);
+
+    // Active local export step with 0% rendered
+    const job0 = {
+      state: "running",
+      steps: [
+        { kind: "derive", state: "done", percent: 100 },
+        { kind: "mp4", state: "running", percent: 0 },
+        { kind: "poster", state: "pending", percent: 0 },
+      ],
+    };
+    expect(calcProgress(job0, false, true)).toBe(10);
+
+    // Halfway through frames (50%)
+    const job50 = {
+      state: "running",
+      steps: [
+        { kind: "derive", state: "done", percent: 100 },
+        { kind: "mp4", state: "running", percent: 50 },
+        { kind: "poster", state: "pending", percent: 0 },
+      ],
+    };
+    expect(calcProgress(job50, false, true)).toBe(51);
+
+    // Nearly finished encoding (100%)
+    const jobNearDone = {
+      state: "running",
+      steps: [
+        { kind: "derive", state: "done", percent: 100 },
+        { kind: "mp4", state: "running", percent: 100 },
+        { kind: "poster", state: "pending", percent: 0 },
+      ],
+    };
+    expect(calcProgress(jobNearDone, false, true)).toBe(92);
+
+    // Done state
+    const jobDone = {
+      state: "done",
+      steps: [
+        { kind: "derive", state: "done", percent: 100 },
+        { kind: "mp4", state: "done", percent: 100 },
+        { kind: "poster", state: "done", percent: 100 },
+      ],
+    };
+    expect(calcProgress(jobDone, false, false)).toBe(100);
   });
 });

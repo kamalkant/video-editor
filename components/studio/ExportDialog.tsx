@@ -23,11 +23,80 @@ import type { Job } from "@/lib/jobs/queue";
 import type { VideoMeta } from "@/lib/videos";
 import { coverMediaIdOrNull, type TimelineDoc, type VideoClip } from "@/lib/edit/doc";
 import { localSrc, localThumb } from "@/lib/media/localMedia";
+import { LiveKeyRenderer, type LiveKeyParams } from "@/lib/editor/liveKey";
 import { ExportResults, ExportSummary } from "./ExportResults";
 import { FormatPicker } from "./FormatPicker";
 import { OutputSettings } from "./OutputSettings";
 
 type CategoryTab = "video" | "image" | "audio" | "share";
+
+function KeyedPreviewVideo({
+  src,
+  liveKey,
+}: {
+  src: string;
+  liveKey: LiveKeyParams | null;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!liveKey || !canvasRef.current || !videoRef.current) return;
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    const renderer = LiveKeyRenderer.create(canvas);
+    if (!renderer) return;
+
+    let animId: number;
+    let running = true;
+
+    const renderLoop = () => {
+      if (!running) return;
+      if (video.readyState >= 2 && !video.paused && !video.ended) {
+        renderer.render(video, liveKey);
+      }
+      animId = requestAnimationFrame(renderLoop);
+    };
+
+    video.play().catch(() => {});
+    animId = requestAnimationFrame(renderLoop);
+
+    return () => {
+      running = false;
+      cancelAnimationFrame(animId);
+    };
+  }, [liveKey, src]);
+
+  if (!liveKey) {
+    return (
+      <video
+        src={src}
+        autoPlay
+        loop
+        playsInline
+        className="size-full object-cover bg-black"
+      />
+    );
+  }
+
+  return (
+    <div className="relative size-full flex items-center justify-center bg-checker overflow-hidden">
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="hidden"
+      />
+      <canvas
+        ref={canvasRef}
+        className="size-full object-contain"
+      />
+    </div>
+  );
+}
 
 const QUALITY_CHOICES = [
   { id: "best", label: "High", sub: "Best quality", note: "Larger size" },
@@ -189,7 +258,6 @@ export function ExportDialog(p: {
   const [tab, setTab] = useState<CategoryTab>("video");
   const [again, setAgain] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [showDoneDelay, setShowDoneDelay] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -219,30 +287,21 @@ export function ExportDialog(p: {
     }
   }, [pr?.width, pr?.height]);
 
-  // Handle completion delay transition so user sees 100% finished
+  // Reset exporting state when export finishes or fails
   useEffect(() => {
-    if (exporting && p.job?.state === "done") {
+    if (p.job?.state === "done" || p.job?.state === "failed" || p.startError) {
       setExporting(false);
-      setShowDoneDelay(true);
-      const timer = setTimeout(() => {
-        setShowDoneDelay(false);
-      }, 700);
-      return () => clearTimeout(timer);
     }
-    if (exporting && (p.startError || p.job?.state === "error")) {
-      setExporting(false);
-      setShowDoneDelay(false);
-    }
-  }, [exporting, p.job?.state, p.startError]);
+  }, [p.job?.state, p.startError]);
 
   const f = formatOf(p.format) ?? formatOf("mp4")!;
   const running = exporting || p.starting || p.job?.state === "queued" || p.job?.state === "running";
-  const done = !running && !showDoneDelay && p.job?.state === "done" && !again;
+  const done = !running && p.job?.state === "done" && !again;
   const packOfVideo = !!p.video && p.format === "pack";
   const blocked = pr ? p.blockedOf(p.format) : "Add a video or picture first.";
 
   const getProgress = (): number => {
-    if (showDoneDelay || (p.job?.state === "done" && !exporting)) return 100;
+    if (p.job?.state === "done") return 100;
     if (!p.job || !p.job.steps || p.job.steps.length === 0) {
       return 0;
     }
@@ -260,7 +319,6 @@ export function ExportDialog(p: {
   const close = () => {
     setAgain(false);
     setExporting(false);
-    setShowDoneDelay(false);
     p.onClose();
   };
 
@@ -335,7 +393,6 @@ export function ExportDialog(p: {
   const generate = () => {
     setAgain(false);
     setExporting(true);
-    setShowDoneDelay(false);
     p.onGenerate({ width: customW, height: customH });
   };
 
@@ -353,6 +410,7 @@ export function ExportDialog(p: {
       bpp: busy.bpp,
       measuredAt: busy.measuredAt,
       master: p.master,
+      transparent: pr.transparent,
     });
   };
   // Live snapshot and media preview
@@ -394,18 +452,38 @@ export function ExportDialog(p: {
 
   const activeMediaId = p.video?.id || (p.doc ? coverMediaIdOrNull(p.doc) : null) || null;
   const clipThumb = activeMediaId ? (localThumb(activeMediaId) ?? `/api/videos/${activeMediaId}/thumb`) : null;
-  // If any clip has background removal enabled, the raw play URL would show the unkeyed green-screen
-  // footage. Suppress it so the export dialog shows the canvas-captured thumbnail (which already has
-  // the live WebGL keying applied) instead of a raw video with green background.
-  const hasRemoval = p.doc?.tracks.some((t) =>
-    t.clips.some(
-      (c) => c.type === "video" && (c as VideoClip).ops.some((o) => o.enabled),
-    ),
-  ) ?? false;
-  const videoPlayUrl = hasRemoval
-    ? null
-    : activeMediaId
-      ? (localSrc(activeMediaId) ?? `/api/videos/${activeMediaId}/play`)
+  const videoPlayUrl = activeMediaId
+    ? (localSrc(activeMediaId) ?? `/api/videos/${activeMediaId}/play`)
+    : null;
+
+  const activeClip = p.doc?.tracks
+    ?.flatMap((t) => t.clips as any[])
+    .find((c: any) => c.type === "video" && c.mediaId === activeMediaId) as VideoClip | undefined;
+  const chromaOp = activeClip?.ops.find(
+    (o): o is Extract<NonNullable<typeof activeClip>["ops"][number], { type: "chromaKey" }> => o.enabled && o.type === "chromaKey",
+  );
+  const blackOp = activeClip?.ops.find(
+    (o): o is Extract<NonNullable<typeof activeClip>["ops"][number], { type: "blackKey" }> => o.enabled && o.type === "blackKey",
+  );
+  const liveKeyParams: LiveKeyParams | null = chromaOp
+    ? {
+        method: "chroma",
+        keyColor: chromaOp.params.keyColor,
+        similarity: chromaOp.params.similarity,
+        blend: chromaOp.params.blend,
+        despill: chromaOp.params.despill,
+        despillStrength: chromaOp.params.despillStrength,
+      }
+    : blackOp
+      ? {
+          method: "black",
+          keyColor: "#000000",
+          similarity: 0,
+          blend: 0,
+          despill: false,
+          despillStrength: 0,
+          threshold: blackOp.params.threshold,
+        }
       : null;
 
   const thumbSrc =
@@ -451,14 +529,12 @@ export function ExportDialog(p: {
 
   const progressPct = getProgress();
 
-  const primaryLabel = running || showDoneDelay
-    ? showDoneDelay
-      ? "Export complete! (100%)"
-      : p.job?.state === "queued"
-        ? "Queued in background..."
-        : p.starting && !p.job
-          ? (p.startStatus || "Preparing media assets…")
-          : `Rendering (${progressPct}%)...`
+  const primaryLabel = running
+    ? p.job?.state === "queued"
+      ? "Queued in background..."
+      : p.starting && !p.job
+        ? (p.startStatus || "Preparing media assets…")
+        : `Rendering (${progressPct}%)...`
     : p.format === "mp4"
       ? "Make video (MP4)"
       : p.format === "pack"
@@ -772,12 +848,9 @@ export function ExportDialog(p: {
                 className="relative h-full max-h-full max-w-full overflow-hidden rounded-lg bg-black shadow-md border border-dialog-border transition-all duration-300 flex items-center justify-center"
               >
                 {previewPlaying && videoPlayUrl ? (
-                  <video
+                  <KeyedPreviewVideo
                     src={videoPlayUrl}
-                    autoPlay
-                    loop
-                    playsInline
-                    className="size-full object-cover bg-black"
+                    liveKey={liveKeyParams}
                   />
                 ) : (
                   <img
@@ -968,16 +1041,14 @@ export function ExportDialog(p: {
 
             {/* Primary Action Button / Progress */}
             <div className="flex flex-col gap-1.5">
-              {running || showDoneDelay ? (
+              {running ? (
                 <div className="flex flex-col gap-2 rounded-xl border border-primary/30 bg-primary-soft/30 p-3 shadow-xs">
                   <div className="flex items-center justify-between text-xs font-semibold text-ink">
                     <span className="flex items-center gap-2">
-                      {!showDoneDelay && (
-                        <span className="relative flex size-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                          <span className="relative inline-flex rounded-full size-2 bg-primary" />
-                        </span>
-                      )}
+                      <span className="relative flex size-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                        <span className="relative inline-flex rounded-full size-2 bg-primary" />
+                      </span>
                       <span>{primaryLabel}</span>
                     </span>
                     <span className="tabular-nums font-mono text-primary font-bold text-xs">
@@ -986,24 +1057,20 @@ export function ExportDialog(p: {
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/60">
                     <div
-                      className={`h-full transition-all duration-200 rounded-full ${
-                        showDoneDelay ? "bg-emerald-500" : "bg-primary"
-                      }`}
+                      className="h-full transition-all duration-200 rounded-full bg-primary"
                       style={{ width: `${progressPct}%` }}
                     />
                   </div>
-                  {!showDoneDelay && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setExporting(false);
-                        p.onCancel();
-                      }}
-                      className="text-center text-[0.6875rem] font-medium text-danger hover:underline pt-0.5"
-                    >
-                      Cancel export
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setExporting(false);
+                      p.onCancel();
+                    }}
+                    className="text-center text-[0.6875rem] font-medium text-danger hover:underline pt-0.5"
+                  >
+                    Cancel export
+                  </button>
                 </div>
               ) : (
                 <button

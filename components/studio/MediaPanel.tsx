@@ -478,21 +478,7 @@ export function MediaPanel(p: {
           </>
         )}
       </div>
-      <button
-        type="button"
-        className="flex items-center gap-2 rounded-lg border border-line bg-raised px-3 py-2 text-left text-xs hover:border-primary hover:bg-primary-soft transition-colors"
-        onClick={() => (p.onOpenLibrary ? p.onOpenLibrary() : p.onImport("pixabay"))}
-        data-testid="open-import"
-      >
-        <Icon name="library" className="size-4 shrink-0 text-primary" />
-        <span className="flex-1">
-          <span className="block font-medium text-ink">
-            Stock &amp; Web Library
-          </span>
-          <span className="text-muted">Videos, photos &amp; audio</span>
-        </span>
-        <Icon name="chevronRight" className="size-4 text-muted" />
-      </button>
+
       {/* record: four icons; the name and what it does show under the row (one tip as wide as the row: it always fits) */}
       <div className="relative">
         <ul

@@ -16,7 +16,10 @@ export function useJobPolling(jobId: string | null, onDone?: (job: Job, fresh: b
   });
 
   useEffect(() => {
-    if (!jobId) return;
+    if (!jobId) {
+      setJob(null);
+      return;
+    }
     let alive = true;
     let timer: ReturnType<typeof setTimeout>;
     let failures = 0;

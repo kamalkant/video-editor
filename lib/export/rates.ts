@@ -39,17 +39,21 @@ export type BitrateCodec = "h264" | "hevc" | "vp9" | "vp9-alpha" | "hevc-alpha";
 /**
  * Bitrate of each codec next to H.264 for about the same picture. A see-through
  * file is mostly empty around the subject (its outline included), so it needs less.
+ * HEVC + alpha: measured on prototypes/chroma-alpha-take.mov (1080p24, a keyed
+ * presenter: 1.28 Mbit/s with Apple's encoder at -q:v 55 = this at Balanced).
  */
 export const CODEC_FACTOR: Record<BitrateCodec, number> = {
   h264: 1,
   hevc: 0.65,
   vp9: 0.7,
   "vp9-alpha": 0.4,
-  "hevc-alpha": 0.45,
+  "hevc-alpha": 0.36,
 };
 
 /** How much of the clips' own bitrate each quality may use (see contentCapBpp in lib/export/size). */
-const CAP_SHARE: Record<Quality, number> = { small: 0.6, balanced: 0.85, best: 1.2 };
+const CAP_SHARE: Record<Quality, number> = { small: 0.75, balanced: 1, best: 1.5 };
+/** Each codec's share of an H.264 clip's bitrate for the same picture (a keyed clip: the subject only, plus its outline). */
+const CAP_FACTOR: Record<BitrateCodec, number> = { h264: 1, hevc: 0.75, vp9: 0.8, "vp9-alpha": 0.8, "hevc-alpha": 0.8 };
 
 const MIN_BPS = 300_000;
 const MAX_BPS = 40_000_000;
@@ -59,7 +63,15 @@ const MAX_BPS = 40_000_000;
  * this size (lib/export/size contentCapBpp), so a light clip isn't made heavier.
  */
 export function videoBitrate(codec: BitrateCodec, quality: Quality, width: number, height: number, fps: number, capBpp?: number | null): number {
-  const bpp = capBpp != null && capBpp > 0 ? Math.min(VIDEO_BPP[quality], capBpp * CAP_SHARE[quality]) : VIDEO_BPP[quality];
-  const bps = Math.max(1, width * height) * Math.max(1, fps) * bpp * CODEC_FACTOR[codec];
+  const own = VIDEO_BPP[quality] * CODEC_FACTOR[codec];
+  const bpp = capBpp != null && capBpp > 0 ? Math.min(own, capBpp * CAP_SHARE[quality] * CAP_FACTOR[codec]) : own;
+  const bps = Math.max(1, width * height) * Math.max(1, fps) * bpp;
   return Math.round(Math.min(MAX_BPS, Math.max(MIN_BPS, bps)));
 }
+
+/**
+ * HEVC + alpha with x265 (a server without Apple's encoder): a quality (CRF), as
+ * Apple's encoder gets one (lib/settings QUALITY hevcQ); its bitrate is only a
+ * ceiling. CRF 24 matches the reference above (colour and outline) at 1.16 Mbit/s.
+ */
+export const X265_ALPHA_CRF: Record<Quality, number> = { small: 26, balanced: 24, best: 20 };

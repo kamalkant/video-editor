@@ -1,8 +1,9 @@
 import { outputGeometry, type CropBox } from "../edit/geometry";
 import { isWhole, selectExpr, type Segment } from "../edit/timeline";
 import type { EditSpec } from "../edit/spec";
-import { videoBitrate, type BitrateCodec } from "../export/rates";
-import { LIMITS } from "../settings";
+import { videoBitrate, X265_ALPHA_CRF, type BitrateCodec } from "../export/rates";
+import { LIMITS, QUALITY } from "../settings";
+import type { MovEncoder } from "./capabilities";
 import { buildFilterGraph, type Target } from "./graph";
 import type { VideoInfo } from "./probe";
 import { APPLE_MEDIA, SAFE_INPUT } from "./run";
@@ -45,6 +46,8 @@ export function buildEncodeArgs(
     mask?: string | null;
     /** Apply the timeline's cuts (default on; off for the size-estimate sample). */
     timeline?: boolean;
+    /** What makes the see-through MOV (lib/ffmpeg/capabilities; default: Apple's encoder on a Mac, else ProRes). */
+    movEncoder?: MovEncoder;
   } = {},
 ): string[] {
   const s = spec.output;
@@ -52,12 +55,19 @@ export function buildEncodeArgs(
   const range = opts.range;
   const crop = s.crop.enabled ? opts.crop : null;
   const { width, fps, outW, outH, outFps } = outputGeometry(s, info, crop);
-  const target = OUTPUT_FILES[kind].target;
+  const movEncoder: MovEncoder = opts.movEncoder ?? (APPLE_MEDIA ? "videotoolbox" : "prores");
+  // (x265's alpha layer takes the same yuva420p picture as the WebM)
+  const target: Target = kind === "mov" && movEncoder === "x265" ? "webm" : OUTPUT_FILES[kind].target;
   const mask = opts.mask ?? null;
   // the bitrate the Export dialog's size shows (lib/export/rates)
   const rate = (c: BitrateCodec) => {
     const T = Math.round(videoBitrate(c, s.quality, outW, outH, outFps, s.capBpp) / 1000);
     return ["-b:v", `${T}k`, "-maxrate", `${Math.round(T * 1.5)}k`, "-bufsize", `${T * 2}k`];
+  };
+  // the see-through MOV aims for a quality (its outline stays clean), the bitrate only as a ceiling for x265
+  const ceiling = (c: BitrateCodec) => {
+    const T = Math.round(videoBitrate(c, s.quality, outW, outH, outFps, s.capBpp) / 1000);
+    return ["-maxrate", `${Math.round(T * 1.2)}k`, "-bufsize", `${T * 2}k`];
   };
   const keepAudio = s.audio === "keep" && info.hasAudio;
   const select = opts.timeline !== false ? cutSelect(spec.timeline?.clips, info) : null;
@@ -80,10 +90,17 @@ export function buildEncodeArgs(
       else args.push("-an");
       break;
     case "mov":
-      if (APPLE_MEDIA) {
+      if (movEncoder === "videotoolbox") {
         args.push(
           "-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75",
-          ...rate("hevc-alpha"), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart",
+          "-q:v", String(QUALITY[s.quality].hevcQ), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart",
+        );
+        if (keepAudio) args.push(...audioMap, "-c:a", "aac", "-b:a", "96k");
+        else args.push("-an");
+      } else if (movEncoder === "x265") {
+        args.push(
+          "-c:v", "libx265", "-pix_fmt", "yuva420p", "-preset", "fast", "-crf", String(X265_ALPHA_CRF[s.quality]), ...ceiling("hevc-alpha"),
+          "-x265-params", "log-level=error", "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart",
         );
         if (keepAudio) args.push(...audioMap, "-c:a", "aac", "-b:a", "96k");
         else args.push("-an");

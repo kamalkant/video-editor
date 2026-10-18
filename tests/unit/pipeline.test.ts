@@ -103,9 +103,19 @@ describe("encode args", () => {
 
   it("MOV is HEVC + alpha via VideoToolbox, not ProRes", () => {
     const s = buildEncodeArgs("mov", sp(DEFAULTS), info, "in", "out.mov").join(" ");
-    expect(s).toContain(`-c:v hevc_videotoolbox -allow_sw 1 -alpha_quality 0.75 -b:v ${Math.round(videoBitrate("hevc-alpha", "balanced", 1280, 720, 24) / 1000)}k`);
+    // (the quality prototypes/chroma-alpha-take.mov was made at)
+    expect(s).toContain("-c:v hevc_videotoolbox -allow_sw 1 -alpha_quality 0.75 -q:v 55 -tag:v hvc1");
     expect(s).not.toContain("prores");
     expect(s).toContain("-c:a aac");
+  });
+
+  it("MOV without Apple's encoder: x265's alpha layer at a quality, its bitrate a ceiling; ProRes only as the last resort", () => {
+    const s = buildEncodeArgs("mov", sp(DEFAULTS), info, "in", "out.mov", { movEncoder: "x265" }).join(" ");
+    expect(s).toContain("format=yuva420p[vout]");
+    expect(s).toContain(`-c:v libx265 -pix_fmt yuva420p -preset fast -crf 24 -maxrate ${Math.round(Math.round(videoBitrate("hevc-alpha", "balanced", 1280, 720, 24) / 1000) * 1.2)}k`);
+    expect(s).toContain("-tag:v hvc1");
+    expect(s).toContain("-c:a aac -b:a 96k");
+    expect(buildEncodeArgs("mov", sp(DEFAULTS), info, "in", "out.mov", { movEncoder: "prores" }).join(" ")).toContain("-c:v prores_ks -profile:v 4");
   });
 
   it("removes audio when asked or absent", () => {
@@ -116,7 +126,8 @@ describe("encode args", () => {
   it("quality presets map to both encoders", () => {
     const s = buildEncodeArgs("webm", sp({ ...DEFAULTS, quality: "small" }), info, "i", "o").join(" ");
     expect(s).toContain(`-b:v ${Math.round(videoBitrate("vp9-alpha", "small", 1280, 720, 24) / 1000)}k`);
-    expect(buildEncodeArgs("mov", sp({ ...DEFAULTS, quality: "best" }), info, "i", "o").join(" ")).toContain(`-b:v ${Math.round(videoBitrate("hevc-alpha", "best", 1280, 720, 24) / 1000)}k`);
+    expect(buildEncodeArgs("mov", sp({ ...DEFAULTS, quality: "best" }), info, "i", "o").join(" ")).toContain("-q:v 65");
+    expect(buildEncodeArgs("mov", sp({ ...DEFAULTS, quality: "small" }), info, "i", "o", { movEncoder: "x265" }).join(" ")).toContain("-crf 26");
   });
 
   it("computes output geometry", () => {

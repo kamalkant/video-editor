@@ -579,6 +579,7 @@ export function Timeline(p: TimelineProps) {
     edge: "in" | "out";
     duration: number;
     time: number;
+    delta?: number;
   } | null>(null);
   const [landing, setLanding] = useState<Landing | null>(null);
   const landingKey = useRef<string | null>(null);
@@ -1189,6 +1190,7 @@ export function Timeline(p: TimelineProps) {
         edge,
         duration: len,
         time: edge === "in" ? s : s + len,
+        delta: 0,
       });
       return;
     }
@@ -1248,18 +1250,22 @@ export function Timeline(p: TimelineProps) {
       const minL = Math.min(d.len0, Math.max(MIN_TRIM_SECONDS, 1 / fps));
       let curLen = d.len0;
       let activeTime = targetTime;
+      let delta = 0;
       if (d.edge === "in") {
         curLen = Math.max(minL, d.end0 - targetTime);
         activeTime = d.end0 - curLen;
+        delta = activeTime - d.s0;
       } else {
         curLen = Math.max(minL, targetTime - d.s0);
         activeTime = d.s0 + curLen;
+        delta = curLen - d.len0;
       }
       setActiveTrimTip({
         clipId: d.id,
         edge: d.edge,
         duration: curLen,
         time: activeTime,
+        delta,
       });
 
       // Synchronize playhead smoothly with the trim edge on every RAF frame for silky-smooth 60fps tracking
@@ -3339,7 +3345,13 @@ export function Timeline(p: TimelineProps) {
                       className="absolute z-50 -translate-x-1/2 flex items-center rounded-md bg-[#202124] px-2 py-0.5 text-xs font-semibold text-white shadow-lg ring-1 ring-white/10 tabular-nums pointer-events-none select-none"
                       style={{ left: x(activeTrimTip.time), top: tipTop }}
                     >
-                      {activeTrimTip.duration.toFixed(1)}
+                      {activeTrimTip.edge === "in"
+                        ? (() => {
+                            const d = activeTrimTip.delta ?? 0;
+                            const safe = Math.abs(d) < 0.05 ? 0 : d;
+                            return `${safe >= 0 ? "+" : ""}${safe.toFixed(1)}s`;
+                          })()
+                        : `${activeTrimTip.duration.toFixed(1)}s`}
                     </div>
                   </div>
                 );

@@ -285,6 +285,18 @@ export function ExportDialog(p: {
       else setAspectId("custom");
       return;
     }
+    if (presetId === "4k") {
+      setCustomW(3840);
+      setCustomH(2160);
+      setAspectId("16:9");
+      return;
+    }
+    if (presetId === "720p") {
+      setCustomW(1280);
+      setCustomH(720);
+      setAspectId("16:9");
+      return;
+    }
     const vp = VIDEO_PRESETS.find((x) => x.id === presetId);
     if (vp) {
       setCustomW(vp.width);
@@ -688,25 +700,25 @@ export function ExportDialog(p: {
             {tab === "video" && (
               <div>
                 <h3 className="mb-1.5 text-xs font-semibold text-ink">Quick presets</h3>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("project")}
-                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
                       activePreset === "project"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <svg className="size-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg className="size-3 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
                         <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
                         <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
                       </svg>
-                      <span className="text-xs font-semibold text-ink truncate">Project size</span>
+                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Project size</span>
                     </div>
-                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
                       {pr ? `${pr.width}×${pr.height}` : "Original"}
                     </div>
                   </button>
@@ -714,19 +726,19 @@ export function ExportDialog(p: {
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("youtube")}
-                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
                       activePreset === "youtube"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-red-600 text-[0.45rem] font-bold text-white">
+                      <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-red-600 text-[0.4rem] font-bold text-white">
                         ▶
                       </span>
-                      <span className="text-xs font-semibold text-ink truncate">YouTube</span>
+                      <span className="text-[0.6875rem] font-semibold text-ink truncate">YouTube</span>
                     </div>
-                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
                       1920×1080
                     </div>
                   </button>
@@ -734,19 +746,19 @@ export function ExportDialog(p: {
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("shorts")}
-                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
                       activePreset === "shorts"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-black text-[0.45rem] font-bold text-white">
+                      <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-black text-[0.4rem] font-bold text-white">
                         📱
                       </span>
-                      <span className="text-xs font-semibold text-ink truncate">Shorts / Reels</span>
+                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Shorts / Reels</span>
                     </div>
-                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
                       1080×1920
                     </div>
                   </button>
@@ -754,19 +766,19 @@ export function ExportDialog(p: {
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("portrait")}
-                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
                       activePreset === "portrait"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="flex size-3.5 shrink-0 items-center justify-center rounded-xs bg-gradient-to-tr from-amber-500 to-rose-600 text-[0.45rem] font-bold text-white">
+                      <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-gradient-to-tr from-amber-500 to-rose-600 text-[0.4rem] font-bold text-white">
                         📷
                       </span>
-                      <span className="text-xs font-semibold text-ink truncate">Instagram</span>
+                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Instagram</span>
                     </div>
-                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
                       1080×1350
                     </div>
                   </button>
@@ -774,38 +786,74 @@ export function ExportDialog(p: {
                   <button
                     type="button"
                     onClick={() => handleQuickPreset("square")}
-                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
                       activePreset === "square"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="size-3 shrink-0 rounded-xs border border-current" />
-                      <span className="text-xs font-semibold text-ink truncate">Square</span>
+                      <span className="size-2.5 shrink-0 rounded-xs border border-current" />
+                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Square</span>
                     </div>
-                    <div className="text-[0.6875rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
                       1080×1080
                     </div>
                   </button>
 
                   <button
                     type="button"
+                    onClick={() => handleQuickPreset("4k")}
+                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
+                      activePreset === "4k"
+                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
+                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="rounded bg-indigo-500/20 px-1 py-0.25 text-[0.45rem] font-bold text-indigo-400">4K</span>
+                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Ultra HD</span>
+                    </div>
+                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                      3840×2160
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPreset("720p")}
+                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
+                      activePreset === "720p"
+                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
+                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="rounded bg-sky-500/20 px-1 py-0.25 text-[0.45rem] font-bold text-sky-400">HD</span>
+                      <span className="text-[0.6875rem] font-semibold text-ink truncate">720p Web</span>
+                    </div>
+                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
+                      1280×720
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setActivePreset("custom")}
-                    className={`flex flex-col justify-between rounded-lg border p-2 text-left transition-all ${
+                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
                       activePreset === "custom"
                         ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
                     }`}
                   >
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <svg className="size-3.5 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg className="size-3 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M6 2v14a2 2 0 0 0 2 2h14" />
                         <path d="M18 22V8a2 2 0 0 0-2-2H2" />
                       </svg>
-                      <span className="text-xs font-semibold text-ink truncate">Custom</span>
+                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Custom</span>
                     </div>
-                    <div className="text-[0.6875rem] text-muted tabular-nums whitespace-nowrap mt-1">
+                    <div className="text-[0.625rem] text-muted tabular-nums whitespace-nowrap mt-1">
                       Set size
                     </div>
                   </button>

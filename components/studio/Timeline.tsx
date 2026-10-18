@@ -1296,9 +1296,7 @@ export function Timeline(p: TimelineProps) {
     const lane = laneAt(clientY);
     const isAboveTop = isAboveTopOverlay(clientY);
     const isBelowAudio = isBelowLowestAudio(clientY);
-    // (a blank scene only moves along Video 1)
     const toMain =
-      f.clip.type === "blank" ||
       (lane?.kind === "main" &&
         f.clip.type !== "audio" &&
         f.clip.type !== "text" &&
@@ -1473,11 +1471,7 @@ export function Timeline(p: TimelineProps) {
       if (d.index !== undefined) {
         const main = doc.tracks.find((tr) => tr.kind === "main")!;
         const lane = laneAt(e.clientY);
-        if (
-          !lane ||
-          lane.kind === "main" ||
-          findClip(doc, d.id)?.clip.type === "blank"
-        )
+        if (!lane || lane.kind === "main")
           p.onMove(d.id, { trackId: main.id, index: d.index }, d.group);
       } else {
         const f = findClip(doc, d.id);

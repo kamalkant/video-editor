@@ -12,6 +12,7 @@ import {
   type ComposeKind,
   type ComposeMedia,
 } from "@/lib/render/compose";
+import { APPLE_MEDIA } from "@/lib/ffmpeg/run";
 
 // a 6-second 640×360 clip with a busy, moving picture and a tone
 const tmp = mkdtempSync(join(tmpdir(), "VDO-size-"));
@@ -74,12 +75,14 @@ function realSize(
   kind: ComposeKind,
   name: string,
   quality: "small" | "balanced" | "best" = "balanced",
+  transparent = false,
 ) {
   const out = join(tmp, name);
+  const d = transparent ? { ...doc, canvas: { ...doc.canvas, background: "transparent" } } : doc;
   execFileSync(
     "ffmpeg",
     buildComposeArgs(
-      { ...doc, output: { ...doc.output, quality } },
+      { ...d, output: { ...d.output, quality } },
       media,
       kind,
       out,
@@ -103,18 +106,12 @@ describe("the export size estimate is close to the real file", () => {
   it.each([
     ["mp4", "mp4", "a.mp4", "balanced"],
     ["mp4", "mp4", "b.mp4", "small"],
+    ["mp4", "mp4", "b2.mp4", "best"],
     ["webm", "vp9", "c.webm", "balanced"],
     ["hevc", "hevc", "d.mp4", "balanced"],
-  ] as const)("%s (%s, %s)", async (format, kind, name, quality) => {
-    const { bpp, width, height } = await measureBusyness(
-      V,
-      clip,
-      6,
-      2,
-      640,
-      360,
-      30,
-    );
+    ["webm-alpha", "webm", "e.webm", "balanced"],
+    ...(APPLE_MEDIA ? ([["mov-alpha", "mov", "f.mov", "balanced"]] as const) : []),
+  ] as const)("%s (%s, %s): the file is the size shown", async (format, kind, name, quality) => {
     const est = estimateBytes(format, {
       width: 640,
       height: 360,
@@ -122,12 +119,23 @@ describe("the export size estimate is close to the real file", () => {
       duration: 6,
       quality,
       hasSound: true,
-      bpp,
-      measuredAt: { width, height },
+      bpp: null,
     });
-    const real = realSize(kind, name, quality);
-    const ratio = est / real;
-    expect(ratio, `estimated ${est}, real ${real}`).toBeGreaterThan(0.5);
-    expect(ratio, `estimated ${est}, real ${real}`).toBeLessThan(2);
+    const real = realSize(kind, name, quality, format.endsWith("alpha"));
+    // (one-pass VP9 lands within about ±20 % of its bitrate; H.264 / HEVC closer)
+    const ratio = real / est;
+    expect(ratio, `estimated ${est}, real ${real}`).toBeGreaterThan(0.75);
+    expect(ratio, `estimated ${est}, real ${real}`).toBeLessThan(1.25);
+  });
+
+  it("a light project (its clips' own bitrate) is made lighter, the size shown too", () => {
+    const capBpp = 0.02;
+    const est = estimateBytes("mp4", { width: 640, height: 360, fps: 30, duration: 6, quality: "balanced", hasSound: true, bpp: null, capBpp });
+    expect(est).toBeLessThan(estimateBytes("mp4", { width: 640, height: 360, fps: 30, duration: 6, quality: "balanced", hasSound: true, bpp: null }));
+    const out = join(tmp, "light.mp4");
+    execFileSync("ffmpeg", buildComposeArgs({ ...doc, output: { ...doc.output, capBpp } }, media, "mp4", out, { progress: false }));
+    const ratio = statSync(out).size / est;
+    expect(ratio).toBeGreaterThan(0.8);
+    expect(ratio).toBeLessThan(1.2);
   });
 });

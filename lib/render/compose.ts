@@ -16,12 +16,11 @@ import { blendOnto, type BlendMode } from "./blend";
 import { logoExpr } from "../player/logo";
 import { textAnchor } from "../text/layout";
 import { elementUnit } from "../elements/geometry";
-import { AUDIO_KBPS, AV1_CRF, GIF_FPS, GIF_MAX_W, MP3_KBPS, MP4_CRF, VP9_CRF } from "../export/rates";
+import { AUDIO_KBPS, AV1_CRF, GIF_FPS, GIF_MAX_W, MP3_KBPS, videoBitrate, type BitrateCodec } from "../export/rates";
 import { colorMatrix, cropOf, hasCrop, IDENTITY, isIdentity, maskDistanceExpr, mixerFilter, rotationOf, vignetteExpr, vignetteOf } from "../player/look";
 import { OPS, type AnyOp } from "../ops/registry";
 import { GraphBuilder } from "../ops/types";
 import { APPLE_MEDIA, SAFE_INPUT } from "../ffmpeg/run";
-import { QUALITY } from "../settings";
 
 /**
  * The whole timeline as one FFmpeg command.
@@ -482,11 +481,16 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
     if (aout) args.push("-map", `[${aout}]`, ...codec);
     else args.push("-an");
   };
+  // the video files are made at the bitrate the Export dialog's size shows (lib/export/rates; the browser export too)
+  const rate = (c: BitrateCodec) => {
+    const T = Math.round(videoBitrate(c, q, W, H, F, doc.output.capBpp) / 1000);
+    return ["-b:v", kb(T), "-maxrate", kb(Math.round(T * 1.5)), "-bufsize", kb(T * 2)];
+  };
   switch (kind) {
     case "hevc":
       // (Apple's hardware encoder on a Mac; elsewhere libx265, a little smaller than H.264 at the same CRF)
-      if (APPLE_MEDIA) args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-q:v", String(QUALITY[q].hevcQ));
-      else args.push("-c:v", "libx265", "-preset", "medium", "-crf", String(MP4_CRF[q] + 4), "-x265-params", "log-level=error");
+      if (APPLE_MEDIA) args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", ...rate("hevc"));
+      else args.push("-c:v", "libx265", "-preset", "medium", ...rate("hevc"), "-x265-params", "log-level=error");
       args.push("-tag:v", "hvc1", "-pix_fmt", "yuv420p", ...BT709, "-movflags", "+faststart");
       withSound(["-c:a", "aac", "-b:a", kb(AUDIO_KBPS.hevc)]);
       break;
@@ -495,7 +499,7 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
       withSound(["-c:a", "aac", "-b:a", kb(AUDIO_KBPS.av1)]);
       break;
     case "vp9":
-      args.push("-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", "-crf", String(VP9_CRF[q]), "-b:v", "0", "-row-mt", "1", "-deadline", "good", "-cpu-used", "2", ...BT709);
+      args.push("-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", ...rate("vp9"), "-row-mt", "1", "-deadline", "good", "-cpu-used", "2", ...BT709);
       withSound(["-c:a", "libopus", "-b:a", kb(AUDIO_KBPS.vp9)]);
       break;
     case "prores":
@@ -521,18 +525,18 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
       args.push("-map", `[${aout}]`, "-c:a", "pcm_s16le");
       break;
     case "mp4":
-      args.push("-c:v", "libx264", "-preset", "medium", "-crf", String(MP4_CRF[qualityOf(doc)]), "-pix_fmt", "yuv420p", ...BT709, "-movflags", "+faststart");
+      args.push("-c:v", "libx264", "-preset", "medium", ...rate("h264"), "-pix_fmt", "yuv420p", ...BT709, "-movflags", "+faststart");
       if (aout) args.push("-map", `[${aout}]`, "-c:a", "aac", "-b:a", kb(AUDIO_KBPS.mp4));
       else args.push("-an");
       break;
     case "webm":
-      args.push("-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0", "-crf", String(QUALITY[qualityOf(doc)].crf), "-b:v", "0", "-row-mt", "1", "-deadline", "good", "-cpu-used", "2", ...BT709);
+      args.push("-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0", ...rate("vp9-alpha"), "-row-mt", "1", "-deadline", "good", "-cpu-used", "2", ...BT709);
       if (aout) args.push("-map", `[${aout}]`, "-c:a", "libopus", "-b:a", kb(AUDIO_KBPS.webm));
       else args.push("-an");
       break;
     case "mov":
       if (APPLE_MEDIA) {
-        args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75", "-q:v", String(QUALITY[qualityOf(doc)].hevcQ), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart");
+        args.push("-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75", ...rate("hevc-alpha"), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart");
         if (aout) args.push("-map", `[${aout}]`, "-c:a", "aac", "-b:a", kb(AUDIO_KBPS.mov));
         else args.push("-an");
       } else {

@@ -21,8 +21,10 @@ import {
   type VideoClip,
 } from "../edit/doc";
 import type { ExportFormat } from "./presets";
+import { videoBitrate } from "./rates";
+import { audioKbpsOf, bitrateCodecOf, contentCapBpp } from "./size";
 import type { Job, JobFile, JobStep } from "../jobs/queue";
-import { localFileOf, localSrc } from "../media/localMedia";
+import { localFileOf, localInfo, localSrc } from "../media/localMedia";
 import { fadeAlpha, motionRect } from "../player/layout";
 import { drawText } from "../text/render";
 import { drawBackdrop } from "../backdrops";
@@ -87,14 +89,17 @@ export async function canExportLocally(
         height: Math.min(height, 2160),
         bitrate: 8_000_000,
         framerate: 30,
-      });
+        // the see-through one keeps its alpha (software VP9 only); else the server makes it
+        ...(format === "webm-alpha" ? { alpha: "keep", hardwareAcceleration: "prefer-software" } : {}),
+      } as VideoEncoderConfig);
       return !!res.supported;
     } catch {
       return false;
     }
   }
 
-  if (format === "mov-alpha" || format === "hevc") {
+  // MOV + alpha: the MP4 muxer can't write HEVC's alpha layer, so the server makes it (Apple's encoder)
+  if (format === "hevc") {
     try {
       const res = await VideoEncoder.isConfigSupported({
         codec: "hvc1.1.6.L120.90", // HEVC Main Profile
@@ -102,8 +107,7 @@ export async function canExportLocally(
         height: Math.min(height, 2160),
         bitrate: 8_000_000,
         framerate: 30,
-        ...(format === "mov-alpha" ? { alpha: "keep" } : {}),
-      } as any);
+      });
       return !!res.supported;
     } catch {
       return false;
@@ -111,21 +115,6 @@ export async function canExportLocally(
   }
 
   return false;
-}
-
-/** Bitrate calculation based on resolution and user quality preset */
-function calculateBitrate(
-  quality: "small" | "balanced" | "best",
-  width: number,
-  height: number,
-  fps: number,
-): number {
-  const pixels = width * height;
-  let bpp = 0.1; // bits per pixel
-  if (quality === "small") bpp = 0.06;
-  else if (quality === "best") bpp = 0.15;
-  const rawBitrate = Math.round(pixels * fps * bpp);
-  return Math.min(50_000_000, Math.max(1_000_000, rawBitrate));
 }
 
 /**
@@ -236,7 +225,7 @@ export async function exportLocally(
     },
     {
       kind: format as any,
-      label: format === "webm" ? "Rendering WebM video" : "Rendering MP4 video",
+      label: format === "webm" || format === "webm-alpha" ? "Rendering WebM video" : format === "mov-alpha" ? "Rendering MOV video" : "Rendering MP4 video",
       state: "pending",
       percent: 0,
     },
@@ -386,6 +375,7 @@ export async function exportLocally(
 
   // 4. Muxer & Encoder Setup
   const isWebm = format === "webm" || format === "webm-alpha";
+  const isWebmAlpha = format === "webm-alpha";
   const isMovAlpha = format === "mov-alpha";
   const isHevc = format === "hevc" || isMovAlpha;
   let muxer: Mp4Muxer<any> | WebmMuxer<any>;
@@ -402,6 +392,7 @@ export async function exportLocally(
         codec: "V_VP9",
         width: W,
         height: H,
+        alpha: isWebmAlpha,
       },
       audio: renderedAudio
         ? {
@@ -440,18 +431,26 @@ export async function exportLocally(
     error: (err) => console.error("[LocalExport] VideoEncoder error:", err),
   });
 
-  const bitrate = calculateBitrate(quality, W, H, F);
+  // the same bitrate the Export dialog's size shows (lib/export/rates, lib/export/size)
+  const codecKey = bitrateCodecOf(format) ?? "h264";
+  const bitrate = videoBitrate(codecKey, quality, W, H, F, contentCapBpp(doc, localInfo, { width: W, height: H }));
   const videoCodec = isWebm ? "vp09.00.10.08" : isHevc ? "hvc1.1.6.L120.90" : "avc1.4d002a";
 
-  videoEncoder.configure({
+  const videoConfig: VideoEncoderConfig = {
     codec: videoCodec,
     width: W,
     height: H,
     bitrate,
+    bitrateMode: "variable",
     framerate: F,
-    hardwareAcceleration: "prefer-hardware",
-    ...(isMovAlpha ? { alpha: "keep" } : {}),
-  } as any);
+    // alpha is only encoded in software (VP9)
+    hardwareAcceleration: isWebmAlpha ? "prefer-software" : "prefer-hardware",
+    ...(isWebmAlpha ? { alpha: "keep" as const } : {}),
+  };
+  // no hardware encoder for this codec here (VP9 on a Mac): whichever the browser has
+  if (!isWebmAlpha && !(await VideoEncoder.isConfigSupported(videoConfig).then((r) => r.supported, () => false)))
+    videoConfig.hardwareAcceleration = "no-preference";
+  videoEncoder.configure(videoConfig);
 
   // Configure AudioEncoder if audio was rendered
   let audioEncoder: AudioEncoder | null = null;
@@ -465,7 +464,7 @@ export async function exportLocally(
       codec: isWebm ? "opus" : "mp4a.40.2",
       numberOfChannels: 2,
       sampleRate: 48000,
-      bitrate: 160_000,
+      bitrate: audioKbpsOf(format) * 1000,
     });
 
     // Feed audio buffer chunks

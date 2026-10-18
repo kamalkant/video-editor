@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildEncodeArgs, outputGeometry } from "@/lib/ffmpeg/encode";
 import { buildFilterGraph } from "@/lib/ffmpeg/graph";
+import { videoBitrate } from "@/lib/export/rates";
 import { checkProbe, ProbeError } from "@/lib/ffmpeg/probe";
 import { keyKind, looksLikeBackground } from "@/lib/ffmpeg/key";
 import { computeSeeThrough } from "@/lib/ffmpeg/preview";
@@ -90,18 +91,19 @@ describe("filter graph", () => {
 });
 
 describe("encode args", () => {
-  it("WebM is VP9 + alpha with CRF and no bitrate cap", () => {
+  it("WebM is VP9 + alpha at the bitrate the Export dialog's size shows", () => {
     const a = buildEncodeArgs("webm", sp(DEFAULTS), info, "in", "out.webm");
     const s = a.join(" ");
     expect(s).toContain("-protocol_whitelist file,pipe");
-    expect(s).toContain("-c:v libvpx-vp9 -pix_fmt yuva420p -auto-alt-ref 0 -crf 35 -b:v 0");
+    // 1280×720 at 24 fps, Balanced: lib/export/rates videoBitrate("vp9-alpha")
+    expect(s).toContain(`-c:v libvpx-vp9 -pix_fmt yuva420p -auto-alt-ref 0 -b:v ${Math.round(videoBitrate("vp9-alpha", "balanced", 1280, 720, 24) / 1000)}k`);
     expect(s).toContain("-c:a libopus");
     expect(s).toContain("-colorspace bt709");
   });
 
   it("MOV is HEVC + alpha via VideoToolbox, not ProRes", () => {
     const s = buildEncodeArgs("mov", sp(DEFAULTS), info, "in", "out.mov").join(" ");
-    expect(s).toContain("-c:v hevc_videotoolbox -allow_sw 1 -alpha_quality 0.75 -q:v 55 -tag:v hvc1");
+    expect(s).toContain(`-c:v hevc_videotoolbox -allow_sw 1 -alpha_quality 0.75 -b:v ${Math.round(videoBitrate("hevc-alpha", "balanced", 1280, 720, 24) / 1000)}k`);
     expect(s).not.toContain("prores");
     expect(s).toContain("-c:a aac");
   });
@@ -113,8 +115,8 @@ describe("encode args", () => {
 
   it("quality presets map to both encoders", () => {
     const s = buildEncodeArgs("webm", sp({ ...DEFAULTS, quality: "small" }), info, "i", "o").join(" ");
-    expect(s).toContain("-crf 40");
-    expect(buildEncodeArgs("mov", sp({ ...DEFAULTS, quality: "best" }), info, "i", "o").join(" ")).toContain("-q:v 65");
+    expect(s).toContain(`-b:v ${Math.round(videoBitrate("vp9-alpha", "small", 1280, 720, 24) / 1000)}k`);
+    expect(buildEncodeArgs("mov", sp({ ...DEFAULTS, quality: "best" }), info, "i", "o").join(" ")).toContain(`-b:v ${Math.round(videoBitrate("hevc-alpha", "best", 1280, 720, 24) / 1000)}k`);
   });
 
   it("computes output geometry", () => {

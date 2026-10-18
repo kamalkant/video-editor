@@ -1,16 +1,20 @@
 /**
  * About how big an export file will be, before making it.
  *
- * The video encoders aim for a quality, not a size, so the size depends on how
- * busy the picture is. That comes in as `bpp`: bits per pixel per frame of an
- * H.264 (CRF 23) test encode of the project's own clips (GET
- * /api/videos/[id]/busyness). Every other format is a measured ratio to that
- * (lib/export/rates settings, checked on test clips). ProRes, pictures and
- * sound hardly depend on the picture. No server code: the dialog uses it.
+ * MP4, HEVC, WebM and the see-through WebM / MOV are made at a set bitrate
+ * (lib/export/rates videoBitrate, also used by the browser export and the
+ * server), so their size is that rate × the length. A light project (its clips'
+ * own bitrate, contentCapBpp) is made lighter, the same way on both sides.
+ *
+ * AV1 and GIF aim for a quality, not a size, so their size depends on how busy
+ * the picture is. That comes in as `bpp`: bits per pixel per frame of an H.264
+ * (CRF 23) test encode of the project's own clips (GET
+ * /api/videos/[id]/busyness). ProRes, pictures and sound hardly depend on the
+ * picture. No server code: the dialog uses it.
  */
 import { clipLength, docDuration, type TimelineDoc } from "../edit/doc";
 import type { Quality } from "../settings";
-import { AUDIO_KBPS, GIF_FPS, GIF_MAX_W, MP3_KBPS } from "./rates";
+import { AUDIO_KBPS, GIF_FPS, GIF_MAX_W, MP3_KBPS, videoBitrate, type BitrateCodec } from "./rates";
 import type { ExportFormat } from "./presets";
 
 /** A calm picture (pictures, text, slides) when there's no video to measure. */
@@ -18,16 +22,8 @@ export const STILL_BPP = 0.02;
 /** A typical video when the measurement isn't back (or failed). */
 export const TYPICAL_BPP = 0.035;
 
-/** Size of each video codec (at each quality) next to H.264 CRF 23 (measured on moving test clips). */
-const RATIO: Record<"mp4" | "hevc" | "av1" | "webm" | "webm-alpha" | "mov-alpha", Record<Quality, number>> = {
-  mp4: { small: 0.5, balanced: 1, best: 1.8 },
-  hevc: { small: 0.35, balanced: 0.7, best: 1.25 },
-  av1: { small: 0.32, balanced: 0.65, best: 1.15 },
-  webm: { small: 0.42, balanced: 0.85, best: 1.5 },
-  // see-through files also carry the alpha (the outline): a bit more
-  "webm-alpha": { small: 0.4, balanced: 0.75, best: 1.3 },
-  "mov-alpha": { small: 0.35, balanced: 0.65, best: 1.1 },
-};
+/** Size of AV1 (at each quality) next to H.264 CRF 23 (measured on moving test clips). */
+const AV1_RATIO: Record<Quality, number> = { small: 0.32, balanced: 0.65, best: 1.15 };
 const PRORES4444_BPP = 7.6;
 
 export type SizeInput = {
@@ -42,6 +38,8 @@ export type SizeInput = {
   bpp: number | null;
   /** the size `bpp` was measured at (other sizes: a little more per pixel when smaller) */
   measuredAt?: { width: number; height: number };
+  /** the clips' own bits per pixel at this size (contentCapBpp; null: not known, no cap) */
+  capBpp?: number | null;
   /** the website pack also holds the ProRes master */
   master?: boolean;
   /** transparent canvas or keyed subject video */
@@ -52,31 +50,47 @@ export type SizeInput = {
 
 const bytes = (bits: number) => Math.max(0, Math.round(bits / 8));
 
+/** The codec a format is made with at a set bitrate (null: not one of those). */
+export function bitrateCodecOf(format: ExportFormat, safariAlpha = true): BitrateCodec | null {
+  switch (format) {
+    case "mp4":
+      return "h264";
+    case "hevc":
+      return "hevc";
+    case "webm":
+      return "vp9";
+    case "webm-alpha":
+      return "vp9-alpha";
+    case "mov-alpha":
+      // without Apple's encoder the MOV is ProRes 4444 (no set bitrate, a big file)
+      return safariAlpha ? "hevc-alpha" : null;
+    default:
+      return null;
+  }
+}
+
+/** Sound bitrate (kbit/s) of each video format. */
+export function audioKbpsOf(format: ExportFormat): number {
+  return format === "webm" ? AUDIO_KBPS.vp9 : format === "webm-alpha" ? AUDIO_KBPS.webm : format === "mov-alpha" ? AUDIO_KBPS.mov : format === "hevc" ? AUDIO_KBPS.hevc : AUDIO_KBPS.mp4;
+}
+
 /** About how many bytes the export in `format` will be. */
 export function estimateBytes(format: ExportFormat, p: SizeInput): number {
   const D = Math.max(0, p.duration);
   const px = Math.max(1, p.width * p.height);
   let bpp = p.bpp ?? TYPICAL_BPP;
-  // If video is transparent / keyed avatar, background is removed so active pixels take fewer bits
-  const isAlphaFormat = format === "webm-alpha" || format === "mov-alpha";
-  if (p.transparent || isAlphaFormat) {
-    bpp *= 0.65;
-  }
   // fewer pixels need a little more per pixel (and the other way round)
   if (p.bpp != null && p.measuredAt) bpp *= Math.min(2, Math.max(0.5, ((p.measuredAt.width * p.measuredAt.height) / px) ** 0.25));
-  const video = (ratio: number) => px * p.fps * D * bpp * ratio;
   const sound = (kbps: number) => (p.hasSound ? kbps * 1000 * D : 0);
   const box = 1.015; // the file's own bookkeeping
+  const codec = bitrateCodecOf(format, p.safariAlpha);
+  if (codec) return bytes((videoBitrate(codec, p.quality, p.width, p.height, p.fps, p.capBpp) * D + sound(audioKbpsOf(format))) * box);
   switch (format) {
-    case "mp4":
-    case "hevc":
     case "av1":
-    case "webm":
-    case "webm-alpha":
-    case "mov-alpha": {
-      const a = format === "webm" ? AUDIO_KBPS.vp9 : format === "webm-alpha" ? AUDIO_KBPS.webm : format === "mov-alpha" ? AUDIO_KBPS.mov : AUDIO_KBPS.mp4;
-      return bytes((video(RATIO[format][p.quality]) + sound(a)) * box);
-    }
+      return bytes((px * p.fps * D * bpp * AV1_RATIO[p.quality] + sound(AUDIO_KBPS.av1)) * box);
+    case "mov-alpha":
+      // ProRes 4444 (a server without Apple's HEVC alpha encoder)
+      return bytes((px * p.fps * D * PRORES4444_BPP + sound(AUDIO_KBPS.pcm)) * box);
     case "pack": {
       // one zip (not compressed again): WebM + MOV + a poster (+ the ProRes master)
       const poster = px * 0.6;
@@ -100,11 +114,13 @@ export function estimateBytes(format: ExportFormat, p: SizeInput): number {
       return bytes(sound(AUDIO_KBPS.m4a) * box);
     case "wav":
       return p.hasSound ? Math.round(192_000 * D + 44) : 0;
+    default:
+      return 0;
   }
 }
 
 /** Whether a format's size needs the picture measured (the others are known right away). */
-export const needsBusyness = (f: ExportFormat) => !["png", "jpg", "mp3", "m4a", "wav"].includes(f);
+export const needsBusyness = (f: ExportFormat) => f === "av1" || f === "gif";
 
 /** What to measure for a timeline: its longest video clips (a sample from each one's middle) and how much of it is video. */
 export type SizeBasis = {
@@ -143,4 +159,50 @@ export function bppOf(b: SizeBasis, measured: number[]): number {
   if (!b.samples.length) return STILL_BPP;
   const video = b.samples.reduce((a, s, i) => a + s.weight * (measured[i] ?? TYPICAL_BPP), 0);
   return video * b.videoShare + STILL_BPP * (1 - b.videoShare);
+}
+
+/** What is known about a clip's file: its size in bytes, picture size and length (lib/media/localMedia localInfo). */
+export type FileInfo = (mediaId: string) => { size: number; width: number; height: number; duration: number } | null;
+
+/** Bits per pixel a picture-and-text stretch needs at most. */
+const STILL_CAP_BPP = 0.03;
+/** Sound inside a clip's file (taken off its bitrate). */
+const CLIP_AUDIO_BPS = 128_000;
+
+/**
+ * The project's clips' own bits per pixel per frame at the export size: no use
+ * making a file heavier than what went in (a WhatsApp clip, a screen
+ * recording). Each video clip's file bitrate, scaled to the export size and
+ * weighted by its length; picture and text stretches count as a calm picture.
+ * Null when a clip's file isn't known (then nothing is capped).
+ */
+export function contentCapBpp(doc: TimelineDoc, info: FileInfo, size?: { width: number; height: number }): number | null {
+  const W = size?.width ?? doc.canvas.width;
+  const H = size?.height ?? doc.canvas.height;
+  const px = Math.max(1, W * H);
+  const fps = Math.max(1, doc.canvas.fps || 30);
+  const D = docDuration(doc);
+  if (D <= 0) return null;
+  let sum = 0;
+  let weight = 0;
+  let mainVideo = 0;
+  let longest = 0;
+  for (const t of doc.tracks) {
+    if (t.kind === "audio" || (t.kind === "overlay" && t.hidden)) continue;
+    for (const c of t.clips) {
+      if (c.type !== "video") continue;
+      const f = info(c.mediaId);
+      if (!f || !(f.size > 0) || !(f.duration > 0)) return null;
+      const bps = Math.max((f.size * 8) / f.duration / 2, (f.size * 8) / f.duration - CLIP_AUDIO_BPS);
+      const srcPx = f.width > 0 && f.height > 0 ? f.width * f.height : px;
+      const len = clipLength(c);
+      sum += ((bps * (px / srcPx) ** 0.75) / (px * fps)) * len;
+      weight += len;
+      if (t.kind === "main") mainVideo += len;
+      longest = Math.max(longest, len);
+    }
+  }
+  if (!weight) return STILL_CAP_BPP;
+  const share = Math.min(1, (mainVideo || longest) / D);
+  return (sum / weight) * share + STILL_CAP_BPP * (1 - share);
 }

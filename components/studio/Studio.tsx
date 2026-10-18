@@ -102,6 +102,7 @@ import {
   listLocalFiles,
   localItems,
   localSrc,
+  localInfo,
   localThumb,
   localVersion,
   notOnServer,
@@ -271,7 +272,7 @@ import {
   textDrag,
   type LibraryClipDragItem,
 } from "@/lib/editor/mediaDrag";
-import { sizeBasisOf } from "@/lib/export/size";
+import { contentCapBpp, sizeBasisOf } from "@/lib/export/size";
 import {
   hasKeys,
   motionAt,
@@ -5338,6 +5339,9 @@ function StudioInner(props: Props) {
         ...d,
         canvas: { ...d.canvas, width: size.width, height: size.height },
       };
+    // the clips' own bitrate: the server makes no heavier file than that either (the size the dialog showed)
+    const capBpp = contentCapBpp(d, localInfo);
+    if (capBpp) d = { ...d, output: { ...d.output, capBpp } };
     // a project that is one transparent video makes its website pack the detailed way (width, crop, estimate)
     const s =
       single && !size && format === "pack"

@@ -1,7 +1,8 @@
 import { outputGeometry, type CropBox } from "../edit/geometry";
 import { isWhole, selectExpr, type Segment } from "../edit/timeline";
 import type { EditSpec } from "../edit/spec";
-import { LIMITS, QUALITY } from "../settings";
+import { videoBitrate, type BitrateCodec } from "../export/rates";
+import { LIMITS } from "../settings";
 import { buildFilterGraph, type Target } from "./graph";
 import type { VideoInfo } from "./probe";
 import { APPLE_MEDIA, SAFE_INPUT } from "./run";
@@ -50,10 +51,14 @@ export function buildEncodeArgs(
   const withProgress = opts.progress ?? true;
   const range = opts.range;
   const crop = s.crop.enabled ? opts.crop : null;
-  const { width, fps } = outputGeometry(s, info, crop);
+  const { width, fps, outW, outH, outFps } = outputGeometry(s, info, crop);
   const target = OUTPUT_FILES[kind].target;
   const mask = opts.mask ?? null;
-  const q = QUALITY[s.quality];
+  // the bitrate the Export dialog's size shows (lib/export/rates)
+  const rate = (c: BitrateCodec) => {
+    const T = Math.round(videoBitrate(c, s.quality, outW, outH, outFps, s.capBpp) / 1000);
+    return ["-b:v", `${T}k`, "-maxrate", `${Math.round(T * 1.5)}k`, "-bufsize", `${T * 2}k`];
+  };
   const keepAudio = s.audio === "keep" && info.hasAudio;
   const select = opts.timeline !== false ? cutSelect(spec.timeline?.clips, info) : null;
   let graph = buildFilterGraph(spec, target, { width, fps, crop, maskInput: mask ? "[1:v]" : undefined, select: select ?? undefined });
@@ -68,7 +73,7 @@ export function buildEncodeArgs(
     case "webm":
       args.push(
         "-c:v", "libvpx-vp9", "-pix_fmt", "yuva420p", "-auto-alt-ref", "0",
-        "-crf", String(q.crf), "-b:v", "0", "-row-mt", "1", "-deadline", "good", "-cpu-used", "2",
+        ...rate("vp9-alpha"), "-row-mt", "1", "-deadline", "good", "-cpu-used", "2",
         ...BT709,
       );
       if (keepAudio) args.push(...audioMap, "-c:a", "libopus", "-b:a", "64k");
@@ -78,7 +83,7 @@ export function buildEncodeArgs(
       if (APPLE_MEDIA) {
         args.push(
           "-c:v", "hevc_videotoolbox", "-allow_sw", "1", "-alpha_quality", "0.75",
-          "-q:v", String(q.hevcQ), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart",
+          ...rate("hevc-alpha"), "-tag:v", "hvc1", ...BT709, "-movflags", "+faststart",
         );
         if (keepAudio) args.push(...audioMap, "-c:a", "aac", "-b:a", "96k");
         else args.push("-an");

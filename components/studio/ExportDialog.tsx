@@ -17,13 +17,13 @@ import {
   type VideoPresetId,
 } from "@/lib/export/presets";
 import { formatBytes, formatTime } from "@/lib/format";
-import { estimateBytes, type SizeBasis } from "@/lib/export/size";
+import { contentCapBpp, estimateBytes, type SizeBasis } from "@/lib/export/size";
 import { useExportSize } from "@/lib/editor/useExportSize";
 import { useServerCaps } from "@/lib/editor/useServerCaps";
 import type { Job } from "@/lib/jobs/queue";
 import type { VideoMeta } from "@/lib/videos";
 import { coverMediaIdOrNull, type TimelineDoc, type VideoClip } from "@/lib/edit/doc";
-import { localSrc, localThumb } from "@/lib/media/localMedia";
+import { localInfo, localSrc, localThumb } from "@/lib/media/localMedia";
 import { LiveKeyRenderer, type LiveKeyParams } from "@/lib/editor/liveKey";
 import { ExportResults, ExportSummary } from "./ExportResults";
 import { FormatPicker } from "./FormatPicker";
@@ -429,6 +429,8 @@ export function ExportDialog(p: {
   // Size estimation
   const { safariAlpha } = useServerCaps();
   const busy = useExportSize(p.sizeBasis ?? null, p.open && !running && !done && !!pr);
+  // the clips' own bitrate: the export is never made heavier (the same cap as lib/export/localExport)
+  const capBpp = p.open && p.doc ? contentCapBpp(p.doc, localInfo, { width: customW, height: customH }) : null;
   const sizeOf = (fmt: ExportFormat): number | null => {
     if (!pr || p.blockedOf(fmt) || (fmt === "pack" && packOfVideo)) return null;
     const s = !isAudioFormat(fmt) ? { width: customW, height: customH } : { width: pr.width, height: pr.height };
@@ -440,6 +442,7 @@ export function ExportDialog(p: {
       hasSound: !!p.hasSound,
       bpp: busy.bpp,
       measuredAt: busy.measuredAt,
+      capBpp,
       master: p.master,
       transparent: pr.transparent,
       safariAlpha,

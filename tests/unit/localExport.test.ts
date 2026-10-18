@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { isWebCodecsSupported, canExportLocally } from "@/lib/export/localExport";
 import { docDuration, emptyDoc, layersAt, mainStarts, mainTrack, videoClipOf } from "@/lib/edit/doc";
 
@@ -74,5 +74,32 @@ describe("localExport WebCodecs engine", () => {
     const layerAt595 = layersAt(doc, 595);
     expect(layerAt595.length).toBe(1);
     expect(layerAt595[0].clip.id).toBe("clip-59");
+  });
+
+  describe("with WebCodecs present", () => {
+    const configs: VideoEncoderConfig[] = [];
+    const stub = () => {
+      configs.length = 0;
+      vi.stubGlobal("window", {});
+      vi.stubGlobal("VideoEncoder", { isConfigSupported: async (c: VideoEncoderConfig) => (configs.push(c), { supported: true, config: c }) });
+      vi.stubGlobal("AudioEncoder", class {});
+      vi.stubGlobal("VideoFrame", class {});
+      vi.stubGlobal("OfflineAudioContext", class {});
+    };
+    afterEach(() => vi.unstubAllGlobals());
+
+    it("MOV + alpha is always made by the server (the MP4 muxer can't write HEVC's alpha layer)", async () => {
+      stub();
+      expect(await canExportLocally("mov-alpha", 1920, 1080)).toBe(false);
+      expect(configs).toHaveLength(0);
+    });
+
+    it("WebM + alpha asks for a VP9 encoder that keeps the alpha", async () => {
+      stub();
+      expect(await canExportLocally("webm-alpha", 1920, 1080)).toBe(true);
+      expect(configs[0]).toMatchObject({ codec: "vp09.00.10.08", alpha: "keep", hardwareAcceleration: "prefer-software" });
+      expect(await canExportLocally("webm", 1920, 1080)).toBe(true);
+      expect(configs[1].alpha).toBeUndefined();
+    });
   });
 });

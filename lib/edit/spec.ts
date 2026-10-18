@@ -21,6 +21,8 @@ export const outputSchema = z.object({
   crop: z.object({ enabled: z.boolean(), padding: z.number().finite() }).default({ enabled: false, padding: 10 }),
   /** EBU R128 loudness levelling (-16 LUFS) for even volume across all clips. */
   loudness: z.boolean().default(false).optional(),
+  /** The clips' own bits per pixel at the export size (lib/export/size contentCapBpp), set by the browser for the export: no heavier file than that. */
+  capBpp: z.number().finite().positive().max(10).optional(),
 });
 export type OutputSettings = z.infer<typeof outputSchema>;
 

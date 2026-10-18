@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { docDuration, docFromSpec, docSchema, mainTrack, watermarkRect, type MediaLite, type TimelineDoc, type VideoClip, type Watermark } from "@/lib/edit/doc";
+import { docDuration, docFromSpec, docSchema, emptyDoc, mainTrack, watermarkRect, type MediaLite, type TimelineDoc, type VideoClip, type Watermark } from "@/lib/edit/doc";
 import { addMedia, dropLanding } from "@/lib/edit/docEdit";
 import { DEFAULT_SPEC } from "@/lib/edit/spec";
-import { bppOf, estimateBytes, sizeBasisOf, STILL_BPP, type SizeInput } from "@/lib/export/size";
+import { bppOf, contentCapBpp, estimateBytes, sizeBasisOf, STILL_BPP, type SizeInput } from "@/lib/export/size";
+import { VIDEO_BPP, videoBitrate } from "@/lib/export/rates";
 import { cropViewRect, logoTransform, placeRect } from "@/lib/player/layout";
 import { clampCrop, cropForAspect, rotationOf } from "@/lib/player/look";
 
@@ -30,14 +31,25 @@ describe("export size estimate", () => {
       expect(mid).toBeLessThan(best);
     }
   });
-  it("a busier picture is bigger; a longer or larger video too", () => {
-    expect(estimateBytes("mp4", { ...p, bpp: 0.2 })).toBeGreaterThan(estimateBytes("mp4", p));
+  it("a light project (its clips' own bitrate) is smaller; a longer or larger video bigger", () => {
+    expect(estimateBytes("mp4", { ...p, capBpp: 0.02 })).toBeLessThan(estimateBytes("mp4", p));
+    // a heavy clip doesn't make the file heavier than the quality's own bitrate
+    expect(estimateBytes("mp4", { ...p, capBpp: 1 })).toBe(estimateBytes("mp4", p));
     expect(estimateBytes("mp4", { ...p, duration: 120 })).toBeGreaterThan(estimateBytes("mp4", p) * 1.9);
     expect(estimateBytes("mp4", { ...p, width: 1280, height: 720 })).toBeLessThan(estimateBytes("mp4", p));
   });
-  it("MP4 is picture + sound: 1080p30, 60 s at 0.1 bits a pixel ≈ 80 MB", () => {
-    const expected = ((1920 * 1080 * 30 * 60 * 0.1 + 160_000 * 60) / 8) * 1.015;
+  it("MP4 is the set bitrate + sound: 1080p30 Balanced, 60 s ≈ 34 MB (the browser export makes the same)", () => {
+    const bps = videoBitrate("h264", "balanced", 1920, 1080, 30);
+    expect(bps).toBe(Math.round(1920 * 1080 * 30 * VIDEO_BPP.balanced));
+    const expected = ((bps * 60 + 128_000 * 60) / 8) * 1.015;
     expect(estimateBytes("mp4", p)).toBeCloseTo(expected, -3);
+    // HEVC, VP9 and the see-through files need less for the same picture
+    expect(estimateBytes("hevc", p)).toBeLessThan(estimateBytes("webm", p));
+    expect(estimateBytes("webm", p)).toBeLessThan(estimateBytes("mp4", p));
+    expect(estimateBytes("webm-alpha", p)).toBeLessThan(estimateBytes("webm", p));
+  });
+  it("MOV + alpha without Apple's encoder is ProRes 4444: shown as the big file it is", () => {
+    expect(estimateBytes("mov-alpha", { ...p, safariAlpha: false })).toBeGreaterThan(estimateBytes("mov-alpha", p) * 20);
   });
   it("sound-only files are rate × length", () => {
     expect(estimateBytes("mp3", p)).toBe((192_000 * 60) / 8);
@@ -80,6 +92,28 @@ describe("export size estimate", () => {
     const pics = { ...d, tracks: d.tracks.map((t) => ({ ...t, clips: [] })) } as TimelineDoc;
     expect(sizeBasisOf(pics).samples).toEqual([]);
     expect(bppOf(sizeBasisOf(pics), [])).toBe(STILL_BPP);
+  });
+});
+
+describe("the clips' own bitrate caps the export", () => {
+  const info = (bytesPerSec: number, w = 1920, h = 1080) => () => ({ size: bytesPerSec * 14, width: w, height: h, duration: 14 });
+  it("a light clip (a WhatsApp video, a screen recording) caps it; a phone clip doesn't", () => {
+    const d = twoVideos();
+    // 1 Mbit/s files at 1080p, canvas the project's size
+    const light = contentCapBpp(d, info(125_000))!;
+    const px = d.canvas.width * d.canvas.height;
+    expect(light).toBeGreaterThan(0);
+    expect(light).toBeLessThan(VIDEO_BPP.balanced);
+    // 20 Mbit/s phone video: far above what the export uses (no cap in effect)
+    const phone = contentCapBpp(d, info(2_500_000))!;
+    expect(videoBitrate("h264", "balanced", d.canvas.width, d.canvas.height, d.canvas.fps, phone)).toBe(videoBitrate("h264", "balanced", d.canvas.width, d.canvas.height, d.canvas.fps));
+    expect(videoBitrate("h264", "balanced", d.canvas.width, d.canvas.height, d.canvas.fps, light)).toBeLessThan(px * d.canvas.fps * VIDEO_BPP.balanced);
+  });
+  it("unknown files: no cap; pictures and text only: a calm picture", () => {
+    expect(contentCapBpp(twoVideos(), () => null)).toBeNull();
+    const pics = addMedia(emptyDoc(), M[IMG]).doc;
+    expect(contentCapBpp(pics, () => null)).toBeGreaterThan(0);
+    expect(contentCapBpp(pics, () => null)).toBeLessThan(VIDEO_BPP.small);
   });
 });
 

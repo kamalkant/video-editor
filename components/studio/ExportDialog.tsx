@@ -928,24 +928,6 @@ export function ExportDialog(p: {
                 <span className="ml-1 text-muted">for {Math.max(1, Math.round(pr?.duration || 9))} seconds</span>
               </div>
             </div>
-              <svg className="size-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <ellipse cx="12" cy="5" rx="9" ry="3" />
-                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-              </svg>
-              <div className="flex-1 text-[0.6875rem]">
-                <span className="text-muted mr-1.5">Estimated file size</span>
-                <span className="font-bold text-ink">
-                  {(() => {
-                    const est = sizeOf(p.format);
-                    return est !== null
-                      ? `~${formatBytes(est)}`
-                      : `~${formatBytes(Math.round(customW * customH * 0.003 * Math.max(5, pr?.duration || 9)))}`;
-                  })()}
-                </span>
-                <span className="ml-1 text-muted">for {Math.max(1, Math.round(pr?.duration || 9))} seconds</span>
-              </div>
-            </div>
 
             {/* Primary Action Button / Progress */}
             <div className="flex flex-col gap-1.5">

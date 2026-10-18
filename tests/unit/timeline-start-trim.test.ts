@@ -316,18 +316,14 @@ describe("Google Vids Starting Clip Trimming Behavior", () => {
     expect(mainDuration(droppedDoc)).toBe(14.0);
   });
 
-  it("formats trim tooltip with count-up +X.Xs from start on in-edge and duration on out-edge", () => {
-    // In-edge (starting point handle): delta counts up from +0.0s as user trims into the clip
-    const formatInTip = (delta: number) => {
-      const safe = Math.abs(delta) < 0.05 ? 0 : delta;
-      return `${safe >= 0 ? "+" : ""}${safe.toFixed(1)}s`;
-    };
-    expect(formatInTip(0)).toBe("+0.0s");
-    expect(formatInTip(1.23)).toBe("+1.2s");
-    expect(formatInTip(2.5)).toBe("+2.5s");
-    expect(formatInTip(-0.5)).toBe("-0.5s");
+  it("formats trim tooltip with pure time (no plus or minus symbols)", () => {
+    // In-edge (starting point handle): displays pure time trimmed from start, counting up from 0.0s
+    const formatInTip = (delta: number) => `${Math.abs(delta).toFixed(1)}s`;
+    expect(formatInTip(0)).toBe("0.0s");
+    expect(formatInTip(1.23)).toBe("1.2s");
+    expect(formatInTip(2.5)).toBe("2.5s");
 
-    // Out-edge (ending point handle): displays resulting duration with 's' suffix
+    // Out-edge (ending point handle): displays resulting clip duration
     const formatOutTip = (duration: number) => `${duration.toFixed(1)}s`;
     expect(formatOutTip(7.5)).toBe("7.5s");
     expect(formatOutTip(10.0)).toBe("10.0s");

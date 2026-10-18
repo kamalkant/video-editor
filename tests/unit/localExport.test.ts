@@ -18,7 +18,9 @@ describe("localExport WebCodecs engine", () => {
 
   it("handles video formats safely in non-browser environment without crashing", async () => {
     const mp4Supported = await canExportLocally("mp4", 1920, 1080);
+    const movAlphaSupported = await canExportLocally("mov-alpha", 1920, 1080);
     expect(typeof mp4Supported).toBe("boolean");
+    expect(typeof movAlphaSupported).toBe("boolean");
   });
 
   it("accurately sequences and composites 60 clips of 10s stitched together", () => {

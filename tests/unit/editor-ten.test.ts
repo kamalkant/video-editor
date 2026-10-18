@@ -54,6 +54,20 @@ describe("export size estimate", () => {
     expect(pack).toBeGreaterThan(estimateBytes("webm-alpha", p) + estimateBytes("mov-alpha", p));
     expect(estimateBytes("pack", { ...p, master: true })).toBeGreaterThan(pack);
   });
+  it("mov-alpha is lightweight (~1.0–1.7 MB for 10s 1080p, matching chroma-green-take.mov)", () => {
+    const bytes10s = estimateBytes("mov-alpha", {
+      width: 1920,
+      height: 1080,
+      fps: 24,
+      duration: 10,
+      quality: "balanced",
+      hasSound: true,
+      bpp: null,
+    });
+    // Must be around ~1 MB (never 574 MB)
+    expect(bytes10s).toBeGreaterThan(800_000);
+    expect(bytes10s).toBeLessThan(3_000_000);
+  });
   it("measures the two longest visible video clips, weighted by length", () => {
     const d = twoVideos();
     const b = sizeBasisOf(d);

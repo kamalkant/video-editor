@@ -79,7 +79,7 @@ export async function canExportLocally(
     }
   }
 
-  if (format === "webm") {
+  if (format === "webm" || format === "webm-alpha") {
     try {
       const res = await VideoEncoder.isConfigSupported({
         codec: "vp09.00.10.08", // VP9
@@ -88,6 +88,22 @@ export async function canExportLocally(
         bitrate: 8_000_000,
         framerate: 30,
       });
+      return !!res.supported;
+    } catch {
+      return false;
+    }
+  }
+
+  if (format === "mov-alpha" || format === "hevc") {
+    try {
+      const res = await VideoEncoder.isConfigSupported({
+        codec: "hvc1.1.6.L120.90", // HEVC Main Profile
+        width: Math.min(width, 3840),
+        height: Math.min(height, 2160),
+        bitrate: 8_000_000,
+        framerate: 30,
+        ...(format === "mov-alpha" ? { alpha: "keep" } : {}),
+      } as any);
       return !!res.supported;
     } catch {
       return false;
@@ -369,7 +385,9 @@ export async function exportLocally(
   }
 
   // 4. Muxer & Encoder Setup
-  const isWebm = format === "webm";
+  const isWebm = format === "webm" || format === "webm-alpha";
+  const isMovAlpha = format === "mov-alpha";
+  const isHevc = format === "hevc" || isMovAlpha;
   let muxer: Mp4Muxer<any> | WebmMuxer<any>;
   let mp4Target: any;
   let webmTarget: any;
@@ -400,7 +418,7 @@ export async function exportLocally(
     muxer = new Mp4Muxer({
       target: mp4Target,
       video: {
-        codec: "avc",
+        codec: isHevc ? "hevc" : "avc",
         width: W,
         height: H,
       },
@@ -423,7 +441,7 @@ export async function exportLocally(
   });
 
   const bitrate = calculateBitrate(quality, W, H, F);
-  const videoCodec = isWebm ? "vp09.00.10.08" : "avc1.4d002a";
+  const videoCodec = isWebm ? "vp09.00.10.08" : isHevc ? "hvc1.1.6.L120.90" : "avc1.4d002a";
 
   videoEncoder.configure({
     codec: videoCodec,
@@ -432,7 +450,8 @@ export async function exportLocally(
     bitrate,
     framerate: F,
     hardwareAcceleration: "prefer-hardware",
-  });
+    ...(isMovAlpha ? { alpha: "keep" } : {}),
+  } as any);
 
   // Configure AudioEncoder if audio was rendered
   let audioEncoder: AudioEncoder | null = null;
@@ -586,15 +605,15 @@ export async function exportLocally(
 
     muxer.finalize();
     const buffer = isWebm ? (webmTarget as WebmArrayBufferTarget).buffer : (mp4Target as Mp4ArrayBufferTarget).buffer;
-    const finalMime = isWebm ? "video/webm" : "video/mp4";
-    const finalName = isWebm ? "video.webm" : "video.mp4";
+    const finalMime = isWebm ? "video/webm" : isMovAlpha ? "video/quicktime" : "video/mp4";
+    const finalName = isWebm ? "video.webm" : isMovAlpha ? "video.mov" : "video.mp4";
     const finalBlob = new Blob([buffer], { type: finalMime });
     const finalUrl = URL.createObjectURL(finalBlob);
 
     const posterUrl = posterBlob ? URL.createObjectURL(posterBlob) : undefined;
     const files: JobFile[] = [
       {
-        kind: (isWebm ? "vp9" : "mp4") as any,
+        kind: (isWebm ? "vp9" : isMovAlpha ? "mov" : "mp4") as any,
         name: finalName,
         size: finalBlob.size,
         mime: finalMime,

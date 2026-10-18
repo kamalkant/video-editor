@@ -28,8 +28,6 @@ const RATIO: Record<"mp4" | "hevc" | "av1" | "webm" | "webm-alpha" | "mov-alpha"
   "webm-alpha": { small: 0.4, balanced: 0.75, best: 1.3 },
   "mov-alpha": { small: 0.35, balanced: 0.65, best: 1.1 },
 };
-/** ProRes: about this many bits per pixel per frame, whatever the picture. */
-const PRORES_BPP = 3.9;
 const PRORES4444_BPP = 7.6;
 
 export type SizeInput = {
@@ -76,9 +74,6 @@ export function estimateBytes(format: ExportFormat, p: SizeInput): number {
     case "webm":
     case "webm-alpha":
     case "mov-alpha": {
-      if (format === "mov-alpha" && p.safariAlpha === false) {
-        return bytes((px * p.fps * D * PRORES4444_BPP + sound(AUDIO_KBPS.pcm)) * box);
-      }
       const a = format === "webm" ? AUDIO_KBPS.vp9 : format === "webm-alpha" ? AUDIO_KBPS.webm : format === "mov-alpha" ? AUDIO_KBPS.mov : AUDIO_KBPS.mp4;
       return bytes((video(RATIO[format][p.quality]) + sound(a)) * box);
     }

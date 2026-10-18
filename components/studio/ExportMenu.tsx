@@ -59,21 +59,26 @@ export function ExportMenu({
 
   const item = "flex w-full flex-col items-start rounded-md px-3 py-2 text-left text-sm hover:bg-raised focus:bg-raised aria-disabled:cursor-not-allowed aria-disabled:opacity-50";
   return (
-    <div ref={wrap} className="relative ml-1 flex">
-      <button type="button" data-testid="export-button" className="btn btn-primary rounded-r-none px-3.5 max-sm:px-2.5" onClick={onOpen}>
-        <Icon name="export" className="size-4" />
-        <span className="max-sm:sr-only">{label}</span>
+    <div ref={wrap} className="relative ml-1 flex shrink-0">
+      <button
+        type="button"
+        data-testid="export-button"
+        className="btn btn-primary shrink-0 whitespace-nowrap rounded-r-none px-3.5 max-sm:px-2.5"
+        onClick={onOpen}
+      >
+        <Icon name="export" className="size-4 shrink-0" />
+        <span className="whitespace-nowrap max-sm:sr-only">{label}</span>
       </button>
       <button
         ref={toggle}
         type="button"
-        className="btn btn-primary rounded-l-none border-l border-white/40 px-2"
+        className="btn btn-primary shrink-0 rounded-l-none border-l border-white/40 px-2"
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Export options"
         onClick={() => setOpen((o) => !o)}
       >
-        <Icon name="chevronDown" className="size-4" />
+        <Icon name="chevronDown" className="size-4 shrink-0" />
       </button>
       {open && (
         <div role="menu" aria-label="Export options" className="absolute right-0 top-full z-50 mt-1 max-h-[80dvh] w-80 overflow-y-auto rounded-lg border border-control bg-surface p-1 shadow-2xl" onKeyDown={onKey}>

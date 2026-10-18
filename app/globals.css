@@ -272,7 +272,8 @@
     scrollbar-color: transparent transparent;
     transition: scrollbar-color 0.2s ease-in-out;
   }
-  .scrollbar-hover-visible:hover {
+  .scrollbar-hover-visible:hover,
+  .scrollbar-hover-visible.scrollbar-active {
     scrollbar-color: var(--color-scrollbar-hover) transparent;
   }
   .scrollbar-hover-visible::-webkit-scrollbar {
@@ -287,11 +288,13 @@
     border-radius: 9999px;
     transition: background-color 0.2s ease-in-out;
   }
-  .scrollbar-hover-visible:hover::-webkit-scrollbar-thumb {
+  .scrollbar-hover-visible:hover::-webkit-scrollbar-thumb,
+  .scrollbar-hover-visible.scrollbar-active::-webkit-scrollbar-thumb {
     background: var(--color-scrollbar-hover) !important;
   }
   .scrollbar-hover-visible::-webkit-scrollbar-thumb:hover {
-    background: var(--color-scrollbar) !important;
+    background: var(--color-ink) !important;
+    opacity: 0.8;
   }
   @media (prefers-reduced-motion: reduce) {
     *,

@@ -318,7 +318,13 @@ export function TopBar(p: {
           </button>
         )}
         <ExportMenu
-          label={running ? `Exporting${step ? ` ${step.percent}%` : "…"}` : p.job?.state === "done" ? "Export ✓" : "Export"}
+          label={
+            running
+              ? `Exporting${typeof step?.percent === "number" ? `\u00A0${step.percent}%` : "…"}`
+              : p.job?.state === "done"
+                ? "Export ✓"
+                : "Export"
+          }
           onOpen={p.onExport}
           onQuick={p.onQuickExport}
           quickDisabled={p.quickDisabled}

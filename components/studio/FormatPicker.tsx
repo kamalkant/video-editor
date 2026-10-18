@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useServerCaps } from "@/lib/editor/useServerCaps";
 import { EXPORT_FORMATS, type ExportFormat } from "@/lib/export/presets";
 
@@ -44,6 +45,7 @@ export function FormatPicker({
   sizeOf?: (f: ExportFormat) => string | null;
   category?: "video" | "image" | "audio" | "all";
 }) {
+  const [isHovered, setIsHovered] = useState(false);
   const { safariAlpha } = useServerCaps();
   const labelOf = (f: (typeof EXPORT_FORMATS)[number]) =>
     f.id === "pack" && !safariAlpha ? "Website pack (VP9 alpha)" : f.label;
@@ -62,9 +64,14 @@ export function FormatPicker({
   });
 
   return (
-    <fieldset className="flex flex-col gap-1.5" data-testid="export-formats">
-      <legend className="flex items-center gap-1.5 mb-0.5 text-xs font-semibold text-ink">
-        <span>Format</span>
+    <fieldset
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="flex flex-col rounded-xl border border-dialog-card-border bg-dialog-card p-2.5 shadow-xs"
+      data-testid="export-formats"
+    >
+      <legend className="flex items-center gap-1.5 px-0.5 mb-1.5 text-xs font-semibold text-ink">
+        <span>Formats</span>
         <span
           className="inline-flex items-center justify-center size-3.5 rounded-full bg-surface-raised border border-line text-[0.5625rem] text-muted font-normal cursor-help"
           title="Select the target container and video codec"
@@ -73,7 +80,7 @@ export function FormatPicker({
         </span>
       </legend>
       <div
-        className="scrollbar-hover-visible grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[12.5rem] overflow-y-auto py-1 pl-0.5 pr-3.5"
+        className={`scrollbar-hover-visible ${isHovered ? "scrollbar-active" : ""} grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[19.5rem] sm:max-h-[22rem] overflow-y-auto py-0.5 pl-0.5 pr-3.5`}
         role="radiogroup"
         aria-label="Format selection"
       >
@@ -93,7 +100,7 @@ export function FormatPicker({
               className={`relative flex cursor-pointer items-start gap-2.5 rounded-lg border p-2 transition-all ${
                 on
                   ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary"
-                  : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover"
+                  : "border-dialog-border bg-dialog-header/50 hover:border-control hover:bg-dialog-card-hover"
               } ${why ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <input

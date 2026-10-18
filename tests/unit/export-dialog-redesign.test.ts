@@ -115,21 +115,18 @@ describe("Export & Share Redesign Unit Tests", () => {
     const calcProgress = (job: any, starting: boolean, exporting: boolean) => {
       if (job?.state === "done" && !exporting) return 100;
       if (!job || !job.steps || job.steps.length === 0) {
-        return starting || exporting ? 8 : 0;
+        return 0;
       }
-      const renderStep = job.steps.find(
-        (s: any) => s.kind === "mp4" || s.kind === "webm" || s.kind === "export"
-      );
-      if (renderStep && renderStep.state === "running") {
-        const pPct = renderStep.percent ?? 0;
-        return Math.min(94, Math.max(10, Math.round(10 + pPct * 0.82)));
+      const runningStep = job.steps.find((s: any) => s.state === "running");
+      if (runningStep && typeof runningStep.percent === "number") {
+        return Math.min(100, Math.max(0, runningStep.percent));
       }
       const total = job.steps.reduce((acc: number, s: any) => acc + (s.state === "done" ? 100 : (s.percent ?? 0)), 0);
-      return Math.min(99, Math.max(5, Math.round(total / job.steps.length)));
+      return Math.min(100, Math.max(0, Math.round(total / job.steps.length)));
     };
 
-    // Starting state
-    expect(calcProgress(null, true, true)).toBe(8);
+    // Starting state starts at 0%
+    expect(calcProgress(null, true, true)).toBe(0);
 
     // Active local export step with 0% rendered
     const job0 = {
@@ -140,9 +137,20 @@ describe("Export & Share Redesign Unit Tests", () => {
         { kind: "poster", state: "pending", percent: 0 },
       ],
     };
-    expect(calcProgress(job0, false, true)).toBe(10);
+    expect(calcProgress(job0, false, true)).toBe(0);
 
-    // Halfway through frames (50%)
+    // 1% active export matches header 1% exactly
+    const job1 = {
+      state: "running",
+      steps: [
+        { kind: "derive", state: "done", percent: 100 },
+        { kind: "mp4", state: "running", percent: 1 },
+        { kind: "poster", state: "pending", percent: 0 },
+      ],
+    };
+    expect(calcProgress(job1, false, true)).toBe(1);
+
+    // Halfway through frames (50%) matches header 50%
     const job50 = {
       state: "running",
       steps: [
@@ -151,9 +159,9 @@ describe("Export & Share Redesign Unit Tests", () => {
         { kind: "poster", state: "pending", percent: 0 },
       ],
     };
-    expect(calcProgress(job50, false, true)).toBe(51);
+    expect(calcProgress(job50, false, true)).toBe(50);
 
-    // Nearly finished encoding (100%)
+    // Finished encoding (100%)
     const jobNearDone = {
       state: "running",
       steps: [
@@ -162,7 +170,7 @@ describe("Export & Share Redesign Unit Tests", () => {
         { kind: "poster", state: "pending", percent: 0 },
       ],
     };
-    expect(calcProgress(jobNearDone, false, true)).toBe(92);
+    expect(calcProgress(jobNearDone, false, true)).toBe(100);
 
     // Done state
     const jobDone = {

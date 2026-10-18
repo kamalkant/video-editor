@@ -48,18 +48,26 @@ const FALLBACK_THUMB =
     `</svg>`
   );
 
-interface RecommendedPlatform {
+interface QuickPresetOption {
   id: string;
   name: string;
   aspect: string;
   ratio: number;
-  width: number;
-  height: number;
+  width?: number;
+  height?: number;
   sub: string;
-  icon: "youtube" | "shorts" | "instagram" | "tiktok" | "story" | "twitter";
+  icon: "project" | "youtube" | "shorts" | "instagram" | "portrait" | "tiktok" | "story" | "twitter" | "4k" | "720p";
 }
 
-const RECOMMENDED_PLATFORMS: RecommendedPlatform[] = [
+const QUICK_PRESETS: QuickPresetOption[] = [
+  {
+    id: "project",
+    name: "Project size",
+    aspect: "Original",
+    ratio: 16 / 9,
+    sub: "Match original timeline resolution",
+    icon: "project",
+  },
   {
     id: "youtube",
     name: "YouTube",
@@ -67,7 +75,7 @@ const RECOMMENDED_PLATFORMS: RecommendedPlatform[] = [
     ratio: 16 / 9,
     width: 1920,
     height: 1080,
-    sub: "Best quality for YouTube and widescreen playback",
+    sub: "Best quality for YouTube widescreen playback",
     icon: "youtube",
   },
   {
@@ -89,6 +97,16 @@ const RECOMMENDED_PLATFORMS: RecommendedPlatform[] = [
     height: 1080,
     sub: "Square format for Instagram feed",
     icon: "instagram",
+  },
+  {
+    id: "portrait",
+    name: "Instagram Portrait",
+    aspect: "4:5",
+    ratio: 4 / 5,
+    width: 1080,
+    height: 1350,
+    sub: "Vertical feed 4:5 aspect ratio",
+    icon: "portrait",
   },
   {
     id: "tiktok",
@@ -119,6 +137,26 @@ const RECOMMENDED_PLATFORMS: RecommendedPlatform[] = [
     height: 1080,
     sub: "High clarity widescreen social clip",
     icon: "twitter",
+  },
+  {
+    id: "4k",
+    name: "4K Ultra HD",
+    aspect: "16:9",
+    ratio: 16 / 9,
+    width: 3840,
+    height: 2160,
+    sub: "Crisp 3840×2160 Ultra HD export",
+    icon: "4k",
+  },
+  {
+    id: "720p",
+    name: "720p Web HD",
+    aspect: "16:9",
+    ratio: 16 / 9,
+    width: 1280,
+    height: 720,
+    sub: "Compact 1280×720 fast export",
+    icon: "720p",
   },
 ];
 
@@ -155,6 +193,7 @@ export function ExportDialog(p: {
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
+  const [recHovered, setRecHovered] = useState(false);
 
   // Sizing and Aspect ratio lock state
   const pr = p.project;
@@ -205,30 +244,17 @@ export function ExportDialog(p: {
   const getProgress = (): number => {
     if (showDoneDelay || (p.job?.state === "done" && !exporting)) return 100;
     if (!p.job || !p.job.steps || p.job.steps.length === 0) {
-      return p.starting || exporting ? 8 : 0;
+      return 0;
     }
-    // Check if an encoding step is running
-    const renderStep = p.job.steps.find(
-      (s) => s.kind === p.format || s.kind === "mp4" || s.kind === "webm" || s.kind === "export"
-    );
-    if (renderStep && renderStep.state === "running") {
-      const pPct = renderStep.percent ?? 0;
-      return Math.min(94, Math.max(10, Math.round(10 + pPct * 0.82)));
-    }
-    // If derive/prep is running
-    const prepStep = p.job.steps.find((s) => s.kind === "derive" || s.kind === "matte" || s.kind === "crop");
-    if (prepStep && prepStep.state === "running") {
-      return Math.min(10, Math.max(2, Math.round((prepStep.percent ?? 0) * 0.1)));
-    }
-    // Poster or finalizing
-    const posterStep = p.job.steps.find((s) => s.kind === "poster" || s.kind === "zip");
-    if (posterStep && (posterStep.state === "running" || posterStep.state === "done")) {
-      return Math.min(99, Math.max(94, Math.round(94 + (posterStep.percent ?? 0) * 0.05)));
+    // Check if an encoding/running step is active
+    const runningStep = p.job.steps.find((s) => s.state === "running");
+    if (runningStep && typeof runningStep.percent === "number") {
+      return Math.min(100, Math.max(0, runningStep.percent));
     }
     // Fallback: average of all steps
     const total = p.job.steps.reduce((acc, s) => acc + (s.state === "done" ? 100 : (s.percent ?? 0)), 0);
     const avg = Math.round(total / p.job.steps.length);
-    return Math.min(99, Math.max(5, avg));
+    return Math.min(100, Math.max(0, avg));
   };
 
   const close = () => {
@@ -272,9 +298,11 @@ export function ExportDialog(p: {
     setActivePreset("custom");
   };
 
-  const handleQuickPreset = (presetId: string) => {
-    setActivePreset(presetId);
-    if (presetId === "project" && pr) {
+  const handleQuickPreset = (rec: QuickPresetOption) => {
+    p.onFormat("mp4");
+    setTab("video");
+    setActivePreset(rec.id);
+    if (rec.id === "project" && pr) {
       setCustomW(pr.width);
       setCustomH(pr.height);
       const r = pr.width / pr.height;
@@ -285,38 +313,23 @@ export function ExportDialog(p: {
       else setAspectId("custom");
       return;
     }
-    if (presetId === "4k") {
+    if (rec.id === "4k") {
       setCustomW(3840);
       setCustomH(2160);
       setAspectId("16:9");
       return;
     }
-    if (presetId === "720p") {
+    if (rec.id === "720p") {
       setCustomW(1280);
       setCustomH(720);
       setAspectId("16:9");
       return;
     }
-    const vp = VIDEO_PRESETS.find((x) => x.id === presetId);
-    if (vp) {
-      setCustomW(vp.width);
-      setCustomH(vp.height);
-      const r = vp.width / vp.height;
-      if (Math.abs(r - 16 / 9) < 0.05) setAspectId("16:9");
-      else if (Math.abs(r - 9 / 16) < 0.05) setAspectId("9:16");
-      else if (Math.abs(r - 1) < 0.05) setAspectId("1:1");
-      else if (Math.abs(r - 4 / 5) < 0.05) setAspectId("4:5");
-      else setAspectId("custom");
+    if (rec.width && rec.height) {
+      setCustomW(rec.width);
+      setCustomH(rec.height);
+      setAspectId(rec.aspect as AspectPresetId);
     }
-  };
-
-  const handleRecommendedCard = (rec: RecommendedPlatform) => {
-    p.onFormat("mp4");
-    setTab("video");
-    setCustomW(rec.width);
-    setCustomH(rec.height);
-    setAspectId(rec.aspect as AspectPresetId);
-    setActivePreset(rec.id);
   };
 
   const generate = () => {
@@ -459,7 +472,7 @@ export function ExportDialog(p: {
       {/* Main 2-Column Studio Grid */}
       <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.3fr)_17.5rem]">
         {/* Left Column */}
-        <div inert={running} className={`flex flex-col gap-3 ${running ? "opacity-60" : ""}`}>
+        <div inert={running} className={`flex flex-col gap-2.5 ${running ? "opacity-60" : ""}`}>
           {/* Category Tabs Pill Bar with comfortable height inside left column */}
           <div className="flex items-center gap-1 rounded-xl border border-dialog-card-border bg-dialog-card p-1 text-xs font-semibold">
             <button
@@ -616,27 +629,45 @@ export function ExportDialog(p: {
           ) : (
             <>
             {tab === "video" && (
-              /* Recommended for you Section - compact width horizontal list */
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <h3 className="text-xs font-semibold text-ink">Recommended for you</h3>
+              /* Quick presets carousel */
+              <div
+                onMouseEnter={() => setRecHovered(true)}
+                onMouseLeave={() => setRecHovered(false)}
+                className="rounded-xl border border-dialog-card-border bg-dialog-card p-2.5 shadow-xs"
+              >
+                <div className="flex items-center justify-between mb-1.5 px-0.5">
+                  <h3 className="text-xs font-semibold text-ink">Quick presets</h3>
                   <span className="text-[0.5625rem] text-muted">Scroll for more →</span>
                 </div>
-                <div className="scrollbar-hover-visible flex items-stretch gap-2 overflow-x-auto pt-0.5 pb-3.5 px-0.5">
-                  {RECOMMENDED_PLATFORMS.map((rec) => {
+                <div className={`scrollbar-hover-visible ${recHovered ? "scrollbar-active" : ""} flex items-stretch gap-2 overflow-x-auto pt-0.5 pb-2.5 px-0.5`}>
+                  {QUICK_PRESETS.map((rec) => {
                     const isRecActive =
                       activePreset === rec.id &&
-                      Math.abs(customW / customH - rec.ratio) < 0.05 &&
                       p.format === "mp4";
+                    const isProject = rec.id === "project";
+                    const itemW = isProject ? (pr?.width ?? 1920) : (rec.width ?? 1920);
+                    const itemH = isProject ? (pr?.height ?? 1080) : (rec.height ?? 1080);
+                    const displayAspect = isProject
+                      ? (() => {
+                          if (!pr) return "16:9";
+                          const r = pr.width / pr.height;
+                          if (Math.abs(r - 16 / 9) < 0.05) return "16:9";
+                          if (Math.abs(r - 9 / 16) < 0.05) return "9:16";
+                          if (Math.abs(r - 1) < 0.05) return "1:1";
+                          if (Math.abs(r - 4 / 5) < 0.05) return "4:5";
+                          return `${pr.width}×${pr.height}`;
+                        })()
+                      : rec.aspect;
+
                     return (
                       <button
                         key={rec.id}
                         type="button"
-                        onClick={() => handleRecommendedCard(rec)}
+                        onClick={() => handleQuickPreset(rec)}
                         className={`group relative flex w-[6.75rem] sm:w-[7.25rem] shrink-0 flex-col text-left overflow-hidden rounded-xl border p-1.5 transition-all ${
                           isRecActive
                             ? "border-primary bg-primary/10 ring-1 ring-primary shadow-xs"
-                            : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover"
+                            : "border-dialog-border bg-dialog-header/50 hover:border-control hover:bg-dialog-card-hover"
                         }`}
                       >
                         <div className="relative mb-1 h-11 sm:h-12 w-full overflow-hidden rounded-lg bg-black/60 flex items-center justify-center">
@@ -644,25 +675,34 @@ export function ExportDialog(p: {
                             src={thumbSrc}
                             alt={rec.name}
                             className={
-                              rec.aspect === "16:9"
-                                ? "size-full object-cover transition-transform group-hover:scale-105"
-                                : rec.aspect === "9:16"
-                                  ? "h-full w-auto aspect-[9/16] object-cover rounded shadow-xs transition-transform group-hover:scale-105"
-                                  : "h-full w-auto aspect-square object-cover rounded shadow-xs transition-transform group-hover:scale-105"
+                              rec.aspect === "9:16"
+                                ? "h-full w-auto aspect-[9/16] object-cover rounded shadow-xs transition-transform group-hover:scale-105"
+                                : rec.aspect === "1:1"
+                                  ? "h-full w-auto aspect-square object-cover rounded shadow-xs transition-transform group-hover:scale-105"
+                                  : rec.aspect === "4:5"
+                                    ? "h-full w-auto aspect-[4/5] object-cover rounded shadow-xs transition-transform group-hover:scale-105"
+                                    : "size-full object-cover transition-transform group-hover:scale-105"
                             }
                           />
                           <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.25 text-[0.5rem] font-bold text-white tabular-nums shadow">
-                            {rec.aspect}
+                            {displayAspect}
                           </span>
                         </div>
                         <div className="flex items-center gap-1 font-bold text-[0.6875rem] text-ink">
+                          {rec.icon === "project" && (
+                            <svg className="size-3 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                              <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
+                              <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
+                              <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
+                            </svg>
+                          )}
                           {rec.icon === "youtube" && (
                             <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-red-600 text-[0.38rem] font-bold text-white">▶</span>
                           )}
                           {(rec.icon === "shorts" || rec.icon === "tiktok") && (
                             <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-black text-[0.38rem] font-bold text-white">📱</span>
                           )}
-                          {rec.icon === "instagram" && (
+                          {(rec.icon === "instagram" || rec.icon === "portrait") && (
                             <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-[0.38rem] font-bold text-white">📷</span>
                           )}
                           {rec.icon === "story" && (
@@ -671,10 +711,16 @@ export function ExportDialog(p: {
                           {rec.icon === "twitter" && (
                             <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-sky-500 text-[0.38rem] font-bold text-white">𝕏</span>
                           )}
+                          {rec.icon === "4k" && (
+                            <span className="rounded bg-indigo-500/20 px-1 py-0.25 text-[0.45rem] font-bold text-indigo-400">4K</span>
+                          )}
+                          {rec.icon === "720p" && (
+                            <span className="rounded bg-sky-500/20 px-1 py-0.25 text-[0.45rem] font-bold text-sky-400">HD</span>
+                          )}
                           <span className="truncate">{rec.name}</span>
                         </div>
                         <p className="mt-0.5 text-[0.5625rem] text-muted leading-tight truncate">
-                          {rec.width}×{rec.height}
+                          {itemW}×{itemH}
                         </p>
                       </button>
                     );
@@ -695,171 +741,6 @@ export function ExportDialog(p: {
                 return n === null ? null : `${formatBytes(n)}`;
               }}
             />
-
-            {/* Quick Presets Bar */}
-            {tab === "video" && (
-              <div>
-                <h3 className="mb-1.5 text-xs font-semibold text-ink">Quick presets</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickPreset("project")}
-                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
-                      activePreset === "project"
-                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
-                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <svg className="size-3 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
-                        <line x1="12" y1="21" x2="12" y2="12" /><line x1="12" y1="8" x2="12" y2="3" />
-                        <line x1="20" y1="21" x2="20" y2="16" /><line x1="20" y1="12" x2="20" y2="3" />
-                      </svg>
-                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Project size</span>
-                    </div>
-                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
-                      {pr ? `${pr.width}×${pr.height}` : "Original"}
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickPreset("youtube")}
-                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
-                      activePreset === "youtube"
-                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
-                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-red-600 text-[0.4rem] font-bold text-white">
-                        ▶
-                      </span>
-                      <span className="text-[0.6875rem] font-semibold text-ink truncate">YouTube</span>
-                    </div>
-                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
-                      1920×1080
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickPreset("shorts")}
-                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
-                      activePreset === "shorts"
-                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
-                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-black text-[0.4rem] font-bold text-white">
-                        📱
-                      </span>
-                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Shorts / Reels</span>
-                    </div>
-                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
-                      1080×1920
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickPreset("portrait")}
-                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
-                      activePreset === "portrait"
-                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
-                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-gradient-to-tr from-amber-500 to-rose-600 text-[0.4rem] font-bold text-white">
-                        📷
-                      </span>
-                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Instagram</span>
-                    </div>
-                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
-                      1080×1350
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickPreset("square")}
-                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
-                      activePreset === "square"
-                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
-                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="size-2.5 shrink-0 rounded-xs border border-current" />
-                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Square</span>
-                    </div>
-                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
-                      1080×1080
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickPreset("4k")}
-                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
-                      activePreset === "4k"
-                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
-                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="rounded bg-indigo-500/20 px-1 py-0.25 text-[0.45rem] font-bold text-indigo-400">4K</span>
-                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Ultra HD</span>
-                    </div>
-                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
-                      3840×2160
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleQuickPreset("720p")}
-                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
-                      activePreset === "720p"
-                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
-                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="rounded bg-sky-500/20 px-1 py-0.25 text-[0.45rem] font-bold text-sky-400">HD</span>
-                      <span className="text-[0.6875rem] font-semibold text-ink truncate">720p Web</span>
-                    </div>
-                    <div className="text-[0.625rem] text-muted font-mono tabular-nums whitespace-nowrap mt-1">
-                      1280×720
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActivePreset("custom")}
-                    className={`flex flex-col justify-between rounded-lg border p-1.5 text-left transition-all ${
-                      activePreset === "custom"
-                        ? "border-primary bg-primary/10 font-semibold text-primary shadow-xs ring-1 ring-primary"
-                        : "border-dialog-card-border bg-dialog-card hover:border-control hover:bg-dialog-card-hover text-ink"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <svg className="size-3 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M6 2v14a2 2 0 0 0 2 2h14" />
-                        <path d="M18 22V8a2 2 0 0 0-2-2H2" />
-                      </svg>
-                      <span className="text-[0.6875rem] font-semibold text-ink truncate">Custom</span>
-                    </div>
-                    <div className="text-[0.625rem] text-muted tabular-nums whitespace-nowrap mt-1">
-                      Set size
-                    </div>
-                  </button>
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>

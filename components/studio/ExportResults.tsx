@@ -217,20 +217,35 @@ const KIND_TEXT: Record<string, { what: string; note: string }> = {
 /** A finished export of one file: play or look at it, then download. */
 function FileResults({ job, file, onAgain }: { job: Job; file: JobFile; onAgain: () => void }) {
   const poster = job.files.find((x) => x.kind === "poster");
-  const t = KIND_TEXT[file.kind] ?? { what: "file", note: "" };
-  const src = fileUrl(job, file);
-  const media = file.mime.startsWith("image/") ? (
-    // eslint-disable-next-line @next/next/no-img-element -- a finished file, served as is
-    <img data-testid="file-result" src={src} alt={`The exported ${t.what}`} className="bg-checker max-h-80 w-full rounded-lg object-contain" />
-  ) : file.mime.startsWith("audio/") ? (
-    <audio data-testid="file-result" src={src} controls className="w-full" />
-  ) : (
-    <video data-testid="mp4-result" src={src} poster={poster ? fileUrl(job, poster) : undefined} controls playsInline className="max-h-80 w-full rounded-lg bg-black" />
-  );
-  const cap = t.what.charAt(0).toUpperCase() + t.what.slice(1);
   // a GIF is made at most 640 px wide
   const gw = file.kind === "gif" ? Math.min(640, job.output.width) : job.output.width;
   const gh = file.kind === "gif" ? Math.round((job.output.height * gw) / job.output.width / 2) * 2 : job.output.height;
+  const media = file.mime.startsWith("image/") ? (
+    // eslint-disable-next-line @next/next/no-img-element -- a finished file, served as is
+    <div className="flex items-center justify-center rounded-xl bg-dialog-card/60 p-2.5 border border-dialog-card-border">
+      <img
+        data-testid="file-result"
+        src={src}
+        alt={`The exported ${t.what}`}
+        style={{ aspectRatio: `${gw} / ${gh}` }}
+        className="bg-checker max-h-72 max-w-full rounded-lg object-contain shadow-md ring-1 ring-white/10"
+      />
+    </div>
+  ) : file.mime.startsWith("audio/") ? (
+    <audio data-testid="file-result" src={src} controls className="w-full" />
+  ) : (
+    <div className="flex items-center justify-center rounded-xl bg-dialog-card/60 p-2.5 border border-dialog-card-border">
+      <video
+        data-testid="mp4-result"
+        src={src}
+        poster={poster ? fileUrl(job, poster) : undefined}
+        controls
+        playsInline
+        style={{ aspectRatio: `${gw} / ${gh}` }}
+        className="max-h-72 max-w-full rounded-lg bg-black object-contain shadow-md ring-1 ring-white/10"
+      />
+    </div>
+  );
   return (
     <div className="flex flex-col gap-3">
       <Notice tone="success" title={file.mime.startsWith("video/") ? "Your video is ready" : `Your ${t.what} is ready`} />

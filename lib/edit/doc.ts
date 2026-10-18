@@ -439,6 +439,8 @@ export const blankClipSchema = z.object({
   backdrop: backdropSchema.optional(),
   duration: z.number().finite().min(0.1).max(3600),
   ...fades,
+  transform: transformSchema.optional(),
+  opacity: z.number().finite().min(0).max(1).optional(),
   /** A transition into it from the clip before. */
   transitionIn: transitionSchema.optional(),
   generation: clipGenerationSchema.optional(),
@@ -447,7 +449,7 @@ export const blankClipSchema = z.object({
 const placed = { start: secs };
 const mainPlaced = { start: secs.optional() };
 const mainClipSchema = z.discriminatedUnion("type", [videoClipSchema.extend(mainPlaced), imageClipSchema.extend(mainPlaced), blankClipSchema.extend(mainPlaced)]);
-const overlayClipSchema = z.discriminatedUnion("type", [videoClipSchema.extend(placed), imageClipSchema.extend(placed), textClipSchema.extend(placed), elementClipSchema.extend(placed)]);
+const overlayClipSchema = z.discriminatedUnion("type", [videoClipSchema.extend(placed), imageClipSchema.extend(placed), textClipSchema.extend(placed), elementClipSchema.extend(placed), blankClipSchema.extend(placed)]);
 const audioPlacedSchema = audioClipSchema.extend(placed);
 
 export const trackSchema = z.discriminatedUnion("kind", [

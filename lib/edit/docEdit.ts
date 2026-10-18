@@ -351,7 +351,6 @@ export function moveClip(doc: TimelineDoc, clipId: string, to: { trackId: string
     const kind = to.trackId === "new-overlay" ? "overlay" : "audio";
     if (kind === "audio" && c.type !== "audio") return doc;
     if (kind === "overlay" && c.type === "audio") return doc;
-    if (c.type === "blank") return doc;
     const start = Math.max(0, snap(to.start ?? 0, doc.canvas.fps));
     const { transitionIn: _t, ...cleanClip } = c as MainClip & { transitionIn?: unknown };
     void _t;
@@ -384,8 +383,6 @@ export function moveClip(doc: TimelineDoc, clipId: string, to: { trackId: string
     return d;
   }
   if ((target.kind === "audio") !== (c.type === "audio")) return doc;
-  // (a blank scene lives on Video 1 only)
-  if (c.type === "blank") return doc;
   const start = Math.max(0, snap(to.start ?? 0, doc.canvas.fps));
   const { transitionIn: _t, ...cleanClip } = c as MainClip & { transitionIn?: unknown };
   void _t;

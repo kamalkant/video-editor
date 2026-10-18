@@ -2104,7 +2104,7 @@ export function ProgramPlayer(p: {
   return (
     <figure className={`m-0 flex min-w-0 flex-col ${p.fit ? "h-full min-h-0" : ""}`} aria-labelledby="program-caption">
       <div className="flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line px-2 text-xs">
-        <div className="flex items-center gap-1.5 min-w-0 overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1.5 shrink-0">
           {p.toolbar}
           {modeBar}
           <span role="group" aria-label="Preview zoom" className="flex items-center gap-0.5 rounded-md border border-line px-0.5 shrink-0">

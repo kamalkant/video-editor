@@ -43,10 +43,22 @@ describe("blank scenes on Video 1", () => {
     // (6 s video, then the blank starts 1 s earlier: they overlap for the transition)
     expect(mainStarts(mainTrack(back).clips)[1]).toBeCloseTo(5, 6);
   });
-  it("stays on Video 1: it can't move to an overlay track, but it can move along Video 1", () => {
+  it("can move to an overlay track, create a new overlay track, and move along Video 1", () => {
     const d = addBlank(twoVideos(), 1, { id: "b1" }).doc;
     const overlay = d.tracks.find((t) => t.kind === "overlay")!;
-    expect(moveClip(d, "b1", { trackId: overlay.id, start: 0 })).toBe(d);
+    const moved = moveClip(d, "b1", { trackId: overlay.id, start: 2 });
+    expect(findClip(moved, "b1")?.track.kind).toBe("overlay");
+    expect((findClip(moved, "b1")?.clip as any).start).toBe(2);
+
+    const newOver = moveClip(d, "b1", { trackId: "new-overlay", start: 3 });
+    expect(findClip(newOver, "b1")?.track.kind).toBe("overlay");
+    expect((findClip(newOver, "b1")?.clip as any).start).toBe(3);
+
+    // Can move from overlay track back to main track
+    const backToMain = moveClip(moved, "b1", { trackId: mainTrack(d).id, index: 1 });
+    expect(findClip(backToMain, "b1")?.track.kind).toBe("main");
+    expect(ids(backToMain)).toEqual(["v1", "b1", "v2"]);
+
     expect(ids(moveClip(d, "b1", { trackId: mainTrack(d).id, index: 0 }))).toEqual(["b1", "v1", "v2"]);
   });
   it("split, trim, duplicate and paste keep its color", () => {

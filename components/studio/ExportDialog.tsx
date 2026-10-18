@@ -457,10 +457,14 @@ export function ExportDialog(p: {
     : null;
 
   const activeClip = p.doc?.tracks
-    .flatMap((t) => t.clips)
-    .find((c) => c.type === "video" && (c as VideoClip).mediaId === activeMediaId) as VideoClip | undefined;
-  const chromaOp = activeClip?.ops.find((o) => o.enabled && o.type === "chromaKey");
-  const blackOp = activeClip?.ops.find((o) => o.enabled && o.type === "blackKey");
+    ?.flatMap((t) => t.clips as any[])
+    .find((c: any) => c.type === "video" && c.mediaId === activeMediaId) as VideoClip | undefined;
+  const chromaOp = activeClip?.ops.find(
+    (o): o is Extract<NonNullable<typeof activeClip>["ops"][number], { type: "chromaKey" }> => o.enabled && o.type === "chromaKey",
+  );
+  const blackOp = activeClip?.ops.find(
+    (o): o is Extract<NonNullable<typeof activeClip>["ops"][number], { type: "blackKey" }> => o.enabled && o.type === "blackKey",
+  );
   const liveKeyParams: LiveKeyParams | null = chromaOp
     ? {
         method: "chroma",

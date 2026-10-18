@@ -372,7 +372,7 @@ export function ExportDialog(p: {
         : `Make ${f.short}`;
 
   return (
-    <Dialog open={p.open} onClose={close} size="xl" title={
+    <Dialog open={p.open} onClose={close} size="4xl" title={
       <div className="flex items-center gap-2.5">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-xs">
           <svg className="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -387,161 +387,165 @@ export function ExportDialog(p: {
         </div>
       </div>
     }>
-      {/* Category Tabs Pill Bar */}
-      <div className="mb-3 flex items-center gap-1 rounded-xl border border-dialog-card-border bg-dialog-card p-1 text-xs font-medium">
-        <button
-          type="button"
-          onClick={() => {
-            setTab("video");
-            if (isAudioFormat(p.format) || isStillFormat(p.format)) p.onFormat("mp4");
-          }}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1 transition-all ${
-            tab === "video"
-              ? "bg-primary font-semibold text-white shadow-xs"
-              : "text-muted hover:text-ink hover:bg-dialog-card-hover"
-          }`}
-        >
-          <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
-          <span>Video</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setTab("image");
-            if (!isStillFormat(p.format) && p.format !== "gif") p.onFormat("gif");
-          }}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1 transition-all ${
-            tab === "image"
-              ? "bg-primary font-semibold text-white shadow-xs"
-              : "text-muted hover:text-ink hover:bg-dialog-card-hover"
-          }`}
-        >
-          <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          <span>Image / GIF</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setTab("audio");
-            if (!isAudioFormat(p.format)) p.onFormat("mp3");
-          }}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1 transition-all ${
-            tab === "audio"
-              ? "bg-primary font-semibold text-white shadow-xs"
-              : "text-muted hover:text-ink hover:bg-dialog-card-hover"
-          }`}
-        >
-          <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M9 18V5l12-2v13" />
-            <circle cx="6" cy="18" r="3" />
-            <circle cx="18" cy="16" r="3" />
-          </svg>
-          <span>Audio</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("share")}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1 transition-all ${
-            tab === "share"
-              ? "bg-primary font-semibold text-white shadow-xs"
-              : "text-muted hover:text-ink hover:bg-dialog-card-hover"
-          }`}
-        >
-          <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="18" cy="5" r="3" />
-            <circle cx="6" cy="12" r="3" />
-            <circle cx="18" cy="19" r="3" />
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-          </svg>
-          <span>Share</span>
-        </button>
-      </div>
+      {/* Main 2-Column Studio Grid */}
+      <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1.3fr)_17.5rem]">
+        {/* Left Column */}
+        <div inert={running} className={`flex flex-col gap-3 ${running ? "opacity-60" : ""}`}>
+          {/* Category Tabs Pill Bar with comfortable height inside left column */}
+          <div className="flex items-center gap-1 rounded-xl border border-dialog-card-border bg-dialog-card p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                setTab("video");
+                if (isAudioFormat(p.format) || isStillFormat(p.format)) p.onFormat("mp4");
+              }}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs transition-all ${
+                tab === "video"
+                  ? "bg-primary font-bold text-white shadow-xs"
+                  : "text-muted hover:text-ink hover:bg-dialog-card-hover"
+              }`}
+            >
+              <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              <span>Video</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("image");
+                if (!isStillFormat(p.format) && p.format !== "gif") p.onFormat("gif");
+              }}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs transition-all ${
+                tab === "image"
+                  ? "bg-primary font-bold text-white shadow-xs"
+                  : "text-muted hover:text-ink hover:bg-dialog-card-hover"
+              }`}
+            >
+              <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              <span>Image / GIF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("audio");
+                if (!isAudioFormat(p.format)) p.onFormat("mp3");
+              }}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs transition-all ${
+                tab === "audio"
+                  ? "bg-primary font-bold text-white shadow-xs"
+                  : "text-muted hover:text-ink hover:bg-dialog-card-hover"
+              }`}
+            >
+              <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 18V5l12-2v13" />
+                <circle cx="6" cy="18" r="3" />
+                <circle cx="18" cy="16" r="3" />
+              </svg>
+              <span>Audio</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("share")}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-2 px-2 text-xs transition-all ${
+                tab === "share"
+                  ? "bg-primary font-bold text-white shadow-xs"
+                  : "text-muted hover:text-ink hover:bg-dialog-card-hover"
+              }`}
+            >
+              <svg className="size-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              <span>Share</span>
+            </button>
+          </div>
 
-      {tab === "share" ? (
-        /* Dedicated Share Tab */
-        <div className="flex flex-col gap-6 py-2">
-          <div className="rounded-xl border border-line bg-surface-raised/40 p-5">
-            <h3 className="text-base font-semibold text-ink">Share Your Project</h3>
-            <p className="mt-1 text-xs text-muted">
-              Share your timeline project link or export directly to popular video platforms.
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={typeof window !== "undefined" ? window.location.href : ""}
-                className="flex-1 rounded-lg border border-control bg-canvas px-3 py-2 text-xs font-mono text-ink select-all"
-              />
-              <button type="button" onClick={handleCopyLink} className="btn btn-secondary text-xs shrink-0">
-                {copiedLink ? "✓ Copied" : "Copy Link"}
-              </button>
-              <button type="button" onClick={handleWebShare} className="btn btn-primary text-xs shrink-0">
-                Share Sheet
-              </button>
+          {tab === "share" ? (
+            /* Dedicated Share Tab inside Left Column */
+            <div className="flex flex-col gap-3 py-1">
+              <div className="rounded-xl border border-dialog-card-border bg-dialog-card p-3">
+                <h3 className="text-xs font-semibold text-ink">Project Link</h3>
+                <p className="mt-0.5 text-[0.625rem] text-muted">
+                  Share this project link directly with collaborators or clients.
+                </p>
+                <div className="mt-2.5 flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={typeof window !== "undefined" ? window.location.href : ""}
+                    className="flex-1 rounded-lg border border-dialog-card-border bg-canvas px-2.5 py-1.5 text-xs font-mono text-ink select-all"
+                  />
+                  <button type="button" onClick={handleCopyLink} className="btn btn-secondary text-xs shrink-0 py-1.5 px-2.5">
+                    {copiedLink ? "✓ Copied" : "Copy"}
+                  </button>
+                  <button type="button" onClick={handleWebShare} className="btn btn-primary text-xs shrink-0 py-1.5 px-2.5">
+                    Share
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <a
+                  href="https://studio.youtube.com"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dialog-card-border bg-dialog-card p-3 hover:border-red-500 hover:bg-red-50/10 transition-all text-center"
+                >
+                  <div className="flex size-9 items-center justify-center rounded-full bg-red-600 text-white font-bold text-xs">
+                    YT
+                  </div>
+                  <span className="text-xs font-semibold text-ink">YouTube Studio</span>
+                  <span className="text-[0.625rem] text-muted">Upload 16:9 or Shorts</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dialog-card-border bg-dialog-card p-3 hover:border-pink-500 hover:bg-pink-50/10 transition-all text-center"
+                >
+                  <div className="flex size-9 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white font-bold text-xs">
+                    IG
+                  </div>
+                  <span className="text-xs font-semibold text-ink">Instagram</span>
+                  <span className="text-[0.625rem] text-muted">Reels or Feed Post</span>
+                </button>
+                <a
+                  href={`https://api.whatsapp.com/send?text=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dialog-card-border bg-dialog-card p-3 hover:border-emerald-500 hover:bg-emerald-50/10 transition-all text-center"
+                >
+                  <div className="flex size-9 items-center justify-center rounded-full bg-emerald-600 text-white font-bold text-xs">
+                    WA
+                  </div>
+                  <span className="text-xs font-semibold text-ink">WhatsApp</span>
+                  <span className="text-[0.625rem] text-muted">Share project link</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    p.onFormat("mp4");
+                    setTab("video");
+                  }}
+                  className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-dialog-card-border bg-dialog-card p-3 hover:border-primary hover:bg-primary/10 transition-all text-center"
+                >
+                  <div className="flex size-9 items-center justify-center rounded-full bg-primary text-white font-bold text-xs">
+                    MP4
+                  </div>
+                  <span className="text-xs font-semibold text-ink">Quick Export</span>
+                  <span className="text-[0.625rem] text-muted">Download local MP4</span>
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <a
-              href="https://studio.youtube.com"
-              target="_blank"
-              rel="noreferrer"
-              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface p-4 hover:border-red-500 hover:bg-red-50/20 transition-all text-center"
-            >
-              <div className="flex size-10 items-center justify-center rounded-full bg-red-600 text-white font-bold text-xs">
-                YT
-              </div>
-              <span className="text-xs font-semibold text-ink">YouTube Studio</span>
-              <span className="text-[0.6875rem] text-muted">Upload 16:9 or Shorts</span>
-            </a>
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface p-4 hover:border-pink-500 hover:bg-pink-50/20 transition-all text-center"
-            >
-              <div className="flex size-10 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white font-bold text-xs">
-                IG
-              </div>
-              <span className="text-xs font-semibold text-ink">Instagram</span>
-              <span className="text-[0.6875rem] text-muted">Reels or Feed Post</span>
-            </button>
-            <a
-              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface p-4 hover:border-emerald-500 hover:bg-emerald-50/20 transition-all text-center"
-            >
-              <div className="flex size-10 items-center justify-center rounded-full bg-emerald-500 text-white font-bold text-xs">
-                WA
-              </div>
-              <span className="text-xs font-semibold text-ink">WhatsApp</span>
-              <span className="text-[0.6875rem] text-muted">Share project link</span>
-            </a>
-            <button
-              type="button"
-              onClick={generate}
-              className="flex flex-col items-center justify-center gap-2 rounded-xl border border-line bg-surface p-4 hover:border-primary hover:bg-primary-soft transition-all text-center"
-            >
-              <div className="flex size-10 items-center justify-center rounded-full bg-primary text-white font-bold text-xs">
-                MP4
-              </div>
-              <span className="text-xs font-semibold text-ink">Quick Export</span>
-              <span className="text-[0.6875rem] text-muted">Download local MP4</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        /* Main 2-Column Studio Grid */
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.3fr)_19rem]">
-          {/* Left Column */}
-          <div inert={running} className={`flex flex-col gap-3 ${running ? "opacity-60" : ""}`}>
+          ) : (
+            <>
             {tab === "video" && (
               /* Recommended for you Section - compact width horizontal list */
               <div>
@@ -741,9 +745,11 @@ export function ExportDialog(p: {
                 </div>
               </div>
             )}
-          </div>
+          </>
+        )}
+      </div>
 
-          {/* Right Column / Output Sidebar */}
+      {/* Right Column / Output Sidebar */}
           <div className="flex flex-col gap-2.5 lg:sticky lg:top-0 lg:self-start">
             {/* Video Preview Box */}
             <div
@@ -1027,7 +1033,6 @@ export function ExportDialog(p: {
             </div>
           </div>
         </div>
-      )}
     </Dialog>
   );
 }

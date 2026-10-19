@@ -10261,7 +10261,11 @@ function StudioInner(props: Props) {
               </aside>
             )}
           </div>
-          <TimelineResizer height={timelineH} onChange={setTimelineH} />
+          <TimelineResizer
+            height={timelineH}
+            onChange={setTimelineH}
+            rightOffset={focus ? 0 : (aiOpen ? aiW : rightW) + 8}
+          />
           <div className="shrink-0" style={{ height: timelineH }}>
             {timeline}
           </div>

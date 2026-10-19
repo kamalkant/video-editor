@@ -29,9 +29,11 @@ export function useTimelineHeight(
 export function TimelineResizer({
   height,
   onChange,
+  rightOffset,
 }: {
   height: number;
   onChange: (h: number) => void;
+  rightOffset?: number;
 }) {
   const start = useRef<{ y: number; h: number } | null>(null);
   return (
@@ -47,6 +49,7 @@ export function TimelineResizer({
       title="Drag to make the timeline taller or shorter"
       data-testid="timeline-resizer"
       className="group relative z-10 -my-2 flex h-2 shrink-0 cursor-row-resize items-center justify-center rounded focus-visible:outline-2"
+      style={rightOffset ? { paddingRight: rightOffset } : undefined}
       onPointerDown={(e) => {
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         start.current = { y: e.clientY, h: height };

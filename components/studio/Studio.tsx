@@ -10214,56 +10214,62 @@ function StudioInner(props: Props) {
             }
           }}
         >
-          {previewArea}
-          <TimelineResizer height={timelineH} onChange={setTimelineH} />
+          <div className="relative flex min-h-0 flex-1 gap-2">
+            {previewArea}
+            {focus ? null : aiOpen ? (
+              <PanelSplitter
+                label="AI Tools width"
+                side="right"
+                value={aiW}
+                onChange={setAiW}
+                min={320}
+                max={1100}
+                reset={defaultAiW()}
+              />
+            ) : (
+              <PanelSplitter
+                label="Inspector width"
+                side="right"
+                value={rightW}
+                onChange={setRightW}
+                min={260}
+                max={560}
+                reset={xwide ? 336 : 304}
+              />
+            )}
+            {focus ? null : aiOpen ? (
+              <aside
+                aria-label="AI Tools panel"
+                className="relative flex h-full min-h-0 shrink-0 flex-col"
+                style={{ width: aiW }}
+              >
+                {aiPanel}
+              </aside>
+            ) : (
+              <aside
+                aria-label="Inspector"
+                className="relative flex h-full min-h-0 shrink-0 flex-col gap-2"
+                style={{ width: rightW }}
+              >
+                {/* (export lives in the top bar: Export ▾ and its dialog) */}
+                <div
+                  data-testid="inspector-scroll"
+                  className="relative flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
+                >
+                  {inspector}
+                </div>
+              </aside>
+            )}
+          </div>
+          <TimelineResizer
+            height={timelineH}
+            onChange={setTimelineH}
+            rightOffset={focus ? 0 : (aiOpen ? aiW : rightW) + 8}
+          />
           <div className="shrink-0" style={{ height: timelineH }}>
             {timeline}
           </div>
         </main>
-        {focus ? null : aiOpen ? (
-          <PanelSplitter
-            label="AI Tools width"
-            side="right"
-            value={aiW}
-            onChange={setAiW}
-            min={320}
-            max={1100}
-            reset={defaultAiW()}
-          />
-        ) : (
-          <PanelSplitter
-            label="Inspector width"
-            side="right"
-            value={rightW}
-            onChange={setRightW}
-            min={260}
-            max={560}
-            reset={xwide ? 336 : 304}
-          />
-        )}
-        {focus ? null : aiOpen ? (
-          <aside
-            aria-label="AI Tools panel"
-            className="relative flex shrink-0 flex-col"
-            style={{ width: aiW }}
-          >
-            {aiPanel}
-          </aside>
-        ) : (
-          <aside
-            aria-label="Inspector"
-            className="relative flex shrink-0 flex-col gap-2"
-            style={{ width: rightW }}
-          >
-            {/* (export lives in the top bar: Export ▾ and its dialog) */}
-            <div
-              data-testid="inspector-scroll"
-              className="relative flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
-            >
-              {inspector}
-            </div>
-          </aside>
-        )}
       </div>
       {dialogs}
     </div>

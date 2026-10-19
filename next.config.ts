@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    cpus: Number(process.env.BUILD_CPUS || 2),
+    webpackBuildWorker: false, 
+  },
 };
 
 export default nextConfig;

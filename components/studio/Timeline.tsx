@@ -31,7 +31,7 @@ import {
 import type { Clock } from "@/lib/editor/clock";
 import type { Range } from "@/lib/edit/timeline";
 import { formatTenths, formatTime } from "@/lib/format";
-import { dropLanding, MIN_TRIM_SECONDS, type KeyframeOp } from "@/lib/edit/docEdit";
+import { drawnLanding, dropLanding, dropTrackFor, MIN_TRIM_SECONDS, type KeyframeOp } from "@/lib/edit/docEdit";
 import { keyIndexAt, keysOf, type MotionClip } from "@/lib/edit/keyframes";
 import {
   MEDIA_DRAG,
@@ -50,7 +50,7 @@ import { elementName, elementPreset } from "@/lib/elements/catalog";
 import { filmOpsParam, filmTiles } from "@/lib/editor/film";
 import { getEditingTools } from "@/lib/editor/editingTools";
 import { useTheme } from "@/lib/editor/theme";
-import { localFilm, localItem, localSrc, localThumb, notOnServer, subscribeLocal, localVersion } from "@/lib/media/localMedia";
+import { localFilm, localItem, localSrc, localThumb, notOnServer, soundPeaks, subscribeLocal, localVersion, waveUnavailable, type SoundPeaks } from "@/lib/media/localMedia";
 
 export { MEDIA_DRAG, MEME_DRAG, ELEMENT_DRAG, TEXT_DRAG } from "@/lib/editor/mediaDrag";
 
@@ -276,6 +276,10 @@ export type TimelineProps = {
   onSilences: (clipId: string) => void;
   /** Crop the selected picture clip on the preview. */
   onCrop?: (clipId: string) => void;
+  /** The color picker (remove a background color, like CapCut's): on the selected video clip; again: cancel */
+  onPickKey?: (clipId: string) => void;
+  /** the color picker is on (the tool shows pressed) */
+  pickingKey?: boolean;
   /** Change clip properties (speed, reverse). */
   onPatchClip?: (clipId: string, patch: Record<string, unknown>) => void;
   /** Hold the frame at timeline time t of a Video 1 clip (a picture is put in). */
@@ -384,6 +388,7 @@ type Drag =
       moved: boolean;
       main: boolean;
       /** Video 1: where it goes on release */ index?: number;
+      /** an overlay or audio track: where it goes on release (the shadow shows it) */ to?: { trackId: string; start: number };
     }
   /** a keyframe diamond: drag to move its time, click to go there */
   | {
@@ -583,7 +588,7 @@ export function Timeline(p: TimelineProps) {
   } | null>(null);
   const [landing, setLanding] = useState<Landing | null>(null);
   const landingKey = useRef<string | null>(null);
-  const [ghost, setGhost] = useState<{ id: string; dx: number } | null>(null);
+  const [ghost, setGhost] = useState<{ id: string; dx: number; dy?: number } | null>(null);
   // Track Layer Reordering Drag State
   const [trackDrag, setTrackDrag] = useState<{
     sourceId: string;
@@ -968,6 +973,23 @@ export function Timeline(p: TimelineProps) {
     return null;
   };
 
+  /** The lane at this height, else the nearest one (above the lanes: the top one; the empty area below: the bottom one). */
+  const laneNear = (clientY: number): Track | null => {
+    let best: string | undefined;
+    let dist = Infinity;
+    for (const el of lanesWrap.current?.querySelectorAll<HTMLElement>(
+      "[data-lane]",
+    ) ?? []) {
+      const r = el.getBoundingClientRect();
+      const d = clientY < r.top ? r.top - clientY : clientY >= r.bottom ? clientY - r.bottom : 0;
+      if (d < dist) {
+        dist = d;
+        best = el.dataset.lane;
+      }
+    }
+    return doc.tracks.find((tr) => tr.id === best) ?? null;
+  };
+
   const isAboveTopOverlay = (clientY: number): boolean => {
     const firstLane =
       lanesWrap.current?.querySelector<HTMLElement>("[data-lane]");
@@ -1309,6 +1331,7 @@ export function Timeline(p: TimelineProps) {
       f.clip.type !== "element"
     ) {
       setGhost({ id: d.id, dx: clientX - d.x0 });
+      d.to = undefined;
       const main = doc.tracks.find((tr) => tr.kind === "main")!;
       const index = mainIndexAt(
         Math.max(0, d.start0 + (clientX - d.x0) / d.pxPerSec),
@@ -1335,27 +1358,45 @@ export function Timeline(p: TimelineProps) {
       return;
     }
     let start = Math.max(0, d.start0 + (clientX - d.x0) / d.pxPerSec);
+    // its start or its end, whichever is nearer an edge (another clip's start or end, a marker, the playhead)
     const cands = edges(d.id);
-    const s1 = snapTo(start, cands, altKey);
-    if (s1 !== start) start = s1;
-    else {
-      const e1 = snapTo(start + len, cands, altKey);
-      if (e1 !== start + len) start = e1 - len;
-    }
+    const nearest = (v: number) => cands.reduce<number | null>((b, c) => (b === null || Math.abs(c - v) < Math.abs(b - v) ? c : b), null);
+    const ns = nearest(start);
+    const ne = nearest(start + len);
+    const useEnd = ne !== null && (ns === null || Math.abs(ne - start - len) < Math.abs(ns - start));
+    if (useEnd) start = Math.max(0, snapTo(start + len, [ne!], altKey) - len);
+    else if (ns !== null) start = snapTo(start, [ns], altKey);
     const kind = f.clip.type === "audio" ? "audio" : "overlay";
+    // above the top overlay / below the lowest audio track: a new track there;
+    // over a lane of another kind: the nearest lane of its own kind (then the nearest free one: moveClip)
     const toTrack =
-      lane && lane.kind === kind
-        ? lane.id
-        : f.track.kind === kind
-          ? f.track.id
-          : (doc.tracks.find((tr) => tr.kind === kind)?.id ?? f.track.id);
-    setGhost(null);
-    clearLanding();
+      isAboveTop && kind === "overlay"
+        ? "new-overlay"
+        : isBelowAudio && kind === "audio"
+          ? "new-audio"
+          : lane && lane.kind === kind
+            ? lane.id
+            : ((lane && dropTrackFor(doc, lane.id, kind === "audio" ? "audio" : "drawn")) ??
+              (f.track.kind === kind
+                ? f.track.id
+                : (doc.tracks.find((tr) => tr.kind === kind)?.id ?? f.track.id)));
+    // the clip follows the pointer and a shadow shows where it lands (on release: one move, nothing jumps meanwhile)
+    setGhost({ id: d.id, dx: clientX - d.x0, dy: clientY - d.y0 });
     d.index = undefined;
-    p.onMove(d.id, { trackId: toTrack, start }, d.group);
-    d.main = false;
-    d.start0 = start;
-    d.x0 = clientX;
+    d.to = { trackId: toTrack, start };
+    showLanding(`clip:${d.id}:${toTrack}:${Math.round(start * fps)}`, () => {
+      const l = dropLanding(doc, { clipId: d.id }, { trackId: toTrack, at: start });
+      return (
+        l && {
+          doc: l.doc,
+          trackId: l.trackId,
+          start: l.start,
+          length: l.length,
+          hover: lane?.id ?? f.track.id,
+          name: "",
+        }
+      );
+    });
   };
 
   const processKey = (clientX: number, altKey: boolean) => {
@@ -1473,26 +1514,8 @@ export function Timeline(p: TimelineProps) {
         const lane = laneAt(e.clientY);
         if (!lane || lane.kind === "main")
           p.onMove(d.id, { trackId: main.id, index: d.index }, d.group);
-      } else {
-        const f = findClip(doc, d.id);
-        if (f) {
-          const isAboveTop = isAboveTopOverlay(e.clientY);
-          const isBelowAudio = isBelowLowestAudio(e.clientY);
-          const kind = f.clip.type === "audio" ? "audio" : "overlay";
-          if (isAboveTop && kind === "overlay") {
-            p.onMove(
-              d.id,
-              { trackId: "new-overlay", start: startOf(f.track, f.index) },
-              d.group,
-            );
-          } else if (isBelowAudio && kind === "audio") {
-            p.onMove(
-              d.id,
-              { trackId: "new-audio", start: startOf(f.track, f.index) },
-              d.group,
-            );
-          }
-        }
+      } else if (d.to) {
+        p.onMove(d.id, d.to, d.group);
       }
     }
     setGhost(null);
@@ -1696,12 +1719,17 @@ export function Timeline(p: TimelineProps) {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
     setOver(trackId ?? "any");
-    const tr = trackId
-      ? doc.tracks.find((q) => q.id === trackId)
-      : (doc.tracks.find((q) => q.kind === "overlay") ?? doc.tracks.find((q) => q.kind === "main") ?? doc.tracks[0]);
-    if (!tr || !lanesRef.current) return;
+    // the lane under the pointer (between or past the lanes: the nearest one) …
+    const hovered =
+      (trackId ? doc.tracks.find((q) => q.id === trackId) : undefined) ??
+      laneNear(e.clientY);
+    if (!hovered || !lanesRef.current) return;
+    // … then the nearest lane that kind of clip goes on (sound: audio; text: an overlay; video over sound: Video 1)
+    const laneFor = (what: Parameters<typeof dropTrackFor>[2]) =>
+      doc.tracks.find((q) => q.id === dropTrackFor(doc, hovered.id, what)) ?? hovered;
 
     if (m && hasMedia) {
+      const tr = laneFor(m.kind === "audio" ? "audio" : m.kind === "image" ? "image" : "video");
       const tl = timeAt(e.clientX);
       const onMain = tr.kind === "main" && m.kind !== "audio";
       const index = onMain ? mainIndexAt(tl) : undefined;
@@ -1722,7 +1750,7 @@ export function Timeline(p: TimelineProps) {
               trackId: l.trackId,
               start: l.start,
               length: l.length,
-              hover: tr.id,
+              hover: hovered.id,
               name: m.fileName,
               drop: { trackId: tr.id, at, index },
             }
@@ -1730,6 +1758,7 @@ export function Timeline(p: TimelineProps) {
         },
       );
     } else if (meme && (hasMeme || memeDrag())) {
+      const tr = laneFor("video");
       const tl = timeAt(e.clientX);
       const onMain = tr.kind === "main";
       const index = onMain ? mainIndexAt(tl) : undefined;
@@ -1762,7 +1791,7 @@ export function Timeline(p: TimelineProps) {
               trackId: l.trackId,
               start: l.start,
               length: l.length,
-              hover: tr.id,
+              hover: hovered.id,
               name: meme.title,
               drop: { trackId: tr.id, at, index },
             }
@@ -1775,14 +1804,12 @@ export function Timeline(p: TimelineProps) {
       const label =
         el?.label ||
         (el?.presetId ? (elementPreset(el.presetId)?.label ?? elementName(el.presetId)) : (el?.emoji ? `Emoji ${el.emoji}` : "Element"));
+      const tr = laneFor("drawn");
       showLanding(
         `el:${tr.id}:${Math.round(at * fps)}`,
         () => ({
-          doc,
-          trackId: tr.id,
-          start: at,
-          length: 3,
-          hover: tr.id,
+          ...drawnLanding(doc, tr.id, at, 3),
+          hover: hovered.id,
           name: label,
           drop: { trackId: tr.id, at },
         }),
@@ -1791,14 +1818,12 @@ export function Timeline(p: TimelineProps) {
       const tl = timeAt(e.clientX);
       const at = snapTo(tl, edges(), e.altKey);
       const label = txt?.label || (txt?.styleId ? `Text (${txt.styleId})` : "Text");
+      const tr = laneFor("drawn");
       showLanding(
         `txt:${tr.id}:${Math.round(at * fps)}`,
         () => ({
-          doc,
-          trackId: tr.id,
-          start: at,
-          length: 3,
-          hover: tr.id,
+          ...drawnLanding(doc, tr.id, at, 3),
+          hover: hovered.id,
           name: label,
           drop: { trackId: tr.id, at },
         }),
@@ -1827,9 +1852,7 @@ export function Timeline(p: TimelineProps) {
     const mediaDragId = e.dataTransfer.getData(MEDIA_DRAG) || mediaDrag()?.id;
     const tl = lanesRef.current ? timeAt(e.clientX) : 0;
     const resolvedTrackId =
-      trackId ??
-      l?.drop?.trackId ??
-      (doc.tracks.find((q) => q.kind === "overlay")?.id ?? doc.tracks.find((q) => q.kind === "main")?.id ?? null);
+      trackId ?? l?.drop?.trackId ?? laneNear(e.clientY)?.id ?? null;
     const tr = resolvedTrackId
       ? doc.tracks.find((q) => q.id === resolvedTrackId)
       : null;
@@ -1867,13 +1890,13 @@ export function Timeline(p: TimelineProps) {
         const item = elRaw ? JSON.parse(elRaw) : activeEl;
         if (item && p.onDropElement) {
           const at = l?.drop?.at ?? tl;
-          p.onDropElement(item, resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
+          p.onDropElement(item, l?.drop?.trackId ?? resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
           return;
         }
       } catch {
         if (activeEl && p.onDropElement) {
           const at = l?.drop?.at ?? tl;
-          p.onDropElement(activeEl, resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
+          p.onDropElement(activeEl, l?.drop?.trackId ?? resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
           return;
         }
       }
@@ -1881,7 +1904,7 @@ export function Timeline(p: TimelineProps) {
 
     if (textStyleId && p.onDropText) {
       const at = l?.drop?.at ?? tl;
-      p.onDropText(textStyleId, resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
+      p.onDropText(textStyleId, l?.drop?.trackId ?? resolvedTrackId, at, tr?.kind === "main" ? mainIndexAt(tl) : undefined);
       return;
     }
 
@@ -1944,11 +1967,19 @@ export function Timeline(p: TimelineProps) {
   // while dragging: the shadow (hidden once a cancelled file drag ends) and, on Video 1, where the other clips move to
   const shadow =
     landing && (!landing.key.startsWith("file:") || dragMedia) ? landing : null;
-  const shadowLane = shadow
-    ? doc.tracks.some((tr) => tr.id === shadow.trackId)
-      ? shadow.trackId
-      : shadow.hover
-    : null;
+  // a new track: shown on the lane it appears beside (an overlay above it, an audio track below it)
+  const newTrack = (() => {
+    if (!shadow || doc.tracks.some((tr) => tr.id === shadow.trackId)) return null;
+    const all = shadow.doc.tracks;
+    const i = all.findIndex((tr) => tr.id === shadow.trackId);
+    const below = all[i]?.kind === "overlay";
+    const next = all[below ? i + 1 : i - 1];
+    return {
+      lane: next && doc.tracks.some((tr) => tr.id === next.id) ? next.id : shadow.hover,
+      label: below ? "new track above" : "new track below",
+    };
+  })();
+  const shadowLane = shadow ? (newTrack?.lane ?? shadow.trackId) : null;
   const sliding = !!shadow && shadow.trackId === mainTr.id;
   const slideTo = useMemo(() => {
     if (!sliding || !shadow) return null;
@@ -2103,6 +2134,25 @@ export function Timeline(p: TimelineProps) {
                 ? "Crop: Crop the selected clip on the preview"
                 : "Select a video or picture first",
             )}
+            {p.onPickKey &&
+              tool(
+                "Pick key color",
+                "pipette",
+                p.pickingKey
+                  ? () => p.onPickKey!(tools.selected?.clip.id ?? "")
+                  : tools.selected?.clip.type === "video"
+                    ? () => p.onPickKey!(tools.selected!.clip.id)
+                    : null,
+                p.pickingKey
+                  ? "Cancel picking the color"
+                  : tools.selected?.clip.type === "video"
+                    ? "Color picker: click the background color on the preview to remove it"
+                    : "Select a video first",
+                undefined,
+                undefined,
+                undefined,
+                !!p.pickingKey,
+              )}
             {/* Speed & Reverse & Freeze */}
             {(() => {
               const v =
@@ -2338,6 +2388,25 @@ export function Timeline(p: TimelineProps) {
               ? "Crop: Crop the selected clip on the preview"
               : "Select a video or picture first",
           )}
+          {p.onPickKey &&
+            tool(
+              "Pick key color",
+              "pipette",
+              p.pickingKey
+                ? () => p.onPickKey!(tools.selected?.clip.id ?? "")
+                : tools.selected?.clip.type === "video"
+                  ? () => p.onPickKey!(tools.selected!.clip.id)
+                  : null,
+              p.pickingKey
+                ? "Cancel picking the color"
+                : tools.selected?.clip.type === "video"
+                  ? "Color picker: click the background color on the preview to remove it"
+                  : "Select a video first",
+              undefined,
+              undefined,
+              undefined,
+              !!p.pickingKey,
+            )}
           {(() => {
             const v =
               tools.canSpeed || tools.canReverse ? tools.selected!.clip : null;
@@ -2670,13 +2739,7 @@ export function Timeline(p: TimelineProps) {
                       track: tr,
                     });
                   }}
-                  className={`relative flex items-center ${isMobile ? "justify-center px-0.5" : "gap-1 px-1.5"} border-b border-line text-[0.6875rem] transition-colors ${
-                    tr.kind === "main"
-                      ? "h-16"
-                      : tr.kind === "overlay"
-                        ? "h-12"
-                        : "h-9"
-                  } ${isDraggingThis ? "opacity-40 bg-raised/50" : ""}`}
+                  className={`relative flex items-center ${isMobile ? "justify-center px-0.5" : "gap-1 px-1.5"} border-b border-line text-[0.6875rem] transition-colors h-16 ${isDraggingThis ? "opacity-40 bg-raised/50" : ""}`}
                 >
                   {isMobile ? (
                     <div
@@ -2951,7 +3014,7 @@ export function Timeline(p: TimelineProps) {
                       key={tr.id}
                       data-lane={tr.id}
                       data-testid={`lane-${tr.kind}`}
-                      className={`relative border-b border-line ${tr.kind === "main" ? "h-16" : tr.kind === "overlay" ? "h-12" : "h-9"} ${
+                      className={`relative border-b border-line h-16 ${
                         over === tr.id ? "bg-primary-soft" : ""
                       } ${"hidden" in tr && tr.hidden ? "opacity-40" : ""}`}
                       onDragOver={(e) => onDragOver(e, tr.id)}
@@ -3012,6 +3075,7 @@ export function Timeline(p: TimelineProps) {
                               locked={tr.locked}
                               keysActive={isSelected && !tr.locked}
                               ghostDx={isGhost ? ghost.dx : 0}
+                              ghostDy={isGhost ? ghost.dy : undefined}
                               highlights={
                                 p.highlights?.clipId === c.id
                                   ? p.highlights.ranges
@@ -3019,13 +3083,7 @@ export function Timeline(p: TimelineProps) {
                               }
                               fps={fps}
                               view={view}
-                              tileH={
-                                tr.kind === "main"
-                                  ? 56
-                                  : tr.kind === "overlay"
-                                    ? 40
-                                    : 24
-                              }
+                              tileH={56}
                               onToggle={() =>
                                 p.onSelect(c.id === p.selectedId ? null : c.id)
                               }
@@ -3076,8 +3134,8 @@ export function Timeline(p: TimelineProps) {
                             }}
                           >
                             <span className="truncate">
-                              {shadowLane !== shadow.trackId
-                                ? `${shadow.name} · new track`
+                              {newTrack
+                                ? `${shadow.name} · ${newTrack.label}`
                                 : shadow.name}
                             </span>
                           </span>
@@ -3644,6 +3702,73 @@ function trackIcon(tr: Track): IconName {
   return "layers";
 }
 
+/**
+ * A sound clip's waveform at this zoom, the way editors draw it: a filled shape rising from the clip's bottom,
+ * as high as the sound is loud at each pixel (lib/media/localMedia soundPeaks). Only the part in view is drawn.
+ */
+function WaveBars(p: { peaks: SoundPeaks; srcIn: number; perSec: number; width: number; from: number; to: number; color: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const dpr = typeof window === "undefined" ? 1 : Math.min(2, window.devicePixelRatio || 1);
+  // (a canvas can't be endless: at most 16k device pixels, the rest of the clip is out of view anyway)
+  const from = Math.max(0, Math.floor(p.from));
+  const w = Math.max(0, Math.min(p.to, from + 16000 / dpr) - from);
+  useEffect(() => {
+    const cv = ref.current;
+    if (!cv || !w) return;
+    const H = cv.clientHeight || 56;
+    cv.width = Math.round(w * dpr);
+    cv.height = Math.round(H * dpr);
+    const g = cv.getContext("2d");
+    if (!g) return;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, H);
+    const { rms, peak } = p.peaks;
+    const step = p.peaks.perSec / p.perSec; // loudness values per screen pixel
+    const top = 2;
+    g.beginPath();
+    g.moveTo(0, H);
+    for (let x = 0; x <= w; x++) {
+      const t0 = p.srcIn * p.peaks.perSec + (from + x) * step;
+      const i0 = Math.max(0, Math.floor(t0));
+      const i1 = Math.min(rms.length, Math.max(i0 + 1, Math.round(t0 + step)));
+      if (i0 >= rms.length) {
+        g.lineTo(x, H);
+        break;
+      }
+      // its loudest moment and its average loudness there (jagged like the sound, not a smooth hill)
+      let pk = 0;
+      let sq = 0;
+      for (let i = i0; i < i1; i++) {
+        if (peak[i] > pk) pk = peak[i];
+        sq += rms[i] * rms[i];
+      }
+      const v = Math.pow(Math.min(1, 0.4 * Math.sqrt(sq / (i1 - i0)) + 0.6 * pk), 0.75);
+      g.lineTo(x, H - v * (H - top));
+    }
+    g.lineTo(w, H);
+    g.closePath();
+    g.fillStyle = p.color;
+    g.fill();
+  }, [p.peaks, p.srcIn, p.perSec, p.color, from, w, dpr]);
+  if (!w) return null;
+  return (
+    <canvas
+      ref={ref}
+      aria-hidden="true"
+      data-testid="clip-wave"
+      className="pointer-events-none absolute inset-y-0"
+      style={{ left: from, width: w, height: "100%" }}
+    />
+  );
+}
+
+/** A sound clip's shape before its own waveform is ready (a mask: a jagged hill rising from the bottom, repeated). */
+const WAVE_PLACEHOLDER = `data:image/svg+xml,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="64" viewBox="0 0 48 64"><path d="M0 64 ${[40, 34, 38, 28, 32, 22, 30, 26, 18, 28, 24, 30, 20, 26, 34, 30, 38, 32, 40]
+    .map((y, i) => `L${(i * 48) / 18} ${y}`)
+    .join(" ")} L48 64Z" fill="#fff"/></svg>`,
+)}`;
+
 const TONE: Record<AnyClip["type"], string> = {
   video: "",
   image: "border-2 border-violet-400 bg-tl-image",
@@ -3686,6 +3811,8 @@ function ClipBlock(p: {
   selected: boolean;
   locked: boolean;
   ghostDx: number;
+  /** an overlay or audio clip being moved: it follows the pointer up and down too */
+  ghostDy?: number;
   /** Video 1 makes room for a dragged clip: glide to the new place */
   sliding?: boolean;
   /** its keyframe diamonds can be dragged / clicked (the selected clip) */
@@ -3749,13 +3876,7 @@ function ClipBlock(p: {
         backgroundRepeat: "no-repeat",
       };
     }
-  } else if (c.type === "audio" && p.media && !uploading)
-    bg = {
-      backgroundImage: `url(/api/videos/${c.mediaId}/wave)`,
-      backgroundSize: `${p.media.duration * perSec}px 100%`,
-      backgroundPosition: `${-c.in * perSec}px 0`,
-    };
-  else if (c.type === "image")
+  } else if (c.type === "image")
     bg = {
       backgroundImage: `url(${localSrc(c.mediaId) ?? `/api/videos/${c.mediaId}/source`})`,
       backgroundSize: "auto 100%",
@@ -3763,6 +3884,16 @@ function ClipBlock(p: {
     };
   const theme = useTheme();
   const isLight = theme === "light";
+  // a sound: its waveform, read from the sound itself (this computer's file, else the server's copy) and
+  // drawn at this zoom, so each bar is how loud it is right there; the server's picture only for a file
+  // the browser can't read
+  const peaks = c.type === "audio" ? soundPeaks(c.mediaId, uploading ? null : `/api/videos/${c.mediaId}/source`) : null;
+  const waveUrl =
+    c.type === "audio" && !peaks && !uploading && waveUnavailable(c.mediaId) ? `/api/videos/${c.mediaId}/wave` : null;
+  const waveColor = isLight ? "rgba(13, 148, 136, 0.55)" : "rgba(84, 170, 148, 0.8)";
+  // the whole file's length (its details not here yet: as far as the clip goes)
+  const waveLen = c.type === "audio" ? (m && m.duration > 0 ? m.duration : c.in + clipLength(c)) : 0;
+  const waveAt = c.type === "audio" ? -c.in * perSec : 0;
   // a blank scene: its own color (dynamically adapts between dark and light mode for default fill)
   if (c.type === "blank") {
     if (c.backdrop?.kind === "gradient") {
@@ -3791,21 +3922,25 @@ function ClipBlock(p: {
       data-testid="timeline-clip"
       data-type={c.type}
       data-selected={p.selected ? "true" : "false"}
-      className={`absolute inset-y-1 overflow-hidden rounded-md isolate ${(c as any).generation ? "border-0 ring-0" : TONE[c.type]} ${p.selected && !(c as any).generation ? (isLight ? "z-10 ring-2 ring-[#1a73e8]" : "z-10 ring-2 ring-white shadow-[0_0_0_1px_rgba(0,0,0,0.85),0_0_12px_rgba(255,255,255,0.45)]") : ""} ${p.ghostDx ? "pointer-events-none z-30 scale-90 opacity-75 shadow-2xl ring-2 ring-link" : ""} ${p.sliding ? "transition-[left] duration-150 ease-out" : ""} ${p.locked ? "cursor-not-allowed" : "cursor-grab"}`}
+      className={`absolute inset-y-1 overflow-hidden rounded-md isolate ${(c as any).generation ? "border-0 ring-0" : TONE[c.type]} ${p.selected && !(c as any).generation ? (isLight ? "z-10 ring-2 ring-[#1a73e8]" : "z-10 ring-2 ring-white shadow-[0_0_0_1px_rgba(0,0,0,0.85),0_0_12px_rgba(255,255,255,0.45)]") : ""} ${p.ghostDx || p.ghostDy !== undefined ? "pointer-events-none z-30 scale-90 opacity-75 shadow-2xl ring-2 ring-link" : ""} ${p.sliding ? "transition-[left] duration-150 ease-out" : ""} ${p.locked ? "cursor-not-allowed" : "cursor-grab"}`}
       // (dragged on Video 1: it floats just above the lane, so the shadow where it lands stays in sight)
       style={{
         left: p.left + 1,
         width: Math.max(4, p.width - 1),
-        transform: p.ghostDx
-          ? `translate(${p.ghostDx}px, calc(-100% - 6px))`
-          : undefined,
+        transform:
+          p.ghostDy !== undefined
+            ? `translate(${p.ghostDx}px, ${p.ghostDy}px)`
+            : p.ghostDx
+              ? `translate(${p.ghostDx}px, calc(-100% - 6px))`
+              : undefined,
         ...bg,
       }}
       title={`${KIND[c.type]}: ${label} · ${formatTenths(len)}`}
     >
       <button
         type="button"
-        className={`absolute inset-0 rounded-md ${c.type === "blank" ? "" : "bg-black/30"}`}
+        // (a dim layer so names read over film and pictures; a light sound clip keeps its own color)
+        className={`absolute inset-0 rounded-md ${c.type === "blank" || (c.type === "audio" && isLight) ? "" : "bg-black/30"}`}
         aria-pressed={p.selected}
         aria-label={`${KIND[c.type]} clip: ${label}, ${formatTenths(len)}`}
         onClick={(e) => e.preventDefault()}
@@ -3822,6 +3957,59 @@ function ClipBlock(p: {
           }
         }}
       />
+      {/* until a sound's waveform is ready: bars like one, fainter (a sound clip is never blank) */}
+      {c.type === "audio" && (
+        <span
+          aria-hidden="true"
+          data-testid="clip-wave-placeholder"
+          className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${isLight ? "bg-teal-700" : "bg-teal-300"} ${peaks || waveUrl ? "opacity-0" : "opacity-25"}`}
+          style={{
+            maskImage: `url("${WAVE_PLACEHOLDER}")`,
+            WebkitMaskImage: `url("${WAVE_PLACEHOLDER}")`,
+            maskSize: "48px 100%",
+            WebkitMaskSize: "48px 100%",
+            maskRepeat: "repeat-x",
+            WebkitMaskRepeat: "repeat-x",
+          }}
+        />
+      )}
+      {peaks && c.type === "audio" && (
+        <WaveBars
+          peaks={peaks}
+          srcIn={c.in}
+          perSec={perSec}
+          width={p.width}
+          from={Math.max(0, p.view.left - p.left - p.view.width)}
+          to={Math.min(p.width, p.view.left - p.left + 2 * p.view.width)}
+          color={waveColor}
+        />
+      )}
+      {waveUrl && (
+        <span
+          aria-hidden="true"
+          data-testid="clip-wave"
+          className={`pointer-events-none absolute inset-x-0 inset-y-1 ${isLight ? "bg-teal-800" : "bg-teal-300/85"}`}
+          style={{
+            maskImage: `url(${waveUrl})`,
+            WebkitMaskImage: `url(${waveUrl})`,
+            maskSize: `${waveLen * perSec}px 100%`,
+            WebkitMaskSize: `${waveLen * perSec}px 100%`,
+            maskPosition: `${waveAt}px 0`,
+            WebkitMaskPosition: `${waveAt}px 0`,
+            maskRepeat: "no-repeat",
+            WebkitMaskRepeat: "no-repeat",
+          }}
+        />
+      )}
+      {/* a sound's name, top left over its waveform */}
+      {c.type === "audio" && p.width > 48 && (
+        <span
+          aria-hidden="true"
+          className={`pointer-events-none absolute left-4 right-4 top-0.5 z-[5] truncate text-[0.625rem] font-medium leading-tight ${isLight ? "text-teal-950" : "text-white/85"}`}
+        >
+          {label}
+        </span>
+      )}
       {/* a sound still uploading has no waveform yet, a video no frame yet: a shimmer says it's coming */}
       {sending && ((c.type === "audio") || (c.type === "video" && !film && !localThumb(c.mediaId))) && (
         <span aria-hidden="true" className="skeleton pointer-events-none absolute inset-0 rounded-md bg-transparent" data-testid="clip-pending" />

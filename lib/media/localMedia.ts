@@ -159,6 +159,7 @@ export function releaseLocal(id: string, force = false) {
       films.delete(k);
     }
   }
+  waves.delete(id);
   items.delete(id);
   emit();
 }
@@ -491,6 +492,106 @@ async function makeFilm(
     v.removeAttribute("src");
     v.load();
   }
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// The timeline waveform of a sound file, made in the browser (one look for every sound: a file from
+// this computer, or one on the server: a voice, a recording, a sound effect, library music)
+
+/**
+ * How loud a sound is over time, per 1/PEAKS_PER_SEC s: its average loudness (rms) and its loudest moment
+ * (peak), each 0–1 of the file's loudest; Timeline WaveBars combines them for each bar at any zoom.
+ */
+export type SoundPeaks = { rms: Float32Array; peak: Float32Array; perSec: number };
+const PEAKS_PER_SEC = 100;
+const waves = new Map<string, SoundPeaks | null>();
+const waveJobs: { id: string; src: string | null }[] = [];
+let waveBusy = false;
+/** Bigger files aren't decoded here (the whole sound is held in memory): the server's picture stands in. */
+const WAVE_MAX_BYTES = 80 * 1024 * 1024;
+/** Sounds whose waveform couldn't be made, and from where ("server": a file that may still come back here, after a reload). */
+const waveFailed = new Map<string, "here" | "server">();
+
+/**
+ * The loudness of a sound over time, read from the file itself (this computer's copy, else the server's at
+ * `serverSrc`), so the waveform follows the sound exactly. null until it's read.
+ */
+export function soundPeaks(id: string, serverSrc?: string | null): SoundPeaks | null {
+  if (typeof document === "undefined") return null;
+  const it = items.get(id);
+  // (tried from the server before this computer's copy was read back: try again from here)
+  if (it && waveFailed.get(id) === "server") {
+    waveFailed.delete(id);
+    waves.delete(id);
+  }
+  if (waves.has(id) || waveFailed.has(id)) return waves.get(id) ?? null;
+  const src = it ? null : (serverSrc ?? null);
+  if (it ? it.size > WAVE_MAX_BYTES : !src) return null;
+  waves.set(id, null);
+  waveJobs.push({ id, src });
+  if (!waveBusy) void runWaves();
+  return null;
+}
+/** The waveform couldn't be made here (a file the browser can't read, too big): the server's picture is used. */
+export const waveUnavailable = (id: string) => waveFailed.has(id) && !items.has(id);
+
+async function runWaves() {
+  waveBusy = true;
+  while (waveJobs.length) {
+    const job = waveJobs.shift()!;
+    await makePeaks(job.id, job.src).catch(() => {
+      waves.delete(job.id);
+      waveFailed.set(job.id, job.src ? "server" : "here");
+      emit();
+    });
+  }
+  waveBusy = false;
+}
+
+async function soundBytes(id: string, src: string | null): Promise<ArrayBuffer | null> {
+  const it = items.get(id);
+  if (it) return it.file.arrayBuffer();
+  if (!src) return null;
+  const r = await fetch(src);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  if (Number(r.headers.get("content-length") ?? 0) > WAVE_MAX_BYTES) throw new Error("too big");
+  return r.arrayBuffer();
+}
+
+async function makePeaks(id: string, src: string | null) {
+  const Ctx = window.OfflineAudioContext ?? (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+  const bytes = Ctx ? await soundBytes(id, src) : null;
+  if (!Ctx || !bytes) throw new Error("no sound to read");
+  const audio = await new Ctx(1, 1, 44100).decodeAudioData(bytes);
+  // each step: its loudest moment and its average loudness (speech then shows its rhythm, not a block)
+  const win = audio.sampleRate / PEAKS_PER_SEC;
+  const n = Math.max(1, Math.ceil(audio.length / win));
+  const peak = new Float32Array(n);
+  const rms = new Float32Array(n);
+  for (let ch = 0; ch < audio.numberOfChannels; ch++) {
+    const data = audio.getChannelData(ch);
+    for (let b = 0; b < n; b++) {
+      const from = Math.floor(b * win);
+      const to = Math.min(data.length, Math.floor((b + 1) * win));
+      let max = 0;
+      let sum = 0;
+      for (let i = from; i < to; i++) {
+        const v = Math.abs(data[i]);
+        if (v > max) max = v;
+        sum += v * v;
+      }
+      peak[b] = Math.max(peak[b], max);
+      rms[b] = Math.max(rms[b], to > from ? Math.sqrt(sum / (to - from)) : 0);
+    }
+  }
+  const topPeak = peak.reduce((a, v) => Math.max(a, v), 0) || 1;
+  const topRms = rms.reduce((a, v) => Math.max(a, v), 0) || 1;
+  for (let b = 0; b < n; b++) {
+    peak[b] /= topPeak;
+    rms[b] /= topRms;
+  }
+  waves.set(id, { rms, peak, perSec: PEAKS_PER_SEC });
+  emit();
 }
 
 // ---------------------------------------------------------------------------------------------------------

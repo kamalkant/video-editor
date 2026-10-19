@@ -1,7 +1,8 @@
 "use client";
 
-import { Icon } from "@/components/ui/Icon";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
+import { Tip } from "@/components/ui/Tip";
 import { formatBytes } from "@/lib/format";
 import { LIMITS, limitSizeLabel } from "@/lib/settings";
 import type { UploadState } from "@/lib/upload/useUpload";
@@ -165,35 +166,18 @@ export function EmptyPreview({
             </span>
             <h1 className="text-lg font-semibold">No video loaded</h1>
             <p className="max-w-md text-sm text-muted">Drag &amp; drop videos, pictures or music here, choose files, or record yourself or your screen.</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <button type="button" className="btn btn-primary" onClick={onChoose}>
-                <Icon name="upload" className="size-4" /> Choose file
-              </button>
+            {/* icons only: the name shows on hover / focus (and is the button's name for screen readers) */}
+            <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="Start">
+              <StartIcon label="Choose file" icon="upload" primary onClick={onChoose} />
               {onRecord && (
                 <>
-                  <button type="button" className="btn btn-secondary" onClick={() => onRecord("camera")}>
-                    <Icon name="camera" className="size-4 text-red-400" /> Record camera
-                  </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => onRecord("screen")}>
-                    <Icon name="screen" className="size-4" /> Record screen
-                  </button>
+                  <StartIcon label="Record camera" icon="camera" iconClass="text-red-400" onClick={() => onRecord("camera")} />
+                  <StartIcon label="Record screen" icon="screen" onClick={() => onRecord("screen")} />
                 </>
               )}
-              {onText && (
-                <button type="button" className="btn btn-secondary" onClick={onText}>
-                  <Icon name="text" className="size-4" /> Add a title
-                </button>
-              )}
-              {onElements && (
-                <button type="button" className="btn btn-secondary" onClick={onElements}>
-                  <Icon name="elements" className="size-4" /> Elements
-                </button>
-              )}
-              {onBlank && (
-                <button type="button" className="btn btn-secondary" onClick={onBlank}>
-                  <Icon name="plus" className="size-4" /> Start with a blank
-                </button>
-              )}
+              {onText && <StartIcon label="Add a title" icon="text" onClick={onText} />}
+              {onElements && <StartIcon label="Elements" icon="elements" onClick={onElements} />}
+              {onBlank && <StartIcon label="Start with a blank" icon="plus" onClick={onBlank} />}
             </div>
             <p className="text-[0.6875rem] text-muted">
               Videos up to {LIMITS.maxDurationSec / 60} min · max {limitSizeLabel()} · MP4, MOV, WebM, M4V, MKV, AVI, PNG, JPG, MP3, WAV, M4A
@@ -209,5 +193,21 @@ export function EmptyPreview({
         )}
       </div>
     </div>
+  );
+}
+
+/** One way to start, as an icon button; its name in a tip. */
+function StartIcon(p: { label: string; icon: IconName; iconClass?: string; primary?: boolean; onClick: () => void }) {
+  return (
+    <Tip text={p.label}>
+      <button
+        type="button"
+        aria-label={p.label}
+        className={`btn ${p.primary ? "btn-primary" : "btn-secondary"} size-11 justify-center p-0`}
+        onClick={p.onClick}
+      >
+        <Icon name={p.icon} className={`size-5 ${p.iconClass ?? ""}`} />
+      </button>
+    </Tip>
   );
 }

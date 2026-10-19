@@ -873,7 +873,19 @@ function StudioInner(props: Props) {
   const [starting, setStarting] = useState(false);
   const [startStatus, setStartStatus] = useState<string | undefined>(undefined);
   const [startError, setStartError] = useState<string | null>(null);
+  // a file or clip dragged over the preview: its "drop here" outline (the panel's ring, the empty preview's border)
   const [dragging, setDragging] = useState(false);
+  // a drag that ends anywhere else (dropped on the timeline or a panel, Esc, out of the window) takes it away too
+  useEffect(() => {
+    if (!dragging) return;
+    const end = () => setDragging(false);
+    window.addEventListener("drop", end, true);
+    window.addEventListener("dragend", end, true);
+    return () => {
+      window.removeEventListener("drop", end, true);
+      window.removeEventListener("dragend", end, true);
+    };
+  }, [dragging]);
   const [exportOpen, setExportOpen] = useState(false);
   // the export file format: MP4 is the recommended default (lib/export/presets)
   const [exportFormat, setExportFormat] =
@@ -4959,6 +4971,28 @@ function StudioInner(props: Props) {
         : kp;
   // AI Removal needs no color pick
   const pickingOn = picking && state.method !== "ai" && clipShown;
+  /** Pick the background color to remove: click it on the clip's picture (the clip view, its original look). */
+  const startKeyPick = () => {
+    setPickReturnMode(mode);
+    setMode("clip");
+    setPicking(true);
+    setView("original");
+  };
+  const cancelKeyPick = () => {
+    setPicking(false);
+    if (pickReturnMode === "program") setMode("program");
+    setPickReturnMode(null);
+    if (on) setView("removed");
+  };
+  /** The timeline's color picker tool (like CapCut's): on the selected video clip; again: cancel. */
+  const toggleKeyPick = (clipId: string) => {
+    if (pickingOn) return cancelKeyPick();
+    setSelectedId(clipId);
+    setInspTab("background");
+    // (AI Removal needs no color: picking one means removing that color)
+    if (activeClip?.id === clipId && state.method === "ai") dispatch({ type: "setMethod", method: "color" });
+    startKeyPick();
+  };
   const crop = useCropBox(
     video?.id ?? "",
     clipSpecNow,
@@ -8632,7 +8666,10 @@ function StudioInner(props: Props) {
         setDragging(true);
       }}
       onDragOver={(e) => e.preventDefault()}
-      onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)}
+      onDragLeave={(e) => {
+        // (moving onto a button or the picture inside still counts as over the preview)
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+      }}
       onDrop={(e) => {
         // (the program picture may have used it already: a picture placed like a logo, or dropped text/element)
         const used = e.defaultPrevented;
@@ -8789,18 +8826,8 @@ function StudioInner(props: Props) {
       keyControl={{
         picking: pickingOn,
         pickWarning,
-        onStartPick: () => {
-          setPickReturnMode(mode);
-          setMode("clip");
-          setPicking(true);
-          setView("original");
-        },
-        onCancelPick: () => {
-          setPicking(false);
-          if (pickReturnMode === "program") setMode("program");
-          setPickReturnMode(null);
-          if (on) setView("removed");
-        },
+        onStartPick: startKeyPick,
+        onCancelPick: cancelKeyPick,
         onHexCommit: (hex) => {
           dispatch({ type: "setKey", hex, source: "typed" });
           setPickWarning(null);
@@ -9934,6 +9961,8 @@ function StudioInner(props: Props) {
       }}
       onCloseAllGaps={() => dispatchDoc({ type: "closeAllGaps" })}
       onCrop={startCrop}
+      onPickKey={toggleKeyPick}
+      pickingKey={pickingOn}
       onPatchClip={(clipId, patch) => {
         dispatchDoc(
           { type: "setClip", clipId, patch },

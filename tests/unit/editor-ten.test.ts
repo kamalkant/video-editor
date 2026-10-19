@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { docDuration, docFromSpec, docSchema, emptyDoc, mainTrack, watermarkRect, type MediaLite, type TimelineDoc, type VideoClip, type Watermark } from "@/lib/edit/doc";
-import { addMedia, dropLanding } from "@/lib/edit/docEdit";
+import { addMedia, drawnLanding, dropLanding, dropTrackFor, moveClip } from "@/lib/edit/docEdit";
 import { DEFAULT_SPEC } from "@/lib/edit/spec";
 import { bppOf, contentCapBpp, estimateBytes, sizeBasisOf, STILL_BPP, type SizeInput } from "@/lib/export/size";
 import { VIDEO_BPP, videoBitrate } from "@/lib/export/rates";
@@ -174,6 +174,66 @@ describe("timeline drop shadow", () => {
     expect(snd.start).toBe(3);
     expect(snd.length).toBe(30);
     expect(snd.doc.tracks.find((t) => t.id === snd.trackId)?.kind).toBe("audio");
+  });
+  // three overlays (each with a picture at 0 s), Video 1 with two clips; ids top to bottom
+  const stacked = () => {
+    let d = twoVideos();
+    for (let i = 0; i < 3; i++) d = addMedia(d, M[IMG], { at: 0 }).doc;
+    const [o3, o2, o1] = d.tracks.filter((t) => t.kind === "overlay").map((t) => t.id);
+    return { d, o1, o2, o3, main: mainTrack(d).id };
+  };
+  it("a busy lane under the pointer: the nearest free lane (the one above first), not the top one", () => {
+    let { d, o1, o2, o3 } = stacked();
+    // o2 busy at 10 s too: o3 (above) and o1 (below) are both free there
+    d = addMedia(d, M[IMG], { at: 10, trackId: o2 }).doc;
+    expect(dropLanding(d, { media: M[IMG] }, { trackId: o2, at: 11 })!.trackId).toBe(o3);
+    d = addMedia(d, M[IMG], { at: 10, trackId: o3 }).doc;
+    expect(dropLanding(d, { media: M[IMG] }, { trackId: o2, at: 11 })!.trackId).toBe(o1);
+    void o1;
+  });
+  it("no free lane: the new track goes right beside the one under the pointer", () => {
+    const { d, o2 } = stacked();
+    const l = dropLanding(d, { media: M[IMG] }, { trackId: o2, at: 1 })!;
+    const ids = l.doc.tracks.map((t) => t.id);
+    // right above the hovered overlay (not on top of all of them)
+    expect(ids.indexOf(l.trackId)).toBe(d.tracks.findIndex((t) => t.id === o2));
+    expect(ids[ids.indexOf(l.trackId) + 1]).toBe(o2);
+    // sound: a busy audio lane gets a new one right below it
+    let a = addMedia(d, M[MUS], { at: 0 }).doc;
+    a = addMedia(a, M[MUS], { at: 0 }).doc;
+    const [a1, a2] = a.tracks.filter((t) => t.kind === "audio").map((t) => t.id);
+    const s2 = dropLanding(a, { media: M[MUS] }, { trackId: a1, at: 1 })!;
+    const order = s2.doc.tracks.map((t) => t.id);
+    expect(order.indexOf(s2.trackId)).toBe(order.indexOf(a1) + 1);
+    expect(order.indexOf(a2)).toBe(order.indexOf(s2.trackId) + 1);
+  });
+  it("over a lane of another kind: the nearest lane of the clip's own kind", () => {
+    const { d, o1, main } = stacked();
+    // sound over a picture lane: the audio lane nearest to it (the top one)
+    const withSound = addMedia(d, M[MUS], { at: 40 }).doc;
+    const audio = withSound.tracks.find((t) => t.kind === "audio")!.id;
+    expect(dropTrackFor(withSound, o1, "audio")).toBe(audio);
+    expect(dropLanding(withSound, { media: M[MUS] }, { trackId: o1, at: 2 })!.trackId).toBe(audio);
+    // video or a picture over a sound lane: Video 1; text over Video 1: the overlay just above it
+    expect(dropTrackFor(withSound, audio, "video")).toBe(main);
+    expect(dropTrackFor(withSound, audio, "image")).toBe(main);
+    expect(dropTrackFor(withSound, main, "drawn")).toBe(o1);
+    expect(dropTrackFor(withSound, o1, "video")).toBe(o1);
+    // a text dropped over Video 1 at a busy time: a new overlay right above Video 1, where the drop lands too
+    const t = drawnLanding(d, main, 1, 3);
+    expect(t.doc.tracks.findIndex((x) => x.id === t.trackId)).toBe(d.tracks.findIndex((x) => x.id === main));
+    expect(drawnLanding(d, main, 20, 3).trackId).toBe(o1);
+  });
+  it("a clip snapped against another one on its overlay stays on that track (an edge between two frames)", () => {
+    let d = addMedia(twoVideos(), M[IMG], { at: 0, duration: 2.52 }).doc;
+    const ov = d.tracks.find((t) => t.kind === "overlay")!;
+    const r = addMedia(d, M[IMG], { at: 10, trackId: ov.id, duration: 2 });
+    d = r.doc;
+    // dragged right after the first picture (2.52 s isn't on a 24 fps frame: rounding would overlap it)
+    const moved = moveClip(d, r.clipId, { trackId: ov.id, start: 2.52 });
+    const now = moved.tracks.find((t) => t.id === ov.id)!;
+    expect(now.clips.map((c) => c.id)).toContain(r.clipId);
+    expect(moved.tracks.filter((t) => t.kind === "overlay")).toHaveLength(1);
   });
   it("a Video 1 clip moved to the front", () => {
     const d = twoVideos();

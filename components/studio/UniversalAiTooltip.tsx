@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import type { UniversalAiGenerationRequest, UniversalMediaType } from "@/lib/ai/universal";
 import { GEMINI_VOICES } from "@/lib/ai/voices";
-import { useTheme, setTheme } from "@/lib/editor/theme";
+import { useResolvedTheme, setTheme } from "@/lib/editor/theme";
 
 const INSPIRATION_CHIPS: Record<UniversalMediaType, string[]> = {
   video: [
@@ -57,13 +57,8 @@ export function UniversalAiTooltip({
   onGenerate,
 }: UniversalAiTooltipProps) {
   const openStockAction = onOpenStock || onOpenPexels;
-  const currentTheme = useTheme();
-  const isDark =
-    currentTheme === "dark" ||
-    (currentTheme === "system" &&
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches) ||
-    (typeof document !== "undefined" && document.documentElement.dataset.theme !== "light");
+  // (the theme showing: "Match my computer" follows the computer's light or dark)
+  const isDark = useResolvedTheme() === "dark";
 
   const [mediaType, setMediaType] = useState<UniversalMediaType>(initialMediaType);
   const [prompt, setPrompt] = useState(initialPrompt);

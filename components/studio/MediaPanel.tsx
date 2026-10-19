@@ -796,69 +796,54 @@ export function MediaPanel(p: {
                       aria-label={a.fileName}
                       title={`${a.fileName}${a.credit ? ` · by ${a.credit.author} on ${a.credit.source === "pexels" ? "Pexels" : a.credit.source === "pixabay" ? "Pixabay" : "YouTube"}${a.credit.license === "cc" ? " (Creative Commons: credit them)" : ""}` : ""} · Double-click to add to timeline, drag to place, right-click for options`}
                     >
-                      <Thumb src={thumbOf(a.id)} className="size-full object-contain pointer-events-none" />
-                      <UploadBadge id={a.id} />
-                    </button>
-                  </div>
-
-                  {/* Bottom Metadata - Compact typography (11px title, 9px details, clean without icons) */}
-                  <div className="flex min-w-0 flex-col justify-between px-2 py-1.5 gap-0.5">
-                    <div className="flex items-center justify-between gap-1 min-w-0">
+                      {kind === "audio" ? (
+                        // (a sound has no picture: a music note on the timeline's sound color)
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-tl-audio">
+                          <Icon name="audio" className="size-6 text-teal-500" />
+                        </span>
+                      ) : (
+                        <Thumb src={thumbOf(a.id)} className="size-full object-contain pointer-events-none" />
+                      )}
+                      {/* just the picture, with its details on it: length · size bottom left, what it is bottom right;
+                          the name on hover (and in the tip) */}
+                      <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-1.5 pb-1 pt-4">
+                        <span className="min-w-0 truncate text-[0.5625rem] font-medium tabular-nums text-white" data-preserve-white>
+                          {[
+                            kind !== "image" && a.info.duration > 0 ? formatTime(a.info.duration) : null,
+                            a.info.size ? formatBytes(a.info.size) : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                        <span
+                          className="flex size-4 shrink-0 items-center justify-center rounded bg-black/55 text-white"
+                          data-preserve-white
+                          title={kind === "image" ? "Image" : kind === "audio" ? "Audio" : "Video"}
+                          data-testid="asset-kind"
+                        >
+                          <Icon name={kind === "image" ? "image" : kind === "audio" ? "audio" : "video"} className="size-2.5" />
+                        </span>
+                      </span>
                       <span
-                        className="truncate text-[0.6875rem] font-medium text-ink"
-                        title={a.fileName}
+                        className="pointer-events-none absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/70 to-transparent pb-3 pl-7 pr-8 pt-1.5 text-left text-[0.625rem] font-medium text-white opacity-0 transition-opacity group-hover/asset:opacity-100 group-focus-within/asset:opacity-100"
+                        data-preserve-white
                       >
                         {a.fileName}
                       </span>
-                      {current && (
-                        <span
-                          data-testid="asset-used"
-                          title="On the timeline"
-                          className="inline-flex items-center gap-0.5 text-primary text-[0.5625rem] font-medium shrink-0"
-                        >
-                          <Icon
-                            name="check"
-                            className="size-2.5"
-                            strokeWidth={2.5}
-                          />
-                          In use
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between gap-1 text-[0.5625rem] text-muted min-w-0">
-                      <span className="truncate">
-                        {kind !== "image" && a.info.duration > 0
-                          ? `${formatTime(a.info.duration)} · `
-                          : ""}
-                        {a.info.size
-                          ? formatBytes(a.info.size)
-                          : a.usedIn.length
-                            ? `${a.usedIn.length} project${a.usedIn.length > 1 ? "s" : ""}`
-                            : "Unused"}
-                      </span>
+                      <UploadBadge id={a.id} compact />
+                    </button>
+                    {/* on the timeline: a small check (the options button takes its place on hover) */}
+                    {current && (
                       <span
-                        className="inline-flex shrink-0 items-center text-muted"
-                        title={
-                          kind === "image"
-                            ? "Image"
-                            : kind === "audio"
-                              ? "Audio"
-                              : "Video"
-                        }
+                        data-testid="asset-used"
+                        title="In use on the timeline"
+                        aria-label="In use"
+                        className="pointer-events-none absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-primary text-white transition-opacity group-hover/asset:opacity-0"
+                        data-preserve-white
                       >
-                        <Icon
-                          name={
-                            kind === "image"
-                              ? "image"
-                              : kind === "audio"
-                                ? "audio"
-                                : "video"
-                          }
-                          className="size-2.5 opacity-70"
-                        />
+                        <Icon name="check" className="size-2.5" strokeWidth={3} />
                       </span>
-                    </div>
+                    )}
                   </div>
                 </li>
               );

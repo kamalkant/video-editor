@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { clipCount, clipLength, docDuration, docFromSpec, docSchema, mainTrack, sanitizeDoc, type MediaLite, type TimelineDoc } from "../edit/doc";
+import { clipCount, clipLength, docDuration, docFromSpec, docSchema, mainTrack, sanitizeDoc, type AnyClip, type MediaLite, type TimelineDoc } from "../edit/doc";
 import { opInstanceSchema, outputSchema, sanitizeSpec, type EditSpec } from "../edit/spec";
 
 /**
@@ -126,14 +126,27 @@ export type ProjectSummary = {
   updatedAt: number;
   /** Upload shown as the thumbnail. */
   coverId: string | null;
+  /** Up to 4 different pictures (videos, images) in timeline order, for the thumbnail's collage. */
+  coverIds?: string[];
   duration: number;
   clips: number;
   missing: boolean;
 };
 
+/** Up to `n` different pictures the timeline shows (Video 1 first, then the overlays), for a collage. */
+export function coverMediaIds(doc: TimelineDoc, n = 4): string[] {
+  const out: string[] = [];
+  const add = (c: AnyClip) => {
+    if ((c.type === "video" || c.type === "image") && "mediaId" in c && !out.includes(c.mediaId)) out.push(c.mediaId);
+  };
+  for (const c of mainTrack(doc).clips as AnyClip[]) add(c);
+  for (const t of doc.tracks) if (t.kind === "overlay") for (const c of t.clips as AnyClip[]) add(c);
+  return out.slice(0, n);
+}
+
 export function summaryOf(p: Project, known: (id: string) => boolean): ProjectSummary {
   const coverId = coverMediaId(p.doc);
-  return { id: p.id, name: p.name, updatedAt: p.updatedAt, coverId: coverId && known(coverId) ? coverId : null, duration: Math.round(docDuration(p.doc) * 10) / 10, clips: clipCount(p.doc), missing: !!coverId && !known(coverId) };
+  return { id: p.id, name: p.name, updatedAt: p.updatedAt, coverId: coverId && known(coverId) ? coverId : null, coverIds: coverMediaIds(p.doc).filter(known), duration: Math.round(docDuration(p.doc) * 10) / 10, clips: clipCount(p.doc), missing: !!coverId && !known(coverId) };
 }
 
 export { clipLength };

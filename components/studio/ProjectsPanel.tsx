@@ -631,7 +631,8 @@ export function ProjectsPanel(p: {
                         : "border-line hover:border-line-hover"
                 }`}
               >
-                {/* Clean Thumbnail Card - 100% free of badges, duration pills, or checkboxes */}
+                {/* just the thumbnail (a collage of its clips), with its details on it: length · clips bottom left,
+                    the name on hover; "Open" (top left) when it's the one being edited */}
                 <div className="relative aspect-video w-full overflow-hidden bg-stage">
                   <button
                     type="button"
@@ -651,16 +652,46 @@ export function ProjectsPanel(p: {
                     aria-pressed={isPicked}
                     aria-label={current ? `${x.name} (open)` : `Open ${x.name}`}
                     aria-current={current || undefined}
+                    title={`${x.name} · edited ${formatAgo(x.updatedAt)}`}
                   >
-                    <ProjectCover coverId={x.coverId} iconClass="size-6" />
+                    <ProjectCollage ids={x.coverIds?.length ? x.coverIds : x.coverId ? [x.coverId] : []} clips={x.clips} />
+                    <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-1.5 pb-1 pt-4">
+                      <span className="min-w-0 truncate text-[0.5625rem] font-medium tabular-nums text-white" data-preserve-white>
+                        {[x.duration > 0 ? formatTime(x.duration) : null, `${x.clips} clip${x.clips === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+                      </span>
+                    </span>
+                    <span
+                      className={`pointer-events-none absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/75 to-transparent pb-3 pr-8 pt-1.5 ${current ? "pl-10" : "pl-1.5"} text-[0.625rem] font-semibold text-white opacity-0 transition-opacity group-hover/proj:opacity-100 group-focus-within/proj:opacity-100`}
+                      data-preserve-white
+                    >
+                      {x.name}
+                    </span>
+                  </button>
+                  {current && (
+                    <span className="pointer-events-none absolute left-1 top-1 rounded bg-primary px-1 py-px text-[0.5625rem] font-semibold text-white" data-preserve-white>
+                      Open
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1 z-10 flex size-6 items-center justify-center rounded bg-black/60 text-white/90 opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/80 hover:text-white focus:opacity-100 group-hover/proj:opacity-100"
+                    data-preserve-white
+                    aria-label={`Options for ${x.name}`}
+                    title="More options"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setMenu({ project: x, x: r.left, y: r.bottom + 4 });
+                    }}
+                  >
+                    <Icon name="more" className="size-3.5" />
                   </button>
                 </div>
-
-                {/* Details - Compact typography (11px title, 9px details) */}
-                <div className="flex flex-col p-2 min-w-0 gap-0.5">
-                  {editing === x.id ? (
+                {/* renaming: the name field under the thumbnail */}
+                {editing === x.id && (
+                  <div className="p-1.5">
                     <input
-                      className="field h-6 min-h-0 px-1 text-[0.6875rem]"
+                      className="field h-6 min-h-0 w-full px-1 text-[0.6875rem]"
                       aria-label="New project name"
                       value={draft}
                       maxLength={80}
@@ -675,42 +706,8 @@ export function ProjectsPanel(p: {
                       }}
                       onBlur={() => void rename(x.id)}
                     />
-                  ) : (
-                    <div className="flex items-center justify-between gap-1 min-w-0">
-                      <span
-                        className="truncate text-[0.6875rem] font-semibold text-ink"
-                        title={x.name}
-                      >
-                        {x.name}
-                      </span>
-                      <button
-                        type="button"
-                        className="shrink-0 rounded p-0.5 text-muted hover:bg-surface hover:text-ink focus-visible:opacity-100 transition-colors"
-                        aria-label={`Options for ${x.name}`}
-                        title="More options"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const r = e.currentTarget.getBoundingClientRect();
-                          setMenu({ project: x, x: r.left, y: r.bottom + 4 });
-                        }}
-                      >
-                        <Icon name="more" className="size-3" />
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between gap-1 text-[0.5625rem] text-muted min-w-0">
-                    <span className="truncate">
-                      {current ? "Open now · " : ""}
-                      {formatAgo(x.updatedAt)}
-                      {x.duration > 0 ? ` · ${formatTime(x.duration)}` : ""}
-                    </span>
-                    {current && (
-                      <span className="text-primary font-medium shrink-0">
-                        Active
-                      </span>
-                    )}
                   </div>
-                </div>
+                )}
               </li>
             );
           })}
@@ -964,5 +961,30 @@ function ProjectCover({ coverId, iconClass }: { coverId: string | null; iconClas
       draggable={false}
       onError={() => setFailed(coverId)}
     />
+  );
+}
+
+/**
+ * A project's thumbnail: its clips' pictures in a collage (1: the whole card; 2: side by side; 3: one big and
+ * two small; 4: a grid, "+N" on the last when there are more clips).
+ */
+function ProjectCollage({ ids, clips }: { ids: string[]; clips: number }) {
+  const shown = ids.slice(0, 4);
+  if (!shown.length) return <ProjectCover coverId={null} iconClass="size-6" />;
+  const layout = shown.length === 1 ? "" : shown.length === 2 ? "grid-cols-2" : "grid-cols-2 grid-rows-2";
+  const more = shown.length === 4 ? clips - 4 : 0;
+  return (
+    <span className={`grid size-full gap-px bg-line ${layout}`}>
+      {shown.map((id, i) => (
+        <span key={id} className={`relative overflow-hidden bg-stage ${shown.length === 3 && i === 0 ? "row-span-2" : ""}`}>
+          <ProjectCover coverId={id} iconClass="size-4" />
+          {more > 0 && i === 3 && (
+            <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[0.6875rem] font-semibold text-white" data-preserve-white>
+              +{more}
+            </span>
+          )}
+        </span>
+      ))}
+    </span>
   );
 }

@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* `dark:` follows the editor's theme (dark by default, light by choice, the computer's when "system"),
+   not only the computer's setting: in Light on a dark Mac it must stay off, in "system" on a light Mac too */
+@custom-variant dark {
+  &:where(:root:not([data-theme="light"]):not([data-theme="system"]) *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root[data-theme="system"] *) {
+      @slot;
+    }
+  }
+}
+
 @theme {
   /* dark "studio" theme, like the mockup (newplan.png) */
   --color-app: #070b17; /* page behind the panels */
@@ -166,17 +179,6 @@
   outline: none !important;
 }
 
-/* In dark mode, selected timeline clips get an unmistakable crisp 2px white border */
-:root:not([data-theme="light"]) [data-clip][data-selected="true"] {
-  outline: 2px solid #ffffff !important;
-  outline-offset: -2px !important;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.85), 0 0 12px rgba(255, 255, 255, 0.45) !important;
-}
-
-:root:not([data-theme="light"]) [data-clip][data-selected="true"] [data-selection-ring] {
-  box-shadow: inset 0 0 0 2px #ffffff, 0 0 8px rgba(255, 255, 255, 0.4) !important;
-}
-
 @media (prefers-color-scheme: light) {
   :root[data-theme="system"] [data-project][data-selected="true"],
   :root[data-theme="system"] [data-asset][data-selected="true"] {
@@ -184,11 +186,6 @@
     border-color: var(--color-primary) !important;
     box-shadow: none !important;
     outline: none !important;
-  }
-  :root[data-theme="system"] [data-clip][data-selected="true"] {
-    outline: 2px solid var(--color-primary) !important;
-    outline-offset: -2px !important;
-    box-shadow: none !important;
   }
 }
 
@@ -587,37 +584,37 @@
   color: #475569 !important;
 }
 
-/* the same fixes for the website when the theme is "system" and the computer is light */
+/* the same fixes as Light when the theme is "system" and the computer is light (editor and website alike) */
 @media (prefers-color-scheme: light) {
-  :root[data-theme="system"] .vdo-site h1:not([class*="bg-clip-text"]):not(.dark-preserve),
-  :root[data-theme="system"] .vdo-site h2:not([class*="bg-clip-text"]):not(.dark-preserve),
-  :root[data-theme="system"] .vdo-site h3:not([class*="bg-clip-text"]):not(.dark-preserve),
-  :root[data-theme="system"] .vdo-site h4:not([class*="bg-clip-text"]):not(.dark-preserve),
-  :root[data-theme="system"] .vdo-site h5:not([class*="bg-clip-text"]):not(.dark-preserve),
-  :root[data-theme="system"] .vdo-site h6:not([class*="bg-clip-text"]):not(.dark-preserve) {
+  :root[data-theme="system"] h1:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] h2:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] h3:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] h4:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] h5:not([class*="bg-clip-text"]):not(.dark-preserve),
+  :root[data-theme="system"] h6:not([class*="bg-clip-text"]):not(.dark-preserve) {
     color: #0f172a !important;
   }
 
   /* Ensure no text is white or invisible in light theme unless explicitly inside a dark pill or button */
-  :root[data-theme="system"] .vdo-site .text-white:not([class*="bg-primary"]):not([class*="bg-purple-6"]):not([class*="bg-purple-7"]):not([class*="bg-purple-8"]):not([class*="bg-blue-6"]):not([class*="bg-blue-7"]):not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-cyan-6"]):not([class*="bg-gradient"]):not(.btn-primary):not([data-preserve-white]),
-  :root[data-theme="system"] .vdo-site .text-slate-100:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary),
-  :root[data-theme="system"] .vdo-site .text-slate-200:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+  :root[data-theme="system"] .text-white:not([class*="bg-primary"]):not([class*="bg-purple-6"]):not([class*="bg-purple-7"]):not([class*="bg-purple-8"]):not([class*="bg-blue-6"]):not([class*="bg-blue-7"]):not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-cyan-6"]):not([class*="bg-gradient"]):not(.btn-primary):not([data-preserve-white]),
+  :root[data-theme="system"] .text-slate-100:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary),
+  :root[data-theme="system"] .text-slate-200:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
     color: #0f172a !important;
   }
 
-  :root[data-theme="system"] .vdo-site .text-slate-300:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+  :root[data-theme="system"] .text-slate-300:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
     color: #334155 !important;
   }
 
-  :root[data-theme="system"] .vdo-site .text-slate-400:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
+  :root[data-theme="system"] .text-slate-400:not([class*="bg-black"]):not([class*="bg-slate-9"]):not([class*="bg-purple"]):not(.btn-primary) {
     color: #475569 !important;
   }
 
-  :root[data-theme="system"] .vdo-site .marketing-adaptive-title {
+  :root[data-theme="system"] .marketing-adaptive-title {
     color: #0f172a !important;
   }
 
-  :root[data-theme="system"] .vdo-site .marketing-adaptive-sub {
+  :root[data-theme="system"] .marketing-adaptive-sub {
     color: #475569 !important;
   }
 

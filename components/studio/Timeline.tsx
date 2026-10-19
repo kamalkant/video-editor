@@ -49,7 +49,7 @@ import {
 import { elementName, elementPreset } from "@/lib/elements/catalog";
 import { filmOpsParam, filmTiles } from "@/lib/editor/film";
 import { getEditingTools } from "@/lib/editor/editingTools";
-import { useTheme } from "@/lib/editor/theme";
+import { useResolvedTheme } from "@/lib/editor/theme";
 import { localFilm, localItem, localSrc, localThumb, notOnServer, soundPeaks, subscribeLocal, localVersion, waveUnavailable, type SoundPeaks } from "@/lib/media/localMedia";
 
 export { MEDIA_DRAG, MEME_DRAG, ELEMENT_DRAG, TEXT_DRAG } from "@/lib/editor/mediaDrag";
@@ -3178,14 +3178,15 @@ export function Timeline(p: TimelineProps) {
                                       }
                                       onPointerDown={(e) => e.stopPropagation()}
                                       onClick={() => p.onTransition!(c.id)}
-                                      className={`absolute top-1/2 z-20 flex size-3.5 -translate-x-1/2 -translate-y-1/2 rotate-45 items-center justify-center rounded-[3px] border-1 shadow ${on ? "border-white bg-primary" : has ? "border-white bg-fuchsia-500" : "border-white/70 bg-slate-800 opacity-70 hover:opacity-100"}`}
+                                      className={`absolute top-1/2 z-20 flex h-3.5 w-[21px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[3px] border-1 shadow ${on ? "border-white bg-primary" : has ? "border-white bg-fuchsia-500" : "border-white/70 bg-slate-800 opacity-70 hover:opacity-100"}`}
                                       style={{
-                                        left: x(startOf(tr, i) + ov / 2),
+                                        // (the middle of the 1 px gap between the two clips: ClipBlock starts each one 1 px in)
+                                        left: x(startOf(tr, i) + ov / 2) + 0.5,
                                       }}
                                     >
                                       <span
                                         aria-hidden="true"
-                                        className="-rotate-45 text-[0.625rem] font-bold leading-none text-white"
+                                        className="text-[0.625rem] font-bold leading-none text-white"
                                       >
                                         {has ? "⇄" : "+"}
                                       </span>
@@ -3243,12 +3244,12 @@ export function Timeline(p: TimelineProps) {
                                   }
                                   onPointerDown={(e) => e.stopPropagation()}
                                   onClick={() => p.onTransition!(c.id)}
-                                  className={`absolute top-1/2 z-20 flex size-3.5 -translate-x-1/2 -translate-y-1/2 rotate-45 items-center justify-center rounded-[3px] border-1 shadow ${on ? "border-white bg-primary" : has ? "border-white bg-fuchsia-500" : "border-white/70 bg-slate-800 opacity-70 hover:opacity-100"}`}
-                                  style={{ left: x(markerX) }}
+                                  className={`absolute top-1/2 z-20 flex h-3.5 w-[21px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[3px] border-1 shadow ${on ? "border-white bg-primary" : has ? "border-white bg-fuchsia-500" : "border-white/70 bg-slate-800 opacity-70 hover:opacity-100"}`}
+                                  style={{ left: x(markerX) + 0.5 }}
                                 >
                                   <span
                                     aria-hidden="true"
-                                    className="-rotate-45 text-[0.625rem] font-bold leading-none text-white"
+                                    className="text-[0.625rem] font-bold leading-none text-white"
                                   >
                                     {has ? "⇄" : "+"}
                                   </span>
@@ -3882,8 +3883,11 @@ function ClipBlock(p: {
       backgroundSize: "auto 100%",
       backgroundRepeat: "repeat-x",
     };
-  const theme = useTheme();
-  const isLight = theme === "light";
+  // (the theme showing: "Match my computer" on a light Mac is light too)
+  const isLight = useResolvedTheme() === "light";
+  // a clip with its own colored border (pictures, text, sound…): selected, that border turns white / blue
+  // (one border); a video has none, so a ring is drawn inside it instead
+  const hasBorder = !!TONE[c.type] && !(c as { generation?: unknown }).generation;
   // a sound: its waveform, read from the sound itself (this computer's file, else the server's copy) and
   // drawn at this zoom, so each bar is how loud it is right there; the server's picture only for a file
   // the browser can't read
@@ -3922,7 +3926,7 @@ function ClipBlock(p: {
       data-testid="timeline-clip"
       data-type={c.type}
       data-selected={p.selected ? "true" : "false"}
-      className={`absolute inset-y-1 overflow-hidden rounded-md isolate ${(c as any).generation ? "border-0 ring-0" : TONE[c.type]} ${p.selected && !(c as any).generation ? (isLight ? "z-10 ring-2 ring-[#1a73e8]" : "z-10 ring-2 ring-white shadow-[0_0_0_1px_rgba(0,0,0,0.85),0_0_12px_rgba(255,255,255,0.45)]") : ""} ${p.ghostDx || p.ghostDy !== undefined ? "pointer-events-none z-30 scale-90 opacity-75 shadow-2xl ring-2 ring-link" : ""} ${p.sliding ? "transition-[left] duration-150 ease-out" : ""} ${p.locked ? "cursor-not-allowed" : "cursor-grab"}`}
+      className={`absolute inset-y-1 overflow-hidden rounded-md isolate ${(c as any).generation ? "border-0 ring-0" : TONE[c.type]} ${p.selected ? `z-10 ${hasBorder ? (isLight ? "border-[#1a73e8]!" : "border-white!") : ""}` : ""} ${p.ghostDx || p.ghostDy !== undefined ? "pointer-events-none z-30 scale-90 opacity-75 shadow-2xl ring-2 ring-link" : ""} ${p.sliding ? "transition-[left] duration-150 ease-out" : ""} ${p.locked ? "cursor-not-allowed" : "cursor-grab"}`}
       // (dragged on Video 1: it floats just above the lane, so the shadow where it lands stays in sight)
       style={{
         left: p.left + 1,
@@ -4283,15 +4287,12 @@ function ClipBlock(p: {
             </span>
           </span>
         ))}
-      {p.selected && (
+      {p.selected && !hasBorder && (
         <span
           aria-hidden="true"
           data-selection-ring="true"
-          className={`pointer-events-none absolute inset-0 z-20 rounded-md ${
-            isLight
-              ? "ring-2 ring-inset ring-[#1a73e8]"
-              : "ring-2 ring-inset ring-white shadow-[0_0_0_1px_rgba(0,0,0,0.85),0_0_10px_rgba(255,255,255,0.45)]"
-          }`}
+          // (the one border of a selected clip)
+          className={`pointer-events-none absolute inset-0 z-20 rounded-md ring-2 ring-inset ${isLight ? "ring-[#1a73e8]" : "ring-white"}`}
         />
       )}
     </div>

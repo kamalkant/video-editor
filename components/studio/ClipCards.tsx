@@ -24,7 +24,7 @@ import {
   type Transform,
   resolveBlankFill,
 } from "@/lib/edit/doc";
-import { useTheme } from "@/lib/editor/theme";
+import { useResolvedTheme } from "@/lib/editor/theme";
 import { elementName } from "@/lib/elements/catalog";
 import { emojisIn } from "@/lib/elements/emoji";
 import {
@@ -1304,8 +1304,8 @@ function BlankCard({
   onTitle?: () => void;
   onElement?: () => void;
 }) {
-  const theme = useTheme();
-  const isLight = theme === "light";
+  // (the theme showing: "Match my computer" on a light Mac is light too)
+  const isLight = useResolvedTheme() === "light";
   const displayFill = resolveBlankFill(clip.fill, isLight);
   return (
     <Card title="Blank" id="clip-card-title" action={action}>

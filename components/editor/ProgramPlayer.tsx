@@ -2156,7 +2156,7 @@ export function ProgramPlayer(p: {
           tabIndex={0}
           data-testid="program-view"
           aria-label="Program preview. Space plays or pauses. ⌘ + scroll zooms."
-          className={`on-dark relative flex ${zoom > 1 ? "overflow-auto" : "overflow-hidden"} ${isFull || p.fit ? "min-h-0 flex-1 [container-type:size] py-2" : "max-h-[70vh] [container-type:inline-size]"}`}
+          className={`on-dark relative flex ${zoom > 1 ? "overflow-auto" : "overflow-hidden"} ${isFull || p.fit ? "min-h-0 flex-1 [container-type:size] p-2" : "max-h-[70vh] [container-type:inline-size]"}`}
           onPointerDown={(e) => {
             // a click on the dark area around the canvas (not on a scrollbar, stage or control) selects nothing
             if (!editable || e.button !== 0 || p.cropId || p.patchEdit) return;

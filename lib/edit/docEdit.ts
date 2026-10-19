@@ -65,21 +65,55 @@ function nextTrackName(doc: TimelineDoc, kind: "overlay" | "audio"): string {
 }
 
 /**
- * A free track of this kind at [start, start+len), or a new one (added above
- * the others of its kind). `fresh`: a new text or element, which never goes on
- * a hidden track (you wouldn't see it) or a subtitle track.
+ * A free track of this kind at [start, start+len), or a new one. `prefer`: the
+ * track under the pointer (of any kind): it if it's free, else the free one
+ * nearest to it (the one above first), else a new one right beside it (an
+ * overlay above it, an audio track below it). Without `prefer`: the first free
+ * one, else a new one above the overlays / below the audio tracks.
+ * `fresh`: a new text or element, which never goes on a hidden track (you
+ * wouldn't see it) or a subtitle track.
  */
 function trackFor(doc: TimelineDoc, kind: "overlay" | "audio", start: number, len: number, prefer?: string, except?: string, fresh = false): { doc: TimelineDoc; trackId: string } {
   const candidates = doc.tracks.filter((t) => t.kind === kind && !t.locked && !(fresh && t.kind === "overlay" && (t.hidden || isSubtitleTrack(t)))) as Extract<Track, { kind: "overlay" | "audio" }>[];
-  const order = prefer ? [...candidates.filter((t) => t.id === prefer), ...candidates.filter((t) => t.id !== prefer)] : candidates;
+  const from = prefer ? doc.tracks.findIndex((t) => t.id === prefer) : -1;
+  const at = (t: Track) => doc.tracks.indexOf(t);
+  // nearest to the pointer's track first; on a tie the one above
+  const order = from >= 0 ? [...candidates].sort((a, b) => Math.abs(at(a) - from) - Math.abs(at(b) - from) || at(a) - at(b)) : candidates;
   const free = order.find((t) => !overlaps(t.clips as Placed[], start, len, except));
   if (free) return { doc, trackId: free.id };
   const id = newId(doc, kind === "overlay" ? "v" : "a");
   const name = nextTrackName(doc, kind);
   const track: Track = kind === "overlay" ? { id, kind: "overlay", name, locked: false, hidden: false, muted: false, clips: [] } : { id, kind: "audio", name, locked: false, muted: false, clips: [] };
-  // overlays stack upwards (new one on top); audio tracks go to the bottom
-  const tracks = kind === "overlay" ? [track, ...doc.tracks] : [...doc.tracks, track];
+  const main = doc.tracks.findIndex((t) => t.kind === "main");
+  const near = from >= 0 ? doc.tracks[from] : undefined;
+  // beside the pointer's track: an overlay above it (above Video 1 from a main/audio lane), audio below it (below Video 1 from a picture lane)
+  const index =
+    kind === "overlay"
+      ? near ? (near.kind === "overlay" ? from : Math.max(0, main)) : 0
+      : near ? (near.kind === "audio" ? from + 1 : main + 1) : doc.tracks.length;
+  const tracks = [...doc.tracks.slice(0, index), track, ...doc.tracks.slice(index)];
   return { doc: withTracks(doc, tracks), trackId: id };
+}
+
+/**
+ * The track something dropped (or moved) over `hoveredId` belongs on, nearest
+ * to it: sound on an audio track, video and pictures on Video 1 or an overlay
+ * (over a sound lane: Video 1, the nearest picture lane), text and elements on
+ * an overlay. Null: no track of that kind yet (a new one is made beside Video 1).
+ */
+export function dropTrackFor(doc: TimelineDoc, hoveredId: string | null, what: "video" | "image" | "audio" | "drawn"): string | null {
+  const from = hoveredId ? doc.tracks.findIndex((t) => t.id === hoveredId) : -1;
+  const hovered = from >= 0 ? doc.tracks[from] : undefined;
+  const nearest = (kind: Track["kind"]) => {
+    const all = doc.tracks.map((t, i) => ({ t, i })).filter((x) => x.t.kind === kind);
+    if (!all.length) return null;
+    if (from < 0) return all[0].t.id;
+    return all.sort((a, b) => Math.abs(a.i - from) - Math.abs(b.i - from) || a.i - b.i)[0].t.id;
+  };
+  if (what === "audio") return hovered?.kind === "audio" ? hovered.id : nearest("audio");
+  if (what === "drawn") return hovered?.kind === "overlay" ? hovered.id : nearest("overlay");
+  if (hovered && hovered.kind !== "audio") return hovered.id;
+  return nearest("main");
 }
 
 export type AddOptions = {
@@ -108,7 +142,7 @@ export function addMedia(doc: TimelineDoc, m: MediaLite, o: AddOptions = {}): { 
   const at = Math.max(0, o.at ?? 0);
   if (m.kind === "audio") {
     const clip = audioClipOf(id, m, at);
-    const r = trackFor(doc, "audio", at, clipLength(clip), target?.kind === "audio" ? target.id : undefined);
+    const r = trackFor(doc, "audio", at, clipLength(clip), target?.id);
     return { doc: mapTrack(r.doc, r.trackId, (t) => ({ ...t, clips: [...(t.clips as AudioPlaced[]), clip].sort((a, b) => a.start - b.start) }) as Track), clipId: id };
   }
   const toOverlay = o.overlay || target?.kind === "overlay" || (m.kind === "image" && target?.kind !== "main");
@@ -116,7 +150,7 @@ export function addMedia(doc: TimelineDoc, m: MediaLite, o: AddOptions = {}): { 
   if (toOverlay) {
     const base = m.kind === "video" ? videoClipOf(id, m, o.ops ?? plainOps()) : imageClipOf(id, m, pictureLength(o.duration));
     const clip = { ...base, start: at } as OverlayClip;
-    const r = trackFor(doc, "overlay", at, clipLength(clip), target?.kind === "overlay" ? target.id : undefined);
+    const r = trackFor(doc, "overlay", at, clipLength(clip), target?.id);
     return { doc: mapTrack(r.doc, r.trackId, (t) => ({ ...t, clips: [...(t.clips as OverlayClip[]), clip].sort((a, b) => a.start - b.start) }) as Track), clipId: id };
   }
   const base: MainClip = m.kind === "video" ? videoClipOf(id, m, o.ops ?? plainOps()) : imageClipOf(id, m, pictureLength(o.duration));
@@ -166,6 +200,13 @@ export function dropLanding(
   if (!f) return null;
   const start = f.track.kind === "main" ? mainStarts(f.track.clips as MainClip[])[f.index] : (f.clip as Placed).start;
   return { doc: next, clipId, trackId: f.track.id, start, length: clipLength(f.clip as AnyClip) };
+}
+
+/** Where a new text or element dropped over `trackId` lands (the same choice addText / addElement make), for the drop shadow. */
+export function drawnLanding(doc: TimelineDoc, trackId: string | null, at: number, length: number): { doc: TimelineDoc; trackId: string; start: number; length: number } {
+  const start = Math.max(0, at);
+  const r = trackFor(doc, "overlay", start, length, trackId ?? undefined, undefined, true);
+  return { doc: r.doc, trackId: r.trackId, start, length };
 }
 
 /** A new text or element at `at`, on a free overlay track that shows. */
@@ -383,7 +424,11 @@ export function moveClip(doc: TimelineDoc, clipId: string, to: { trackId: string
     return d;
   }
   if ((target.kind === "audio") !== (c.type === "audio")) return doc;
-  const start = Math.max(0, snap(to.start ?? 0, doc.canvas.fps));
+  const exact = Math.max(0, to.start ?? 0);
+  let start = Math.max(0, snap(exact, doc.canvas.fps));
+  // snapped right against a clip whose edge falls between two frames: stay there (on the frame it'd overlap and go to another track)
+  const len = clipLength(c as AnyClip);
+  if (start !== exact && overlaps(target.clips as Placed[], start, len, clipId) && !overlaps(target.clips as Placed[], exact, len, clipId)) start = exact;
   const { transitionIn: _t, ...cleanClip } = c as MainClip & { transitionIn?: unknown };
   void _t;
   const placed = { ...cleanClip, start } as Placed;

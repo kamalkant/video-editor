@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     cpus: Number(process.env.BUILD_CPUS || 2),
-    webpackBuildWorker: false,
+    webpackBuildWorker: false, 
   },
 };
 

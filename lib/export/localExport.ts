@@ -19,7 +19,8 @@ import type { FileKind, Job, JobFile, JobStep } from "../jobs/queue";
 import { localFileOf, localInfo, localSrc } from "../media/localMedia";
 import { soundLevel } from "../player/sound";
 import { docTransitions, type TransitionType } from "../player/transitions";
-import { createFrameCache, drawFrame, type FrameSources } from "../render/frame";
+import { createFrameCache, drawFrame, type FrameSources, type VideoPicture } from "../render/frame";
+import { ClipDecoders } from "./clipDecoder";
 import { ensureDocFonts } from "../text/fonts";
 
 /**
@@ -241,12 +242,16 @@ function waitFor(el: HTMLMediaElement, events: string[], ms: number, what: strin
   });
 }
 
+/** How long a seeked frame may take to be presented before it's drawn anyway: one frame, at most 20 ms. */
+export const frameWaitMs = (fps: number) => Math.min(20, Math.ceil(1000 / Math.max(1, fps)));
+
 /** One <video> per video clip on screen (a cut of the same file reuses one), seeked to the exact frame. */
 class FrameVideos {
   private byClip = new Map<string, HTMLVideoElement>();
   private idle: HTMLVideoElement[] = [];
   private box: HTMLDivElement;
-  constructor() {
+  /** `fps`: the export's frame rate (how long a seeked frame may take to be presented, see frame()). */
+  constructor(private fps: number) {
     // (in the page, out of sight: some browsers only decode videos that are in a document)
     this.box = document.createElement("div");
     this.box.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none;";
@@ -288,9 +293,11 @@ class FrameVideos {
       el.currentTime = want;
       await seeked;
     }
-    // (the new frame is ready for drawing once the browser has presented it)
+    // (the new frame is ready for drawing once the browser has presented it; after a seek on a paused video
+    // Chromium mostly never calls back, and `seeked` already means the frame is decoded, so this waits at most
+    // a frame: the 120 ms it used to wait was paid on nearly every frame and doubled a 10-minute export)
     const rvfc = (el as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }).requestVideoFrameCallback;
-    if (rvfc) await Promise.race([new Promise<void>((r) => rvfc.call(el, () => r())), new Promise<void>((r) => setTimeout(r, 120))]);
+    if (rvfc) await Promise.race([new Promise<void>((r) => rvfc.call(el, () => r())), new Promise<void>((r) => setTimeout(r, frameWaitMs(this.fps)))]);
     return el;
   }
 
@@ -421,7 +428,9 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
   const ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) throw new Error("This browser can't draw the video.");
   const cache = createFrameCache();
-  const videos = new FrameVideos();
+  const videos = new FrameVideos(F);
+  // (MP4 / MOV clips read in order with WebCodecs; the rest, and reversed clips, seek a <video>)
+  const decoders = new ClipDecoders();
   const urls: string[] = [];
 
   try {
@@ -445,7 +454,7 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
 
     /** Seek every video on screen at time t to its frame, then draw the frame. */
     const drawAt = async (t: number) => {
-      const shown = new Map<string, HTMLVideoElement>();
+      const shown = new Map<string, VideoPicture>();
       const visible = layersAt(doc, t).filter((l) => l.clip.type === "video");
       await Promise.all(
         visible.map(async (l) => {
@@ -454,12 +463,14 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
           const sp = c.speed ?? 1;
           // (the middle of the frame, so a seek never lands on the frame before)
           const srcT = c.reversed ? Math.max(c.in, c.out - off * sp) : Math.min(c.out - 1e-3, c.in + off * sp);
-          shown.set(c.id, await videos.frame(c.id, fileUrl(c.mediaId), srcT));
+          const decoded = c.reversed ? null : await decoders.frame(c.id, c.mediaId, srcT);
+          shown.set(c.id, decoded ?? (await videos.frame(c.id, fileUrl(c.mediaId), srcT)));
         }),
       );
       let backdrop: HTMLVideoElement | null = null;
       if (bdVideoId) backdrop = await videos.frame("backdrop", fileUrl(bdVideoId), bdDuration > 0 ? (t + 0.5 / F) % bdDuration : 0);
       videos.keepOnly(new Set([...shown.keys(), "backdrop"]));
+      decoders.keepOnly(new Set(shown.keys()));
       const src: FrameSources = {
         media,
         video: (c) => {
@@ -495,6 +506,9 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
     const isWebmAlpha = format === "webm-alpha";
     const isHevc = format === "hevc";
     const parts = audioPlan(doc, (id) => media[id]?.hasAudio !== false);
+    // an MP4's sound is AAC, which some browsers can't encode (Chromium on Linux): the server makes it instead
+    if (parts.length && !isWebm && !(await AudioEncoder.isConfigSupported({ codec: "mp4a.40.2", numberOfChannels: 2, sampleRate: SAMPLE_RATE, bitrate: audioKbpsOf(format) * 1000 }).then((r) => !!r.supported, () => false)))
+      throw new LocalExportUnavailable("This browser can't encode AAC sound.");
     const decoded = new Map<string, AudioBuffer | null>();
     const decoder = new OfflineAudioContext(2, SAMPLE_RATE, SAMPLE_RATE);
     for (const p of parts) {
@@ -670,5 +684,6 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
     throw err;
   } finally {
     videos.destroy();
+    decoders.destroy();
   }
 }

@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { FONTS, TEXT_PRESETS, type BuiltinFont } from "@/lib/text/layout";
-import type { TextClip, TimelineDoc } from "@/lib/edit/doc";
+import { TEXT_PRESETS } from "@/lib/text/layout";
+import type { Anim, TextClip, TimelineDoc } from "@/lib/edit/doc";
 import { findClip } from "@/lib/edit/doc";
+import { useBrandKit } from "@/lib/editor/useBrand";
+import { FontPicker } from "../../FontPicker";
+import { RichTextField } from "../../RichTextField";
 
 export type MobileTextSheetProps = {
   doc: TimelineDoc;
@@ -13,7 +16,7 @@ export type MobileTextSheetProps = {
   onPatchClip?: (clipId: string, patch: Partial<TextClip>) => void;
 };
 
-type TextSubTab = "style" | "font" | "color" | "animation";
+type TextSubTab = "words" | "style" | "font" | "color" | "animation";
 
 const COLOR_PALETTE = [
   "#ffffff",
@@ -27,12 +30,15 @@ const COLOR_PALETTE = [
   "#000000",
 ];
 
-const ANIMATION_PRESETS = [
+// how the text comes in (it goes out with a fade; lib/player/anim, the export makes them too)
+const ANIMATION_PRESETS: { id: Anim["in"]; label: string }[] = [
   { id: "none", label: "None" },
   { id: "fade", label: "Fade" },
-  { id: "slide", label: "Slide Up" },
+  { id: "rise", label: "Slide Up" },
+  { id: "slide", label: "Slide In" },
   { id: "zoom", label: "Zoom In" },
   { id: "pop", label: "Pop" },
+  { id: "bounce", label: "Bounce" },
   { id: "typewriter", label: "Typewriter" },
 ];
 
@@ -43,6 +49,7 @@ export function MobileTextSheet({
   onPatchClip,
 }: MobileTextSheetProps) {
   const [subTab, setSubTab] = useState<TextSubTab>("style");
+  const brandFonts = useBrandKit()?.fonts ?? [];
 
   const selectedClip = selectedId ? findClip(doc, selectedId)?.clip : null;
   const isTextClip = selectedClip?.type === "text";
@@ -52,6 +59,19 @@ export function MobileTextSheet({
     <div className="flex flex-col gap-2">
       {/* Sub-tab pills */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        {currentTextClip && (
+          <button
+            type="button"
+            onClick={() => setSubTab("words")}
+            className={`rounded-lg px-2.5 py-1 text-xs font-medium shrink-0 transition-colors ${
+              subTab === "words"
+                ? "bg-primary text-white shadow-xs"
+                : "bg-raised/70 text-muted hover:text-ink"
+            }`}
+          >
+            Words
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setSubTab("style")}
@@ -98,6 +118,17 @@ export function MobileTextSheet({
         </button>
       </div>
 
+      {/* Words: type, select letters and style them (size, color, font…) */}
+      {subTab === "words" && currentTextClip && onPatchClip && (
+        <RichTextField
+          id="text-content-mobile"
+          clip={currentTextClip}
+          onPatch={(p) => onPatchClip(currentTextClip.id, p as Partial<TextClip>)}
+          brandFonts={brandFonts}
+          rows={2}
+        />
+      )}
+
       {/* Style Sub-tab: Presets */}
       {subTab === "style" && (
         <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
@@ -134,33 +165,14 @@ export function MobileTextSheet({
         </div>
       )}
 
-      {/* Font Sub-tab */}
+      {/* Font Sub-tab: the whole Google Fonts library (Hindi too) and your Brand Kit fonts */}
       {subTab === "font" && (
-        <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
-          {Object.entries(FONTS).map(([fontId, font]) => {
-            const isSelected = currentTextClip?.style.font === fontId;
-            return (
-              <button
-                key={fontId}
-                type="button"
-                onClick={() => {
-                  if (currentTextClip && onPatchClip && selectedId) {
-                    onPatchClip(selectedId, {
-                      style: { ...currentTextClip.style, font: fontId as BuiltinFont },
-                    });
-                  }
-                }}
-                className={`flex flex-col items-center justify-center gap-0.5 min-w-[75px] h-14 rounded-xl border p-1.5 transition-all shrink-0 ${
-                  isSelected
-                    ? "border-primary bg-primary/15 text-primary font-semibold"
-                    : "border-line bg-surface text-ink hover:bg-raised"
-                }`}
-              >
-                <span className="text-sm font-semibold">Aa</span>
-                <span className="text-[10px] text-muted truncate max-w-full">{font.label.split(" ")[0]}</span>
-              </button>
-            );
-          })}
+        <div className="py-1">
+          {currentTextClip && onPatchClip && selectedId ? (
+            <FontPicker value={currentTextClip.style.font} onChange={(f) => onPatchClip(selectedId, { style: { ...currentTextClip.style, font: f } })} brandFonts={brandFonts} label="Font" />
+          ) : (
+            <p className="text-xs text-muted">Select a text on the timeline to change its font.</p>
+          )}
         </div>
       )}
 
@@ -199,14 +211,12 @@ export function MobileTextSheet({
               key={anim.id}
               type="button"
               onClick={() => {
-                // If animation property is supported on text clips
                 if (currentTextClip && onPatchClip && selectedId) {
-                  onPatchClip(selectedId, {
-                    // attach animation preset tag or effect
-                  });
+                  onPatchClip(selectedId, { anim: { in: anim.id, out: anim.id === "none" ? "none" : anim.id === "typewriter" ? "typewriter" : "fade" } });
                 }
               }}
-              className="flex items-center justify-center min-w-[70px] h-11 rounded-xl border border-line bg-surface px-2 text-xs font-medium text-ink hover:border-primary/50 transition-all shrink-0"
+              aria-pressed={currentTextClip?.anim.in === anim.id}
+              className={`flex items-center justify-center min-w-[70px] h-11 rounded-xl border px-2 text-xs font-medium transition-all shrink-0 ${currentTextClip?.anim.in === anim.id ? "border-primary bg-primary/15 text-primary" : "border-line bg-surface text-ink hover:border-primary/50"}`}
             >
               {anim.label}
             </button>

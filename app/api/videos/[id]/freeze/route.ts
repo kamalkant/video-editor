@@ -8,6 +8,7 @@ import { formatTime } from "@/lib/format";
 import { apiError } from "@/lib/http/errors";
 import { DEFAULTS, parseSettings } from "@/lib/settings";
 import { getVideo, importFile, kindOf, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,9 @@ export async function POST(
   ctx: RouteContext<"/api/videos/[id]/freeze">,
 ) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video || kindOf(video) !== "video")
     return apiError(404, "not_found", "This video is no longer here.");
@@ -65,7 +69,7 @@ export async function POST(
     const file = join(dir, "freeze.png");
     await writeFile(file, png);
     const name = `Freeze ${video.fileName.replace(/\.[^.]+$/, "")} ${formatTime(t).replace(":", "-")}.png`;
-    return Response.json(await importFile(file, name), { status: 201 });
+    return Response.json(await importFile(file, name, own.user.id), { status: 201 });
   } catch {
     return apiError(500, "server_error", "Couldn't make the freeze frame.");
   } finally {

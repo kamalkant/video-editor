@@ -1,12 +1,16 @@
 import { apiError, finiteNumber } from "@/lib/http/errors";
 import { renderFrame } from "@/lib/ffmpeg/preview";
 import { getVideo, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
 /** The original (un-keyed) frame at time t, as PNG. */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/frame">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
   const t = finiteNumber(new URL(request.url).searchParams.get("t"), 0);

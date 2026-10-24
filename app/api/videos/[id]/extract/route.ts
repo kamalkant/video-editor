@@ -4,12 +4,16 @@ import { storagePath } from "@/lib/storage";
 import { getVideo, importFile, sourcePath } from "@/lib/videos";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]/extract">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
 
@@ -65,7 +69,7 @@ export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]
 
   try {
     await runFfmpeg(args, { timeoutMs: 180_000, signal: request.signal });
-    const newAsset = await importFile(tmpPath, `${title}.mp4`);
+    const newAsset = await importFile(tmpPath, `${title}.mp4`, own.user.id);
     return Response.json({ video: newAsset });
   } catch (err) {
     return apiError(500, "extract_failed", "Couldn't extract this highlight sub-clip.");

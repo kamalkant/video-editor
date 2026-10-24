@@ -7,12 +7,16 @@ import { findCropBox } from "@/lib/ffmpeg/cropbox";
 import { AbortedError } from "@/lib/ffmpeg/run";
 import { apiError } from "@/lib/http/errors";
 import { getVideo, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
 /** The area "Crop empty area" would keep, and the resulting output size. */
 export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]/cropbox">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
   let spec;

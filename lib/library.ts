@@ -428,11 +428,12 @@ export async function indexFolder(folder: string): Promise<Stored[]> {
 }
 
 /** The sounds of your templates and those uploaded in the template pane ("My uploads"): files already in My Assets. */
-export async function uploadItems(): Promise<LibraryItem[]> {
+export async function uploadItems(userId: string | null): Promise<LibraryItem[]> {
+  if (!userId) return [];
   const { templateSounds } = await import("./templates/custom");
   const { getVideo } = await import("./videos");
   const out: LibraryItem[] = [];
-  for (const s of await templateSounds().catch(() => [])) {
+  for (const s of await templateSounds(userId).catch(() => [])) {
     const m = await getVideo(s.assetId);
     if (!m) continue;
     out.push({
@@ -451,8 +452,8 @@ export async function uploadItems(): Promise<LibraryItem[]> {
 export const uploadAssetId = (id: string): string | null =>
   /^upload-[0-9a-f-]{36}$/.test(id) ? id.slice("upload-".length) : null;
 
-/** Everything in the library (the starter set is made if needed). */
-export async function listLibrary(): Promise<{
+/** Everything in the library (the starter set is made if needed); `userId`: whose uploaded sounds ("My uploads") show. */
+export async function listLibrary(userId: string | null = null): Promise<{
   items: LibraryItem[];
   folder: string | null;
 }> {
@@ -473,7 +474,7 @@ export async function listLibrary(): Promise<{
     duration: x.duration,
     source: x.source,
   }));
-  return { items: [...items, ...(await uploadItems())], folder };
+  return { items: [...items, ...(await uploadItems(userId))], folder };
 }
 
 /** The file of a library item (only items in the index, broadcast items, or the starter set). */
@@ -500,8 +501,8 @@ export async function libraryPath(id: string): Promise<string | null> {
   return (await stat(hit.path).catch(() => null)) ? hit.path : null;
 }
 
-export async function libraryItem(id: string): Promise<LibraryItem | null> {
-  return (await listLibrary()).items.find((x) => x.id === id) ?? null;
+export async function libraryItem(id: string, userId: string | null = null): Promise<LibraryItem | null> {
+  return (await listLibrary(userId)).items.find((x) => x.id === id) ?? null;
 }
 
 /** A copy of a library file in a temp folder, ready for importFile (which moves it). */

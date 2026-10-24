@@ -181,6 +181,12 @@ export type Job = {
   textSprites?: Record<string, TextSprite>;
   /** Elements, drawn by the browser: their PNGs in the job folder (lib/render/compose ElementSprite), by clip id. */
   elements?: Record<string, ElementSprite>;
+  /** Texts with a transition: their area on the canvas (cut out of their PNG), by clip id. */
+  textBoxes?: Record<string, { x: number; y: number; w: number; h: number }>;
+  /** Blank scenes' drawn backdrops (gradient / studio set): PNG files in the job folder, by clip id. */
+  blankBackdrops?: Record<string, string>;
+  /** Who started it (only they can see, cancel or delete it; its files stay public for embed codes). */
+  userId?: string;
   /** The file format asked for (timeline exports; absent = the old default for the canvas). */
   format?: ExportFormat;
   /** Pictures: the timeline time of the frame. */
@@ -225,7 +231,7 @@ async function save(job: Job, force = true) {
   await writeJson(jobJson(job.id), job);
 }
 
-export async function createJob(videoId: string, spec: EditSpec): Promise<Job> {
+export async function createJob(videoId: string, spec: EditSpec, userId?: string): Promise<Job> {
   const video = await getVideo(videoId);
   if (!video) throw new Error("Video not found");
   const geo = outputGeometry(spec.output, video.info);
@@ -283,6 +289,7 @@ export async function createJob(videoId: string, spec: EditSpec): Promise<Job> {
       fps: geo.outFps,
       hasAudio: spec.output.audio === "keep" && video.info.hasAudio,
     },
+    ...(userId ? { userId } : {}),
     error: null,
     errorDetail: null,
   };
@@ -309,6 +316,10 @@ export async function createDocJob(
     textSprites?: Record<string, TextSprite>;
     elements?: Record<string, ElementSprite>;
     planMark?: boolean;
+    textBoxes?: Record<string, { x: number; y: number; w: number; h: number }>;
+    /** blank scene id → render id of its drawn backdrop */
+    blankBackdrops?: Record<string, string>;
+    userId?: string;
   } = {},
 ): Promise<Job> {
   const ids = mediaIdsOf(doc);
@@ -424,10 +435,22 @@ export async function createDocJob(
     ...(format ? { format } : {}),
     ...(opts.at != null ? { at: opts.at } : {}),
     ...(opts.planMark ? { planMark: true } : {}),
+    ...(opts.userId ? { userId: opts.userId } : {}),
+    ...(opts.textBoxes && Object.keys(opts.textBoxes).length ? { textBoxes: opts.textBoxes } : {}),
     error: null,
     errorDetail: null,
   };
   await ensureDir(jobDir(job.id));
+  // blank scenes' backdrops (render ids → files here)
+  if (opts.blankBackdrops && Object.keys(opts.blankBackdrops).length) {
+    job.blankBackdrops = {};
+    let b = 0;
+    for (const [clipId, renderId] of Object.entries(opts.blankBackdrops)) {
+      const name = `scene-${++b}.png`;
+      await copyRender(renderId, storagePath("jobs", job.id, name));
+      job.blankBackdrops[clipId] = name;
+    }
+  }
   // the text pictures go into the job's folder (the shared ones expire after a day)
   let n = 0;
   for (const [clipId, renderId] of Object.entries(renders)) {
@@ -680,6 +703,8 @@ async function runDocJob(job: Job, doc: TimelineDoc, signal: AbortSignal) {
           textSpriteOf: (c) => job.textSprites?.[c.id] ?? null,
           planMark: job.planMark ? join(process.cwd(), "public", "vdo-icon.png") : null,
           elementOf: (c) => elementFiles(job, c.id),
+          textBoxOf: (c) => job.textBoxes?.[c.id] ?? null,
+          blankBackdropOf: (c) => (job.blankBackdrops?.[c.id] ? storagePath("jobs", job.id, job.blankBackdrops[c.id]) : null),
           sourceOf: (c) =>
             stable.has(c.id) ? (derived.get(c.mediaId) ?? null) : null,
           reversedOf: (c) => reversed.get(c.id) ?? null,

@@ -2,12 +2,16 @@ import { autoColor, statsOf } from "@/lib/color/auto";
 import { runFfmpeg, SAFE_INPUT } from "@/lib/ffmpeg/run";
 import { apiError } from "@/lib/http/errors";
 import { getVideo, kindOf, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
 /** Auto color for a clip: measures 5 frames of [in, out] and returns color settings. Body: { in?, out? }. */
 export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]/autocolor">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video || kindOf(video) === "audio") return apiError(404, "not_found", "This file is no longer here.");
   let body: { in?: unknown; out?: unknown } = {};

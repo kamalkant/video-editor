@@ -65,6 +65,7 @@ import {
   newId,
   textClipsOf,
   NO_ANIM,
+  animSchema,
   type ElementClip,
   type ElementLook,
   type TimelineDoc,
@@ -98,6 +99,7 @@ import {
   ensureOnServer,
   forgetLocal,
   installUploadGate,
+  keptHereOnly,
   localItem,
   listLocalFiles,
   localItems,
@@ -166,7 +168,11 @@ import {
   type ExportPresetId,
   type VideoPresetId,
 } from "@/lib/export/presets";
-import { canExportLocally, exportLocally } from "@/lib/export/localExport";
+import { canExportLocally, exportLocally, localExportBlockers, LocalExportUnavailable } from "@/lib/export/localExport";
+import { exportDocOf } from "@/lib/export/exportDoc";
+import { ExportPreview } from "./ExportPreview";
+import { ensureDocFonts } from "@/lib/text/fonts";
+import { TEXT_SELECT_EVENT } from "./RichTextField";
 import type { Job } from "@/lib/jobs/queue";
 import { useJobPolling } from "@/lib/jobs/useJobPolling";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -276,13 +282,14 @@ import { contentCapBpp, sizeBasisOf } from "@/lib/export/size";
 import {
   hasKeys,
   motionAt,
+  motionSpan,
   textRenderTransform,
   transformAt,
   type MotionClip,
 } from "@/lib/edit/keyframes";
 import { BUBBLE_MASK } from "./LookSections";
 import { TransitionCard } from "./TransitionsPanel";
-import type { TransitionType } from "@/lib/player/transitions";
+import { docTransitions, type TransitionType } from "@/lib/player/transitions";
 import { PanelSplitter, usePanelWidth } from "./PanelSplitter";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { captionLookStyle, type CaptionLook } from "./SubtitlesPanel";
@@ -936,7 +943,7 @@ function StudioInner(props: Props) {
   const [ttsOpen, setTtsOpen] = useState(false);
   const [transcriptEditOpen, setTranscriptEditOpen] = useState(false);
   const [thumbOpen, setThumbOpen] = useState(false);
-  const [thumbFrame, setThumbFrame] = useState<string | null>(null);
+  const [thumbFrame, setThumbFrame] = useState<{ mediaId: string; t: number } | null>(null);
   const [voiceoverMode, setVoiceoverMode] = useState<"tts" | "mic">("tts");
   const [textToVideoOpen, setTextToVideoOpen] = useState(false);
   const [bRollOpen, setBRollOpen] = useState(false);
@@ -1009,6 +1016,10 @@ function StudioInner(props: Props) {
   const [clock] = useState(createClock);
   const [clipClock] = useState(createClock);
   const programRef = useRef<PlayerApi | null>(null);
+  // the Export dialog plays the export itself: the editor's preview stops (never two at once)
+  useEffect(() => {
+    if (exportOpen) programRef.current?.pause();
+  }, [exportOpen]);
   const clipRef = useRef<PlayerApi | null>(null);
 
   // Motion tracking states
@@ -5352,27 +5363,12 @@ function StudioInner(props: Props) {
     outputOverride?: Partial<Output>,
     size?: { width: number; height: number },
     format: ExportFormat = exportFormat,
+    /** pictures (PNG / JPG): the frame at this time (else the playhead) */
+    pictureAt: number = clock.get(),
   ) => {
     if (!hasClips) return;
-    let d = outputOverride
-      ? { ...doc, output: { ...doc.output, ...outputOverride } }
-      : doc;
-    if (
-      d.canvas.background === "transparent" &&
-      !needsAlpha(format) &&
-      format !== "png"
-    )
-      d = { ...d, canvas: { ...d.canvas, background: "#000000" } };
-    // When exporting an alpha format and background removal is active on a clip, auto-set the
-    // canvas background to transparent so the server's formatBlocked check passes. The user's
-    // actual project background is not changed — only the export copy of the doc is modified.
-    if (needsAlpha(format) && anyRemoval && d.canvas.background !== "transparent" && !d.canvas.backdrop)
-      d = { ...d, canvas: { ...d.canvas, background: "transparent" } };
-    if (size)
-      d = {
-        ...d,
-        canvas: { ...d.canvas, width: size.width, height: size.height },
-      };
+    // the timeline this export makes (the Export dialog's preview shows the same: lib/export/exportDoc)
+    let d = exportDocOf(doc, format, { size, output: outputOverride });
     // the clips' own bitrate: the server makes no heavier file than that either (the size the dialog showed)
     const capBpp = contentCapBpp(d, localInfo);
     if (capBpp) d = { ...d, output: { ...d.output, capBpp } };
@@ -5388,10 +5384,11 @@ function StudioInner(props: Props) {
     setJobId(null);
     if (activeClip) writeLocal(LAST_SPEC_KEY, clipSpec(d, activeClip));
     try {
-      // True Local-First Export: Render directly on device via WebCodecs with zero network uploads
-      const canLocal = !s && (await canExportLocally(format, d.canvas.width, d.canvas.height));
+      // the export made in this browser: every frame drawn like the preview (lib/render/frame), nothing
+      // uploaded; what only the server can make (AI Removal, stabilize, cleaned sound…) goes to the server below
+      const canLocal = !s && !localExportBlockers(d, ds.media).length && (await canExportLocally(format, d.canvas.width, d.canvas.height));
       if (canLocal) {
-        setStartStatus("Rendering locally on device…");
+        setStartStatus(isStillFormat(format) ? "Drawing the picture…" : "Rendering on this device…");
         const ac = new AbortController();
         localAbortController.current = ac;
         try {
@@ -5401,6 +5398,10 @@ function StudioInner(props: Props) {
             size,
             quality: d.output?.quality,
             signal: ac.signal,
+            media: ds.media,
+            liveOf,
+            speech,
+            at: pictureAt,
             onProgress: (progressJob) => {
               setLocalJob(progressJob);
             },
@@ -5409,6 +5410,11 @@ function StudioInner(props: Props) {
           setJobId(res.job.id);
           setOwnJob(res.job.id);
           return;
+        } catch (e) {
+          // a file or a frame this browser couldn't read: the server makes the export instead
+          if (!(e instanceof LocalExportUnavailable) || ac.signal.aborted) throw e;
+          setLocalJob(null);
+          setStartStatus("Making it on the server instead…");
         } finally {
           localAbortController.current = null;
         }
@@ -5425,6 +5431,8 @@ function StudioInner(props: Props) {
           );
       }
       setStartStatus("Rasterizing graphics & elements…");
+      // (the fonts the texts use, Google and Brand Kit ones too, are in the page before they're drawn)
+      await ensureDocFonts(d);
       // drawn pictures (FFmpeg can't draw text or our backdrops): made here like the preview, sent once
       const send = async (key: string, make: () => Promise<Blob | null>) => {
         let id = sentTexts.get(key);
@@ -5449,6 +5457,9 @@ function StudioInner(props: Props) {
       // (a moving text is drawn at its biggest; the export scales and moves it: lib/edit/keyframes textRenderTransform)
       // (typewriter: every step of the typing in one picture, and where its area sits)
       const textSprites: Record<string, ReturnType<typeof textSpriteOf>> = {};
+      // (a still text with a transition: where its area is, so the transition acts on it alone, like the preview)
+      const textBoxes: Record<string, { x: number; y: number; w: number; h: number }> = {};
+      const transitions = docTransitions(d);
       if (!s) {
         await Promise.all(
           textClipsOf(d).map(async (c) => {
@@ -5467,10 +5478,13 @@ function StudioInner(props: Props) {
                 d.canvas.height,
               );
             else if (words) textSprites[c.id] = words;
+            else if (transitions.has(c.id) && !(hasKeys(c) && motionSpan(c).moving))
+              textBoxes[c.id] = textSpriteOf(drawn, d.canvas.width, d.canvas.height).box;
             texts[c.id] = await send(
               JSON.stringify([
                 c.text,
                 c.style,
+                c.marks ?? null,
                 rt,
                 d.canvas.width,
                 d.canvas.height,
@@ -5552,6 +5566,18 @@ function StudioInner(props: Props) {
               () => renderBackdropPng(bd, d.canvas.width, d.canvas.height),
             )
           : undefined;
+      // blank scenes with a drawn backdrop (a gradient, a studio set): its picture too
+      const blankBackdrops: Record<string, string> = {};
+      if (!s)
+        for (const t of d.tracks)
+          for (const c of t.clips) {
+            if (c.type !== "blank" || !c.backdrop || c.backdrop.kind === "media") continue;
+            const cb = c.backdrop;
+            blankBackdrops[c.id] = await send(
+              JSON.stringify(["backdrop", cb, d.canvas.width, d.canvas.height]),
+              () => renderBackdropPng(cb, d.canvas.width, d.canvas.height),
+            );
+          }
       // the logo with a box / rounded corners: drawn here, like the preview
       const wm = d.watermark;
       const logo =
@@ -5578,11 +5604,13 @@ function StudioInner(props: Props) {
             doc: d,
             texts,
             textSprites,
+            textBoxes,
+            blankBackdrops,
             elements,
             backdrop,
             logo,
             format,
-            ...(isStillFormat(format) ? { at: clock.get() } : {}),
+            ...(isStillFormat(format) ? { at: pictureAt } : {}),
           };
       const res = await fetch("/api/jobs", {
         method: "POST",
@@ -6646,7 +6674,7 @@ function StudioInner(props: Props) {
       onThumbnail={() => {
         // the frame Video 1 shows at the playhead is the starting picture
         const f = mainFrameAt(doc, clock.get());
-        setThumbFrame(f ? `/api/videos/${f.mediaId}/frame?t=${f.src.toFixed(3)}` : null);
+        setThumbFrame(f ? { mediaId: f.mediaId, t: f.src } : null);
         setThumbOpen(true);
       }}
       videoDisabled={videoDisabled}
@@ -8576,7 +8604,7 @@ function StudioInner(props: Props) {
       onTransform={(clipId, transform, group) =>
         editAtPlayhead(clipId, { transform }, group)
       }
-      onEditText={(id) => {
+      onEditText={(id, pos) => {
         const c = findClip(doc, id)?.clip;
         document
           .getElementById(
@@ -8587,6 +8615,8 @@ function StudioInner(props: Props) {
               : "text-content",
           )
           ?.focus();
+        // a text: its word under the pointer is selected in the Text panel (ready to style)
+        if (c?.type === "text") window.dispatchEvent(new CustomEvent(TEXT_SELECT_EVENT, { detail: { clipId: id, pos: pos ?? null } }));
       }}
       onStretch={stretchAt}
       onRadius={radiusAt}
@@ -9322,6 +9352,8 @@ function StudioInner(props: Props) {
           doc={doc}
           thumbUrl={(() => {
             const f = mainFrameAt(doc, clock.get()) ?? mainFrameAt(doc, 0);
+            // (a file kept on this computer: the server hasn't got it, its picture taken here is the one)
+            if (f && (notOnServer(f.mediaId) || keptHereOnly(f.mediaId))) return localThumb(f.mediaId) ?? undefined;
             if (f) return `/api/videos/${f.mediaId}/frame?t=${f.src.toFixed(3)}`;
             const firstId =
               coverMediaIdOrNull(doc) ??
@@ -9364,9 +9396,9 @@ function StudioInner(props: Props) {
           format={exportFormat}
           onFormat={setExportFormat}
           blockedOf={exportBlocked}
-          onGenerate={(id) => {
+          onGenerate={(id, at) => {
             if (id && typeof id === "object" && "width" in id && "height" in id) {
-              void generate(undefined, id as { width: number; height: number });
+              void generate(undefined, id as { width: number; height: number }, exportFormat, at);
             } else {
               const v = typeof id === "string" ? videoPreset(id) : null;
               void generate(
@@ -9389,6 +9421,21 @@ function StudioInner(props: Props) {
           sizeBasis={sizeBasis}
           hasSound={docHasSound}
           master={!!doc.output.master}
+          renderPreview={(o) => (
+            // the export itself, drawn like the file will be (lib/render/frame): animations, transitions, effects, text
+            <ExportPreview
+              doc={doc}
+              format={o.format}
+              width={o.width}
+              height={o.height}
+              paused={o.paused}
+              startAt={clock.get()}
+              onTime={o.onTime}
+              media={playerMedia}
+              sources={{ liveOf, packedOf, blurOf, sourceOf, reversedOf, proxyMode, speech }}
+              thumbs={o.thumbs}
+            />
+          )}
         />
       )}
       {helpOpen && (
@@ -9444,7 +9491,7 @@ function StudioInner(props: Props) {
         <ThumbnailDialog
           open={thumbOpen}
           onClose={() => setThumbOpen(false)}
-          frameUrl={thumbFrame}
+          frameAt={thumbFrame}
           brandColors={brand.brand?.colors ?? []}
           projectName={sync.project?.name ?? "thumbnail"}
         />
@@ -10107,21 +10154,21 @@ function StudioInner(props: Props) {
           dispatchDoc({ type: "toggleAudioDetach", clipId, media: ds.media })
         }
         onAddText={(presetId) => addTextAt(presetId)}
-        onOpenLibraryAudio={() => {
-          setRailActive("library");
-          setSideTab("audio");
-        }}
+        onOpenLibraryAudio={() => showPanel("library")}
         onApplyTransition={applyTransition}
         onRemoveTransition={removeTransition}
         onApplyEffect={(effectName) => {
-          if (selectedId) {
+          // (only pictures, text and elements have entrance / exit animations; an unknown name would break the project)
+          const sel = selectedId ? findClip(doc, selectedId)?.clip : null;
+          const kind = animSchema.shape.in.safeParse(effectName);
+          if (sel && (sel.type === "image" || sel.type === "text" || sel.type === "element") && kind.success) {
             dispatchDoc({
               type: "setClip",
-              clipId: selectedId,
-              patch: { anim: { in: effectName as any, out: effectName as any } },
+              clipId: sel.id,
+              patch: { anim: { in: kind.data, out: kind.data === "none" ? "none" : "fade" } },
             });
           } else {
-            setNotice("Select a clip on the timeline first to apply effect.");
+            setNotice(sel ? "Animations are for pictures, text and elements." : "Select a clip on the timeline first to apply effect.");
           }
         }}
         onRemoveBackground={(clipId) => {

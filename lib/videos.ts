@@ -10,6 +10,7 @@ import { makePlayable, playableFile, playableMode } from "./ffmpeg/playable";
 import { probeMedia, ProbeError, type MediaKind, type VideoInfo } from "./ffmpeg/probe";
 import { LIMITS, limitSizeLabel } from "./settings";
 import { ensureDir, isId, newId, readJson, removeDir, startCleanup, storagePath, videoDir, writeJson } from "./storage";
+import { currentOwner } from "./auth/owner";
 
 /** An upload in My Assets: a video, a picture or a sound file. (Named VideoMeta for history.) */
 export type VideoMeta = {
@@ -302,6 +303,8 @@ export async function importAiFile(path: string, fileName: string, ai: AiMade, u
 /** Add a file the editor made itself (e.g. text to speech) to My Assets. The file is moved. */
 export async function importFile(path: string, fileName: string, userId?: string | null): Promise<VideoMeta> {
   startCleanup();
+  // (made for someone: theirs, lib/auth/owner)
+  userId ??= currentOwner();
   const id = newId();
   await ensureDir(videoDir(id));
   try {

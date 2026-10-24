@@ -177,9 +177,18 @@ export function maskRadius(m: ClipMask, w: number, h: number): number {
 
 /**
  * Signed distance to the mask edge (negative inside) at pixel (x, y), for a
- * rounded rectangle; a circle is the rounded square in the middle.
+ * rounded rectangle; a circle is the rounded square in the middle; a diamond
+ * and a five-point star are the shader's shapes (lib/player/glLook; "custom"
+ * draws as the star there too).
  */
 export function maskDistance(m: ClipMask, w: number, h: number, x: number, y: number): number {
+  const s = Math.min(w, h);
+  if (m.shape === "diamond") return (Math.abs(x - w / 2) / (w / 2) + Math.abs(y - h / 2) / (h / 2) - 1) * s * 0.5;
+  if (m.shape === "star" || m.shape === "custom") {
+    const px = (x - w / 2) / s;
+    const py = (y - h / 2) / s;
+    return (Math.hypot(px, py) - (0.42 + 0.18 * Math.cos(5 * Math.atan2(py, px)))) * s;
+  }
   const r = maskRadius(m, w, h);
   const [hw, hh] = m.shape === "circle" ? [r, r] : [w / 2, h / 2];
   const qx = Math.abs(x - w / 2) - (hw - r);
@@ -191,6 +200,13 @@ export const maskAlpha = (d: number, feather: number) => Math.min(1, Math.max(0,
 
 /** The same distance as an FFmpeg expression of X and Y (geq), for a w × h picture. */
 export function maskDistanceExpr(m: ClipMask, w: number, h: number): string {
+  const s = Math.min(w, h);
+  if (m.shape === "diamond") return `((abs(X-${n5(w / 2)})/${n5(w / 2)}+abs(Y-${n5(h / 2)})/${n5(h / 2)}-1)*${n5(s * 0.5)})`;
+  if (m.shape === "star" || m.shape === "custom") {
+    const px = `((X-${n5(w / 2)})/${n5(s)})`;
+    const py = `((Y-${n5(h / 2)})/${n5(s)})`;
+    return `((hypot(${px}\\,${py})-(0.42+0.18*cos(5*atan2(${py}\\,${px}))))*${n5(s)})`;
+  }
   const r = maskRadius(m, w, h);
   const [hw, hh] = m.shape === "circle" ? [r, r] : [w / 2, h / 2];
   const qx = `(abs(X-${n5(w / 2)})-${n5(hw - r)})`;

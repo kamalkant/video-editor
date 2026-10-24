@@ -7,6 +7,7 @@ import { apiError } from "@/lib/http/errors";
 import { maskParamsOf } from "@/lib/ops/aiMatte";
 import { getVideo } from "@/lib/videos";
 import { stat } from "node:fs/promises";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,9 @@ export const runtime = "nodejs";
  */
 export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]/mask">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
   let spec;

@@ -2,6 +2,7 @@ import { apiError, finiteNumber } from "@/lib/http/errors";
 import { pickColor } from "@/lib/ffmpeg/key";
 import { PREVIEW_MAX_WIDTH } from "@/lib/ffmpeg/preview";
 import { getVideo, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,9 @@ export const runtime = "nodejs";
  */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/pick">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
   const q = new URL(request.url).searchParams;

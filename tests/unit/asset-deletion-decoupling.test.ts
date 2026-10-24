@@ -83,7 +83,7 @@ describe("Asset Deletion & Template Decoupling", () => {
     });
 
     // Custom template using C
-    await templatesModule.createCustom({
+    await templatesModule.createCustom("test-user", {
       name: "Custom News Look",
       baseId: null,
       videoId: C,
@@ -155,7 +155,7 @@ describe("Asset Deletion & Template Decoupling", () => {
     expect(list.map((v) => v.id)).not.toContain(C);
 
     // Template remains functional and not marked missing
-    const templates = await templatesModule.listCustomWithStatus();
+    const templates = await templatesModule.listCustomWithStatus("test-user");
     const t = templates.find((x) => x.name === "Custom News Look")!;
     expect(t).toBeDefined();
     expect(t.missing).toBeUndefined();

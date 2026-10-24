@@ -5,14 +5,16 @@ import { deleteVideo, getVideo, hideVideoFromLibrary, restoreUpload, UploadError
 import { getCurrentUser } from "@/lib/auth/session";
 import { templatesUsing } from "@/lib/templates/custom";
 import { requireUser } from "@/lib/auth/requireUser";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
 export async function GET(_request: Request, ctx: RouteContext<"/api/videos/[id]">) {
   const { id } = await ctx.params;
-  const video = await getVideo(id);
-  if (!video) return apiError(404, "not_found", "This video is no longer here.");
-  return Response.json(video);
+  // only your own file's details
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
+  return Response.json(own.video);
 }
 
 /**

@@ -30,6 +30,7 @@ import {
 import { MIN_SEGMENT_FRAMES, type Range } from "./timeline";
 import { editAt, hasKeys, keysForPart, keysOf, moveKey, pruneKeys, removeKey, scaleKeyTimes, setKeyEase, toggleKey, type Ease, type MotionClip } from "./keyframes";
 import { DEFAULT_SPEC, type OpInstance } from "./spec";
+import { normalizeMarks, remapMarks } from "../text/marks";
 
 /** A new video clip without settings: Color Key ready but switched off (a normal clip, nothing removed). */
 const plainOps = (): OpInstance[] => DEFAULT_SPEC.ops.map((o) => ({ ...o, enabled: false }));
@@ -650,6 +651,12 @@ export function setClip(doc: TimelineDoc, clipId: string, patch: Record<string, 
     let next = { ...c, ...safe } as AnyClip;
     if ("start" in safe && safe.start === undefined) {
       delete (next as any).start;
+    }
+    // new words: the styled letters stay on the same letters (lib/text/marks); new marks: cleaned up
+    if (c.type === "text" && next.type === "text" && ("text" in safe || "marks" in safe)) {
+      const marks = "marks" in safe ? normalizeMarks(next.text, next.marks) : remapMarks(c.text, next.text, c.marks);
+      next = { ...next, marks };
+      if (!marks) delete (next as { marks?: unknown }).marks;
     }
     if (hasKeys(c) && !("keyframes" in safe)) {
       // a new speed stretches the clip: the keyframes stay on the same moments of the video

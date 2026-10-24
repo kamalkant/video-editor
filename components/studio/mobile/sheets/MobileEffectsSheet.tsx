@@ -18,15 +18,16 @@ export type MobileEffectsSheetProps = {
 
 type EffectsSubTab = "video" | "transitions" | "overlay" | "ai";
 
+// the entrance / exit animations a picture, text or element can have (lib/player/anim: the export makes them too)
 const VIDEO_EFFECTS = [
   { id: "none", label: "None" },
   { id: "fade", label: "Fade" },
-  { id: "zoomIn", label: "Zoom In" },
-  { id: "zoomOut", label: "Zoom Out" },
-  { id: "glitch", label: "Glitch" },
+  { id: "slide", label: "Slide" },
+  { id: "rise", label: "Rise" },
+  { id: "pop", label: "Pop" },
+  { id: "zoom", label: "Zoom" },
+  { id: "bounce", label: "Bounce" },
   { id: "blur", label: "Blur" },
-  { id: "shake", label: "Shake" },
-  { id: "flash", label: "Flash" },
 ];
 
 export function MobileEffectsSheet({

@@ -2,7 +2,7 @@
 
 A browser-based video editor for creators: a multi-track timeline, word-by-word captions (21 languages including Hindi and Hinglish), editing by transcript, dubbing, smart audio, social-size exports and transparent web avatars (WebM VP9 alpha + MOV HEVC alpha + embed code). Includes accounts, ₹ plans with Razorpay, a referral program and an admin panel.
 
-Product overview and capability reference: [VDO_STUDIO_PRESENTATION.md](VDO_STUDIO_PRESENTATION.md). Admin audit and test matrix: [ADMIN_AUDIT.md](ADMIN_AUDIT.md).
+Product overview and capability reference: [VDO_STUDIO_PRESENTATION.md](VDO_STUDIO_PRESENTATION.md). Admin audit and test matrix: [ADMIN_AUDIT.md](ADMIN_AUDIT.md). Editor audit (exports, tools, security, performance): [EDITOR_AUDIT.md](EDITOR_AUDIT.md).
 
 ## Requirements
 
@@ -30,6 +30,7 @@ npm run dev                    # http://127.0.0.1:3000
 | `RESEND_API_KEY` or `SMTP_*` | Verification and password emails (without them, emails print to the console) |
 | `TWILIO_*` | Phone sign-in by SMS |
 | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET` | Payments (sandbox mode is used until they are set) |
+| `VDO_LOCAL_MODE` | `1` only for the editor on your own computer: drafts are also kept in ~/Documents/VDO. Never on a shared server |
 
 Never commit real keys: `.env.example` must only hold placeholders.
 
@@ -41,6 +42,7 @@ npm run typecheck   # tsc --noEmit (next.config.ts skips type errors in builds, 
 npm run lint
 npm run e2e         # Playwright: Chromium + WebKit
 npm run build && npm start
+node scripts/build-font-catalog.mjs   # refresh the Google Fonts list of the font picker (public/fonts/google-fonts.json)
 ```
 
 ### Media (images and videos)

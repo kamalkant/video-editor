@@ -37,6 +37,8 @@ export const customTemplateSchema = z.object({
   video: mediaRef,
   audio: mediaRef.optional(),
   createdAt: z.number().int(),
+  /** whose template it is (older ones: the person whose video it uses) */
+  userId: z.string().max(80).optional(),
 });
 export type CustomTemplate = z.infer<typeof customTemplateSchema>;
 
@@ -63,7 +65,7 @@ export const customTemplatePatchSchema = z
 /** A template as the library gets it: which of its files are gone from My Assets. */
 export type CustomTemplateStatus = CustomTemplate & { missing?: { video?: true; audio?: true } };
 
-const uploadSchema = z.object({ assetId: z.string().refine(isId), kind: z.enum(["video", "audio"]), name: z.string().max(200), addedAt: z.number().int() });
+const uploadSchema = z.object({ assetId: z.string().refine(isId), kind: z.enum(["video", "audio"]), name: z.string().max(200), addedAt: z.number().int(), userId: z.string().max(80).optional() });
 export type TemplateUpload = z.infer<typeof uploadSchema>;
 const fileSchema = z.object({ templates: z.array(customTemplateSchema).default([]), uploads: z.array(uploadSchema).default([]) });
 type TemplatesFile = z.infer<typeof fileSchema>;
@@ -114,21 +116,41 @@ export function ratioOf(width: number, height: number): TemplateRatio {
 
 const refOf = (m: VideoMeta): TemplateMediaRef => ({ assetId: m.id, name: m.fileName.slice(0, 200), duration: m.info.duration, ...(m.info.width ? { width: m.info.width, height: m.info.height } : {}) });
 
-async function mediaOf(id: string, want: "video" | "audio"): Promise<VideoMeta> {
+async function mediaOf(id: string, want: "video" | "audio", userId?: string): Promise<VideoMeta> {
   const m = await getVideo(id);
-  if (!m) throw new TemplateError(404, "not_found", want === "video" ? "That video is no longer here. Upload it again." : "That sound is no longer here. Upload it again.");
+  // (someone else's upload: as if it weren't there)
+  if (!m || (userId && m.userId && m.userId !== "local" && m.userId !== userId)) throw new TemplateError(404, "not_found", want === "video" ? "That video is no longer here. Upload it again." : "That sound is no longer here. Upload it again.");
   if (kindOf(m) !== want) throw new TemplateError(400, "wrong_kind", want === "video" ? "Choose a video file for the template's video." : "Choose a sound file (MP3, WAV, M4A…) for the template's audio.");
   return m;
 }
 
-export async function listCustom(): Promise<CustomTemplate[]> {
+/**
+ * Whose a template or upload is: its own userId, else (older ones) the person who uploaded its file; null when
+ * nobody can be told (open to anyone signed in, like files from before files had owners).
+ */
+async function ownerOf(x: { userId?: string }, assetId: string): Promise<string | null> {
+  if (x.userId) return x.userId;
+  const m = await getVideo(assetId);
+  return m?.userId && m.userId !== "local" ? m.userId : null;
+}
+const mine = async <T extends { userId?: string }>(items: T[], userId: string, asset: (x: T) => string): Promise<T[]> => {
+  const owners = await Promise.all(items.map((x) => ownerOf(x, asset(x))));
+  return items.filter((_, i) => owners[i] === null || owners[i] === userId);
+};
+
+/** Every template on the server (for keeping their files: lib/storage, templatesUsing). */
+export async function listAllCustom(): Promise<CustomTemplate[]> {
   return (await read()).templates;
+}
+/** Your templates. */
+export async function listCustom(userId: string): Promise<CustomTemplate[]> {
+  return mine((await read()).templates, userId, (t) => t.video.assetId);
 }
 
 /** Your templates, each marked with the files that were deleted from My Assets (so the library can say so). */
-export async function listCustomWithStatus(): Promise<CustomTemplateStatus[]> {
+export async function listCustomWithStatus(userId: string): Promise<CustomTemplateStatus[]> {
   return Promise.all(
-    (await listCustom()).map(async (t) => {
+    (await listCustom(userId)).map(async (t) => {
       const video = !(await getVideo(t.video.assetId));
       const audio = !!t.audio && !(await getVideo(t.audio.assetId));
       return video || audio ? { ...t, missing: { ...(video ? { video: true as const } : {}), ...(audio ? { audio: true as const } : {}) } } : t;
@@ -138,14 +160,14 @@ export async function listCustomWithStatus(): Promise<CustomTemplateStatus[]> {
 
 /** The templates that use this file (its video or its sound): it mustn't be deleted from My Assets while they do. */
 export async function templatesUsing(assetId: string): Promise<CustomTemplate[]> {
-  return (await listCustom()).filter((t) => t.video.assetId === assetId || t.audio?.assetId === assetId);
+  return (await listAllCustom()).filter((t) => t.video.assetId === assetId || t.audio?.assetId === assetId);
 }
 
-export async function createCustom(input: z.input<typeof newCustomTemplateSchema>): Promise<CustomTemplate> {
+export async function createCustom(userId: string, input: z.input<typeof newCustomTemplateSchema>): Promise<CustomTemplate> {
   const i = newCustomTemplateSchema.parse(input);
   if (i.baseId && !BROADCAST_TEMPLATES_BY_ID.has(i.baseId)) throw new TemplateError(400, "bad_base", "That base look doesn't exist.");
-  const video = await mediaOf(i.videoId, "video");
-  const audio = i.audioId ? await mediaOf(i.audioId, "audio") : null;
+  const video = await mediaOf(i.videoId, "video", userId);
+  const audio = i.audioId ? await mediaOf(i.audioId, "audio", userId) : null;
   // a look is laid out for its own shape (a 16:9 ticker doesn't fit a tall video)
   const ratio = ratioOf(video.info.width, video.info.height);
   const base = i.baseId ? BROADCAST_TEMPLATES_BY_ID.get(i.baseId) : undefined;
@@ -160,6 +182,7 @@ export async function createCustom(input: z.input<typeof newCustomTemplateSchema
     video: refOf(video),
     ...(audio ? { audio: refOf(audio) } : {}),
     createdAt: Date.now(),
+    userId,
   });
   return change((f) => {
     f.templates.unshift(t);
@@ -167,14 +190,15 @@ export async function createCustom(input: z.input<typeof newCustomTemplateSchema
   });
 }
 
-export async function updateCustom(id: string, patch: z.input<typeof customTemplatePatchSchema>): Promise<CustomTemplate> {
+export async function updateCustom(userId: string, id: string, patch: z.input<typeof customTemplatePatchSchema>): Promise<CustomTemplate> {
   const { videoId, audioId, ...p } = customTemplatePatchSchema.parse(patch);
   // (the files are checked before the change: a missing or wrong file changes nothing)
-  const video = videoId ? await mediaOf(videoId, "video") : null;
-  const audio = audioId ? await mediaOf(audioId, "audio") : null;
+  const video = videoId ? await mediaOf(videoId, "video", userId) : null;
+  const audio = audioId ? await mediaOf(audioId, "audio", userId) : null;
+  const own = new Set((await listCustom(userId)).map((t) => t.id));
   return change((f) => {
     const i = f.templates.findIndex((t) => t.id === id);
-    if (i < 0) throw new TemplateError(404, "not_found", "That template is no longer here.");
+    if (i < 0 || !own.has(id)) throw new TemplateError(404, "not_found", "That template is no longer here.");
     const cur = f.templates[i];
     const next: Record<string, unknown> = { ...cur, ...p };
     if (video) {
@@ -192,7 +216,9 @@ export async function updateCustom(id: string, patch: z.input<typeof customTempl
 }
 
 /** Remove a template (its files stay in My Assets). */
-export async function deleteCustom(id: string): Promise<boolean> {
+export async function deleteCustom(userId: string, id: string): Promise<boolean> {
+  const own = new Set((await listCustom(userId)).map((t) => t.id));
+  if (!own.has(id)) return false;
   return change((f) => {
     const n = f.templates.length;
     f.templates = f.templates.filter((t) => t.id !== id);
@@ -201,27 +227,28 @@ export async function deleteCustom(id: string): Promise<boolean> {
 }
 
 /** A clip or sound uploaded in the template pane: remembered so it shows (and works) after a reload. */
-export async function rememberUpload(assetId: string, kind: "video" | "audio"): Promise<TemplateUpload> {
-  const m = await mediaOf(assetId, kind);
+export async function rememberUpload(userId: string, assetId: string, kind: "video" | "audio"): Promise<TemplateUpload> {
+  const m = await mediaOf(assetId, kind, userId);
   return change((f) => {
-    const u: TemplateUpload = { assetId, kind, name: m.fileName.slice(0, 200), addedAt: Date.now() };
+    const u: TemplateUpload = { assetId, kind, name: m.fileName.slice(0, 200), addedAt: Date.now(), userId };
     f.uploads = [u, ...f.uploads.filter((x) => x.assetId !== assetId)].slice(0, 200);
     return u;
   });
 }
 
 /** The remembered pane uploads whose files are still here, newest first. */
-export async function listUploads(): Promise<{ upload: TemplateUpload; meta: VideoMeta }[]> {
-  const { uploads } = await read();
+export async function listUploads(userId: string): Promise<{ upload: TemplateUpload; meta: VideoMeta }[]> {
+  const uploads = await mine((await read()).uploads, userId, (u) => u.assetId);
   const out = await Promise.all(uploads.map(async (u) => ({ upload: u, meta: await getVideo(u.assetId) })));
   return out.filter((x): x is { upload: TemplateUpload; meta: VideoMeta } => !!x.meta);
 }
 
 /** Sounds of your templates and pane uploads, for the Audio library ("My uploads"). */
-export async function templateSounds(): Promise<{ assetId: string; name: string; template: string | null }[]> {
+export async function templateSounds(userId: string): Promise<{ assetId: string; name: string; template: string | null }[]> {
   const f = await read();
+  const [templates, uploads] = await Promise.all([mine(f.templates, userId, (t) => t.video.assetId), mine(f.uploads, userId, (u) => u.assetId)]);
   const seen = new Map<string, { assetId: string; name: string; template: string | null }>();
-  for (const t of f.templates) if (t.audio && !seen.has(t.audio.assetId)) seen.set(t.audio.assetId, { assetId: t.audio.assetId, name: t.audio.name, template: t.name });
-  for (const u of f.uploads) if (u.kind === "audio" && !seen.has(u.assetId)) seen.set(u.assetId, { assetId: u.assetId, name: u.name, template: null });
+  for (const t of templates) if (t.audio && !seen.has(t.audio.assetId)) seen.set(t.audio.assetId, { assetId: t.audio.assetId, name: t.audio.name, template: t.name });
+  for (const u of uploads) if (u.kind === "audio" && !seen.has(u.assetId)) seen.set(u.assetId, { assetId: u.assetId, name: u.name, template: null });
   return [...seen.values()];
 }

@@ -2,7 +2,8 @@ import { extname } from "node:path";
 import { apiError } from "@/lib/http/errors";
 import { fileResponse } from "@/lib/http/range";
 import { libraryPath, uploadAssetId } from "@/lib/library";
-import { getVideo, sourcePath } from "@/lib/videos";
+import { sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -13,8 +14,10 @@ export async function GET(request: Request, ctx: RouteContext<"/api/library/[id]
   const { id } = await ctx.params;
   const asset = uploadAssetId(id);
   if (asset) {
-    const m = await getVideo(asset);
-    if (!m) return apiError(404, "not_found", "That sound is no longer here.");
+    // your uploaded sound: only yours
+    const r = await requireMedia(asset);
+    if (r instanceof Response) return r;
+    const m = r.video;
     return fileResponse(sourcePath(asset), MIME[extname(m.fileName).toLowerCase()] ?? "audio/mp4", request.headers.get("range"), { cache: "private, max-age=3600" });
   }
   const path = await libraryPath(id);

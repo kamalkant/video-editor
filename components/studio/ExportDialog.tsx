@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Notice } from "@/components/ui/Notice";
 import type { EditSpec, OutputSettings as Output } from "@/lib/edit/spec";
@@ -16,117 +16,20 @@ import {
   type ExportFormat,
   type VideoPresetId,
 } from "@/lib/export/presets";
-import { formatBytes, formatTime } from "@/lib/format";
+import { formatBytes } from "@/lib/format";
 import { contentCapBpp, estimateBytes, type SizeBasis } from "@/lib/export/size";
 import { useExportSize } from "@/lib/editor/useExportSize";
 import { useServerCaps } from "@/lib/editor/useServerCaps";
 import type { Job } from "@/lib/jobs/queue";
 import type { VideoMeta } from "@/lib/videos";
-import { coverMediaIdOrNull, type TimelineDoc, type VideoClip } from "@/lib/edit/doc";
-import { localInfo, localSrc, localThumb } from "@/lib/media/localMedia";
-import { LiveKeyRenderer, type LiveKeyParams } from "@/lib/editor/liveKey";
+import { coverMediaIdOrNull, type TimelineDoc } from "@/lib/edit/doc";
+import { localInfo, localThumb } from "@/lib/media/localMedia";
 import { ExportResults, ExportSummary } from "./ExportResults";
+import type { PreviewThumbs } from "./ExportPreview";
 import { FormatPicker } from "./FormatPicker";
 import { OutputSettings } from "./OutputSettings";
 
 type CategoryTab = "video" | "image" | "audio" | "share";
-
-function KeyedPreviewVideo({
-  src,
-  liveKey,
-}: {
-  src: string;
-  liveKey: LiveKeyParams | null;
-}) {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isMuted, setIsMuted] = useState(false);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = false;
-    video.volume = 1;
-    video.play().catch(() => {
-      if (video) {
-        video.muted = true;
-        setIsMuted(true);
-        video.play().catch(() => {});
-      }
-    });
-  }, [src]);
-
-  useEffect(() => {
-    if (!liveKey || !canvasRef.current || !videoRef.current) return;
-    const canvas = canvasRef.current;
-    const video = videoRef.current;
-    const renderer = LiveKeyRenderer.create(canvas);
-    if (!renderer) return;
-
-    let animId: number;
-    let running = true;
-
-    const renderLoop = () => {
-      if (!running) return;
-      if (video.readyState >= 2 && !video.paused && !video.ended) {
-        renderer.render(video, liveKey);
-      }
-      animId = requestAnimationFrame(renderLoop);
-    };
-
-    video.play().catch(() => {});
-    animId = requestAnimationFrame(renderLoop);
-
-    return () => {
-      running = false;
-      cancelAnimationFrame(animId);
-    };
-  }, [liveKey, src]);
-
-  const toggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const video = videoRef.current;
-    if (!video) return;
-    const next = !video.muted;
-    video.muted = next;
-    setIsMuted(next);
-  };
-
-  return (
-    <div className="relative size-full flex items-center justify-center bg-checker overflow-hidden">
-      <video
-        ref={videoRef}
-        src={src}
-        autoPlay
-        loop
-        playsInline
-        className={liveKey ? "absolute opacity-0 pointer-events-none w-px h-px -left-[9999px]" : "size-full object-cover bg-black"}
-      />
-      {liveKey && (
-        <canvas
-          ref={canvasRef}
-          className="size-full object-contain"
-        />
-      )}
-      <button
-        type="button"
-        onClick={toggleMute}
-        title={isMuted ? "Unmute preview" : "Mute preview"}
-        className="absolute top-1.5 right-1.5 z-20 flex size-6 items-center justify-center rounded-full bg-black/70 hover:bg-black text-white transition-all shadow pointer-events-auto"
-      >
-        {isMuted ? (
-          <svg className="size-3.5 fill-current" viewBox="0 0 24 24">
-            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
-          </svg>
-        ) : (
-          <svg className="size-3.5 fill-current" viewBox="0 0 24 24">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-          </svg>
-        )}
-      </button>
-    </div>
-  );
-}
 
 const QUALITY_CHOICES = [
   { id: "best", label: "High", sub: "Best quality", note: "Larger size" },
@@ -146,6 +49,12 @@ const FALLBACK_THUMB =
       `<text x="320" y="245" text-anchor="middle" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="13" font-weight="600">ViPlay Video Export</text>` +
     `</svg>`
   );
+
+/** A picture that didn't load (e.g. a file the server hasn't got yet): the placeholder, not a broken image. */
+const thumbFailed = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  const img = e.currentTarget;
+  if (!img.src.startsWith("data:image/svg")) img.src = FALLBACK_THUMB;
+};
 
 interface QuickPresetOption {
   id: string;
@@ -278,19 +187,23 @@ export function ExportDialog(p: {
   format: ExportFormat;
   onFormat: (f: ExportFormat) => void;
   blockedOf: (f: ExportFormat) => string | null;
-  onGenerate: (size: VideoPresetId | null | { width: number; height: number }) => void;
+  onGenerate: (size: VideoPresetId | null | { width: number; height: number }, at?: number) => void;
   onSwitchSize: (id: VideoPresetId) => void;
   sizeBasis?: SizeBasis | null;
   hasSound?: boolean;
   master?: boolean;
   thumbUrl?: string | null;
+  /**
+   * The export, played (components/studio/ExportPreview): at the export's size and format; `paused` while it's
+   * made. `thumbs`: the quick presets' pictures, the same frame at their sizes.
+   */
+  renderPreview?: (o: { width: number; height: number; format: ExportFormat; paused: boolean; onTime: (t: number) => void; thumbs: PreviewThumbs }) => ReactNode;
 }) {
   const [tab, setTab] = useState<CategoryTab>("video");
   const [again, setAgain] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [previewPlaying, setPreviewPlaying] = useState(false);
   const [recHovered, setRecHovered] = useState(false);
 
   // Sizing and Aspect ratio lock state
@@ -420,10 +333,16 @@ export function ExportDialog(p: {
     }
   };
 
+  // the frame the preview was stopped on (a PNG / JPG is a picture of it; else the editor's playhead)
+  const [previewAt, setPreviewAt] = useState<number | undefined>(undefined);
+  // each quick preset's picture: that frame as its export would have it (drawn by the preview), by `${w}x${h}`
+  const [presetPics, setPresetPics] = useState<Record<string, string>>({});
+  const presetSize = (rec: QuickPresetOption) =>
+    rec.id === "project" ? { width: pr?.width ?? 1920, height: pr?.height ?? 1080 } : { width: rec.width ?? 1920, height: rec.height ?? 1080 };
   const generate = () => {
     setAgain(false);
     setExporting(true);
-    p.onGenerate({ width: customW, height: customH });
+    p.onGenerate({ width: customW, height: customH }, previewAt);
   };
 
   // Size estimation
@@ -448,85 +367,10 @@ export function ExportDialog(p: {
       safariAlpha,
     });
   };
-  // Live snapshot and media preview
-  const [liveSnapshot, setLiveSnapshot] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!p.open) return;
-    // 1. Try capturing live from ProgramPlayer canvas
-    try {
-      const canvas = document.querySelector('canvas[data-testid="program-canvas"]') as HTMLCanvasElement | null;
-      if (canvas && canvas.width > 0 && canvas.height > 0) {
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
-        if (dataUrl && dataUrl.length > 200) {
-          setLiveSnapshot(dataUrl);
-          return;
-        }
-      }
-    } catch {}
-
-    // 2. Try capturing from video element if playing/active
-    try {
-      const videoEl = document.querySelector("video") as HTMLVideoElement | null;
-      if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
-        const offscreen = document.createElement("canvas");
-        offscreen.width = videoEl.videoWidth;
-        offscreen.height = videoEl.videoHeight;
-        const ctx = offscreen.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(videoEl, 0, 0);
-          const dataUrl = offscreen.toDataURL("image/jpeg", 0.9);
-          if (dataUrl && dataUrl.length > 200) {
-            setLiveSnapshot(dataUrl);
-            return;
-          }
-        }
-      }
-    } catch {}
-  }, [p.open]);
-
   const activeMediaId = p.video?.id || (p.doc ? coverMediaIdOrNull(p.doc) : null) || null;
-  const clipThumb = activeMediaId ? (localThumb(activeMediaId) ?? `/api/videos/${activeMediaId}/thumb`) : null;
-  const videoPlayUrl = activeMediaId
-    ? (localSrc(activeMediaId) ?? `/api/videos/${activeMediaId}/play`)
-    : null;
-
-  const activeClip = p.doc?.tracks
-    ?.flatMap((t) => t.clips as any[])
-    .find((c: any) => c.type === "video" && c.mediaId === activeMediaId) as VideoClip | undefined;
-  const chromaOp = activeClip?.ops.find(
-    (o): o is Extract<NonNullable<typeof activeClip>["ops"][number], { type: "chromaKey" }> => o.enabled && o.type === "chromaKey",
-  );
-  const blackOp = activeClip?.ops.find(
-    (o): o is Extract<NonNullable<typeof activeClip>["ops"][number], { type: "blackKey" }> => o.enabled && o.type === "blackKey",
-  );
-  const liveKeyParams: LiveKeyParams | null = chromaOp
-    ? {
-        method: "chroma",
-        keyColor: chromaOp.params.keyColor,
-        similarity: chromaOp.params.similarity,
-        blend: chromaOp.params.blend,
-        despill: chromaOp.params.despill,
-        despillStrength: chromaOp.params.despillStrength,
-      }
-    : blackOp
-      ? {
-          method: "black",
-          keyColor: "#000000",
-          similarity: 0,
-          blend: 0,
-          despill: false,
-          despillStrength: 0,
-          threshold: blackOp.params.threshold,
-        }
-      : null;
-
   const thumbSrc =
-    liveSnapshot ||
     p.thumbUrl ||
-    clipThumb ||
-    (p.video?.id ? (localThumb(p.video.id) ?? `/api/videos/${p.video.id}/thumb`) : null) ||
-    (activeMediaId ? `/api/videos/${activeMediaId}/thumb` : null) ||
+    (activeMediaId ? (localThumb(activeMediaId) ?? `/api/videos/${activeMediaId}/thumb`) : null) ||
     FALLBACK_THUMB;
 
   // Share handlers
@@ -768,8 +612,7 @@ export function ExportDialog(p: {
                       activePreset === rec.id &&
                       p.format === "mp4";
                     const isProject = rec.id === "project";
-                    const itemW = isProject ? (pr?.width ?? 1920) : (rec.width ?? 1920);
-                    const itemH = isProject ? (pr?.height ?? 1080) : (rec.height ?? 1080);
+                    const { width: itemW, height: itemH } = presetSize(rec);
                     const displayAspect = isProject
                       ? (() => {
                           if (!pr) return "16:9";
@@ -794,18 +637,15 @@ export function ExportDialog(p: {
                         }`}
                       >
                         <div className="relative mb-1 h-11 sm:h-12 w-full overflow-hidden rounded-lg bg-black/60 flex items-center justify-center">
+                          {/* the export at this size (until it's drawn: the video's picture) */}
+                          {/* eslint-disable-next-line @next/next/no-img-element -- a picture drawn here */}
                           <img
-                            src={thumbSrc}
-                            alt={rec.name}
-                            className={
-                              rec.aspect === "9:16"
-                                ? "h-full w-auto aspect-[9/16] object-cover rounded shadow-xs transition-transform group-hover:scale-105"
-                                : rec.aspect === "1:1"
-                                  ? "h-full w-auto aspect-square object-cover rounded shadow-xs transition-transform group-hover:scale-105"
-                                  : rec.aspect === "4:5"
-                                    ? "h-full w-auto aspect-[4/5] object-cover rounded shadow-xs transition-transform group-hover:scale-105"
-                                    : "size-full object-cover transition-transform group-hover:scale-105"
-                            }
+                            src={presetPics[`${itemW}x${itemH}`] ?? thumbSrc}
+                            alt=""
+                            onError={thumbFailed}
+                            style={{ aspectRatio: `${itemW} / ${itemH}` }}
+                            className="h-full w-auto max-w-full rounded object-cover shadow-xs ring-1 ring-white/20 transition-transform group-hover:scale-105"
+                            data-testid="preset-thumb"
                           />
                           <span className="absolute bottom-1 right-1 rounded bg-black/80 px-1 py-0.25 text-[0.5rem] font-bold text-white tabular-nums shadow">
                             {displayAspect}
@@ -870,75 +710,24 @@ export function ExportDialog(p: {
 
       {/* Right Column / Output Sidebar */}
           <div className="flex flex-col gap-2.5 lg:sticky lg:top-0 lg:self-start">
-            {/* Video Preview Box with Dynamic Aspect Ratio Stage */}
-            <div
-              className="group relative h-36 sm:h-40 w-full overflow-hidden rounded-xl border border-dialog-card-border bg-dialog-card/80 p-0 shadow-xs cursor-pointer flex items-center justify-center"
-              onClick={() => setPreviewPlaying((v) => !v)}
-            >
-              {/* Screen Frame matching selected aspect ratio */}
-              <div
-                style={{
-                  aspectRatio: `${customW || 16} / ${customH || 9}`,
-                }}
-                className="relative h-full max-h-full max-w-full overflow-hidden rounded-lg bg-black shadow-md border border-dialog-border transition-all duration-300 flex items-center justify-center"
-              >
-                {previewPlaying && videoPlayUrl ? (
-                  <KeyedPreviewVideo
-                    src={videoPlayUrl}
-                    liveKey={liveKeyParams}
-                  />
-                ) : (
-                  <img
-                    src={thumbSrc}
-                    alt="Video Preview"
-                    className="size-full object-cover bg-black"
-                  />
-                )}
-
-                {/* Play overlay button - 100% crisp, no backdrop blur */}
-                <div
-                  className={`absolute inset-0 flex items-center justify-center transition-opacity pointer-events-none ${
-                    previewPlaying
-                      ? "opacity-0 group-hover:opacity-100"
-                      : "opacity-90 group-hover:opacity-100"
-                  }`}
-                >
-                  <div className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white shadow-lg ring-1 ring-white/20 transition-transform group-hover:scale-105">
-                    {previewPlaying ? (
-                      <svg className="size-4 fill-current" viewBox="0 0 24 24">
-                        <rect x="6" y="4" width="4" height="16" rx="1" />
-                        <rect x="14" y="4" width="4" height="16" rx="1" />
-                      </svg>
-                    ) : (
-                      <svg className="ml-0.5 size-4 fill-current" viewBox="0 0 24 24">
-                        <polygon points="5 3 19 12 5 21 5 3" />
-                      </svg>
-                    )}
-                  </div>
+            {/* The export, played: every clip, text, animation, transition and effect, at the export's size */}
+            <div className="rounded-xl border border-dialog-card-border bg-dialog-card/80 p-1.5 shadow-xs">
+              {p.renderPreview && pr ? (
+                p.renderPreview({
+                  width: customW,
+                  height: customH,
+                  format: p.format,
+                  paused: running,
+                  onTime: setPreviewAt,
+                  // (the quick presets make MP4s)
+                  thumbs: { sizes: QUICK_PRESETS.map(presetSize), format: "mp4", onPictures: setPresetPics },
+                })
+              ) : (
+                <div className="flex h-36 items-center justify-center sm:h-40">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a thumbnail */}
+                  <img src={thumbSrc} alt="" onError={thumbFailed} className="max-h-full max-w-full rounded-lg object-contain" />
                 </div>
-
-                {/* Aspect ratio chip on preview frame */}
-                <span className="absolute bottom-1 left-1 rounded bg-black/80 px-1 py-0.25 text-[0.5rem] font-bold text-white/90 border border-white/10 pointer-events-none uppercase tracking-wider">
-                  {(() => {
-                    const r = (customW || 16) / (customH || 9);
-                    if (Math.abs(r - 16 / 9) < 0.05) return "16:9";
-                    if (Math.abs(r - 9 / 16) < 0.05) return "9:16";
-                    if (Math.abs(r - 1) < 0.05) return "1:1";
-                    if (Math.abs(r - 4 / 5) < 0.05) return "4:5";
-                    return `${customW}×${customH}`;
-                  })()}
-                </span>
-              </div>
-
-              {/* Top-left live badge on stage */}
-              <span className="absolute top-1.5 left-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-white/90 border border-white/10 pointer-events-none">
-                {previewPlaying ? "● Live Preview" : "Preview"}
-              </span>
-
-              {/* Duration badge on stage */}
-              <span className="absolute bottom-1.5 right-1.5 rounded-md bg-black/80 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular-nums shadow border border-white/10 pointer-events-none">
-                {pr ? formatTime(pr.duration) : "00:00"}
-              </span>
+              )}
             </div>
 
             {/* Output Size Section */}

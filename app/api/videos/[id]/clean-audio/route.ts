@@ -5,6 +5,7 @@ import { apiError } from "@/lib/http/errors";
 import { fileResponse } from "@/lib/http/range";
 import { storagePath } from "@/lib/storage";
 import { getVideo, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,9 @@ const making = new Map<string, Promise<void>>();
 /** The upload's sound with background noise removed (made once, cached), for the preview. ?level=light|strong */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/clean-audio">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const level = new URL(request.url).searchParams.get("level");
   if (!isDenoiseLevel(level)) return apiError(400, "bad_request", "level must be light or strong.");
   const video = await getVideo(id);

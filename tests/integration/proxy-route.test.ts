@@ -2,7 +2,11 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
+
+// a file's routes are for signed-in people only (lib/auth/media)
+vi.mock("@/lib/auth/session", async (orig) => ({ ...(await orig<typeof import("@/lib/auth/session")>()), getCurrentUser: async () => ({ id: "test-user", email: "t@example.com", name: "Test", role: "user", status: "active" }) }));
+
 import { GET } from "@/app/api/videos/[id]/proxy/route";
 import { ensureProxy } from "@/lib/media/proxy";
 import { importFile } from "@/lib/videos";

@@ -2,6 +2,7 @@ import { findBeats } from "@/lib/audio/beats";
 import { AbortedError, runFfmpeg, SAFE_INPUT } from "@/lib/ffmpeg/run";
 import { apiError } from "@/lib/http/errors";
 import { getVideo, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,9 @@ const MAX_SECONDS = 10 * 60;
 /** Beats in the clip's sound: { in, out } (source seconds) → { bpm, beats: [source seconds] }. */
 export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]/beats">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This file is no longer here.");
   if (!video.info.hasAudio) return Response.json({ bpm: 0, beats: [], hasAudio: false });

@@ -61,6 +61,8 @@ export const FEATURES: Feature[] = [
   f("record", "ready", "rec-voice", "Record voiceover", "Straight onto an audio track at the playhead."),
   f("text", "ready", "titles", "Titles and lower thirds", "Title, lower third, breaking-news bar, caption and plain text; fonts, colors, boxes."),
   f("text", "ready", "text-anim", "Text and picture animations", "Fade, slide and rise, in and out."),
+  f("text", "ready", "rich-text", "Style any letters", "Select a word or a few letters and give them their own size, color, font, bold, italic, a line under or through them, or a marker color."),
+  f("text", "ready", "google-fonts", "1,900+ fonts, Hindi too", "The whole Google Fonts library, searchable by name and kind, with 60+ Hindi (Devanagari) fonts; your own fonts in the Brand Kit."),
   f("audio", "ready", "music", "Music and sound clips", "Volume, fades, mute and lock per track."),
   f("audio", "ready", "duck", "Quieter music under speech", "Automatic ducking in the exported video."),
   f("audio", "ready", "silences", "Remove silences", "Finds the pauses in speech and cuts them in one step."),

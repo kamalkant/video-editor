@@ -1,26 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { clipLength, docDuration, findClip, layersAt, LOGO_MAX_SIZE, mainStarts, mainTrack, type AnyClip, type AudioPlaced, type BlankClip, type ElementClip, type Layer, type MediaLite, type TextClip, type TimelineDoc, type Transform, type VideoClip, type Watermark, watermarkPad, watermarkRect } from "@/lib/edit/doc";
-import { drawLogoBadge, logoState } from "@/lib/player/logo";
+import { clipLength, docDuration, findClip, layersAt, LOGO_MAX_SIZE, mainStarts, mainTrack, type AnyClip, type AudioPlaced, type Layer, type MediaLite, type TimelineDoc, type Transform, type VideoClip, type Watermark, watermarkRect } from "@/lib/edit/doc";
+import { logoState } from "@/lib/player/logo";
 import { ELEMENT_DRAG, elementDrag, MEDIA_DRAG, mediaDrag, MEME_DRAG, memeDrag, TEXT_DRAG, textDrag, useElementDrag, useMediaDrag, useMemeDrag, useTextDrag } from "@/lib/editor/mediaDrag";
 import type { Clock } from "@/lib/editor/clock";
-import { hexToRgb, LiveKeyRenderer, type LiveKeyParams } from "@/lib/editor/liveKey";
-import { GlLook } from "@/lib/player/glLook";
-import { clampCrop, colorMatrix, CROP_MAX, cropRect, isIdentity, maskRadius, rotationOf, vignetteOf } from "@/lib/player/look";
-import { formatTime } from "@/lib/format";
-import { animState, BLUR, typedCount } from "@/lib/player/anim";
-import { cropViewRect, fadeAlpha, logoTransform, motionRect, nextZoom, placeRect, PREVIEW_ZOOMS, sideScale, workScale, type Rect } from "@/lib/player/layout";
+import type { LiveKeyParams } from "@/lib/editor/liveKey";
+import { clampCrop, CROP_MAX, rotationOf } from "@/lib/player/look";
+import { animState } from "@/lib/player/anim";
+import { cropViewRect, logoTransform, motionRect, nextZoom, placeRect, PREVIEW_ZOOMS, sideScale, type Rect } from "@/lib/player/layout";
 import { pointerAngle, rotateCursor, turnAngle } from "@/lib/player/rotate";
 import { ContextMenu, useMenuButton, type MenuItem } from "@/components/ui/ContextMenu";
-import { hasKeys, motionAt, motionSpan, textRenderTransform, transformAt, type MotionClip } from "@/lib/edit/keyframes";
+import { hasKeys, transformAt, type MotionClip } from "@/lib/edit/keyframes";
 import { textAnchor } from "@/lib/text/layout";
 import { setLevel, silence, soundLevel } from "@/lib/player/sound";
 import { assignSlots, IDLE_UNLOAD_MS, MAX_VIDEO_ELEMENTS, type Slot, type Want } from "@/lib/player/videoPool";
-import { fillFromBorder, patchRect } from "@/lib/player/patches";
-import { docTransitions, docTransitionsAt, mainTransitionAt, mainTransitions } from "@/lib/player/transitions";
-import { captionProgress, drawText, letterCount, textLayout } from "@/lib/text/render";
-import { drawElement, movesByItself } from "@/lib/elements/draw";
+import { docTransitions } from "@/lib/player/transitions";
+import { hitTestText, textLayout } from "@/lib/text/render";
+import { ensureDocFonts } from "@/lib/text/fonts";
 import { elementRect, stretchElement, type Edge } from "@/lib/elements/geometry";
 import { elementName } from "@/lib/elements/catalog";
 import { DUCK_LEVEL, inSpeech } from "@/lib/audio/ducking";
@@ -32,12 +29,11 @@ import { readPreviewMuted, writePreviewMuted } from "@/lib/editor/previewSound";
 import { localSrc, localThumb, restorePending, setFilmPaused } from "@/lib/media/localMedia";
 import { Spinner } from "@/components/ui/Spinner";
 import { Icon } from "@/components/ui/Icon";
-import { cornerPin, cornerResize, pivotFromPointer, pivotOnCanvas, radiusDotLocal, radiusFromPointer, sideStretch, skewDrag, textSideStretch, xyForCenter, type HandleBox } from "@/lib/player/handles";
-import { boxQuad, hasCorners, quadOk, type BoxLook, type CornerKey, type Corners, type Pt, type Quad } from "@/lib/player/quad";
-import { drawWarpMesh, GlWarp } from "@/lib/player/glWarp";
-import { drawBackdrop } from "@/lib/backdrops";
+import { cornerPin, cornerResize, pivotFromPointer, radiusFromPointer, skewDrag, xyForCenter, type HandleBox } from "@/lib/player/handles";
+import { hasCorners, type BoxLook, type CornerKey } from "@/lib/player/quad";
 import { trackingAt, type TrackingPoint, type BlurAttachment } from "@/lib/tracking/types";
 import { findTrackingAttachmentForClip, evaluateAttachmentTransform } from "@/lib/tracking/attach";
+import { createFrameCache, drawFrame, pruneFrameCache, textPlacement } from "@/lib/render/frame";
 
 const BG_CLASS: Record<Exclude<Bg, "custom">, string> = { checker: "bg-checker", white: "bg-white", black: "bg-black", image: "bg-checker", video: "bg-checker" };
 /** Preview resolution (the export uses the full canvas size). */
@@ -113,22 +109,6 @@ function clipRect(c: AnyClip, into: number, W: number, H: number, media: Record<
   const rot = rotationOf(hasKeys(c) ? transformAt(c, into) : c.transform);
   const a = "anim" in c ? animState(into, clipLength(c), c.anim) : null;
   return a ? { ...r, x: r.x + a.dx * W, y: r.y + a.dy * H, rot } : { ...r, rot };
-}
-
-/**
- * A text clip's picture and where it goes: a moving text is drawn once at its
- * biggest, then scaled around its anchor and moved (the export does the same).
- * Map a point of the drawn text with `ox + k·x`, `oy + k·y`.
- */
-function textPlacement(c: TextClip, into: number, W: number, H: number): { clip: TextClip; k: number; ox: number; oy: number; qx: number; qy: number; opacity: number } {
-  const m = motionAt(c, into);
-  const rt = textRenderTransform(c);
-  const drawn = rt === c.transform ? c : { ...c, transform: rt };
-  const a = textAnchor(c.style.preset, W, H);
-  // (q: the drawn text's anchor, the point it grows from)
-  if (!hasKeys(c) || !motionSpan(c).moving) return { clip: drawn, k: 1, ox: 0, oy: 0, qx: a.x + rt.x * W, qy: a.y + rt.y * H, opacity: m.opacity };
-  const k = m.scale / rt.scale;
-  return { clip: drawn, k, ox: a.x * (1 - k) + m.x * W, oy: a.y * (1 - k) + m.y * H, qx: a.x, qy: a.y, opacity: m.opacity };
 }
 
 /**
@@ -217,23 +197,6 @@ function upcomingVideos(doc: TimelineDoc, t: number, ahead: number): { clip: Vid
 const sourceUrl = (mediaId: string) => `/api/videos/${mediaId}/play`;
 const proxyUrl = (mediaId: string) => `/api/videos/${mediaId}/proxy`;
 
-/** A blurred copy of the picture (top of a packed AI video) into ctx. Safari has no canvas filters: shrink and grow instead. */
-function blurInto(ctx: CanvasRenderingContext2D, el: HTMLVideoElement, w: number, h: number, sigma: number) {
-  if (typeof ctx.filter === "string") {
-    ctx.save();
-    ctx.filter = `blur(${Math.max(1, sigma).toFixed(1)}px)`;
-    ctx.drawImage(el, 0, 0, w, h, 0, 0, w, h);
-    ctx.restore();
-    return;
-  }
-  const f = Math.max(2, sigma / 1.5);
-  const small = document.createElement("canvas");
-  small.width = Math.max(1, Math.round(w / f));
-  small.height = Math.max(1, Math.round(h / f));
-  small.getContext("2d")!.drawImage(el, 0, 0, w, h, 0, 0, small.width, small.height);
-  ctx.imageSmoothingEnabled = true;
-  ctx.drawImage(small, 0, 0, w, h);
-}
 /** How long a clip may hold the picture (last frame stays) while its video seeks. */
 const HOLD_MS = 1200;
 /** How long the paused picture keeps being drawn after a change (videos seeking, files arriving, holds ending). */
@@ -281,7 +244,7 @@ export function ProgramPlayer(p: {
   /** A drag / nudge on the preview: only the fields it changes (the clip's keyframes may take them). */
   onTransform?: (clipId: string, patch: Partial<Transform>, group: string) => void;
   /** Double-click on a text (or an element with words): edit its words. */
-  onEditText?: (clipId: string) => void;
+  onEditText?: (clipId: string, pos?: number | null) => void;
   /** An element's side dragged: its new shape (width ÷ height), size and place. */
   onStretch?: (clipId: string, next: { aspect: number; x: number; y: number; scale: number }, group: string) => void;
   /** Corner radius dragged on the preview (share of the shorter side, 0-0.5). */
@@ -320,13 +283,8 @@ export function ProgramPlayer(p: {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
-  const glCanvas = useRef<HTMLCanvasElement | null>(null);
-  const renderer = useRef<LiveKeyRenderer | null>(null);
-  const lookRef = useRef<GlLook | false | null>(null);
-  const warperRef = useRef<GlWarp | false | null>(null);
-  const mixCanvas = useRef<HTMLCanvasElement | null>(null);
-  const bdCache = useRef<{ key: string; canvas: HTMLCanvasElement } | null>(null);
-  const patchCanvas = useRef<HTMLCanvasElement | null>(null);
+  // the GPU helpers and pictures the frame drawing keeps (lib/render/frame)
+  const frameCache = useRef(createFrameCache());
   const bdVideo = useRef<HTMLVideoElement | null>(null);
   // the shared <video> elements (lib/player/videoPool) and the box they live in
   const poolBox = useRef<HTMLDivElement>(null);
@@ -340,12 +298,6 @@ export function ProgramPlayer(p: {
   const [aiWaiting, setAiWaiting] = useState(false);
   const sounds = useRef(new Map<string, HTMLAudioElement>());
   const images = useRef(new Map<string, HTMLImageElement>());
-  // each element's picture (lib/elements/draw), drawn again when it changes
-  const elementPics = useRef(new Map<string, { key: string; canvas: HTMLCanvasElement }>());
-  // blank scenes' colors
-  const colorPics = useRef(new Map<string, HTMLCanvasElement>());
-  // (a Brand Kit font that loads later: elements drawn with the fallback are drawn again)
-  const fontGen = useRef(0);
   // start where the playhead already is (e.g. after switching from the clip view)
   const tRef = useRef(p.clock.get());
   const playing = useRef(false);
@@ -380,6 +332,8 @@ export function ProgramPlayer(p: {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
   const docRef = useRef(doc);
+  const selectedRef = useRef(p.selectedId);
+  const lastTimeState = useRef(0);
   const liveRef = useRef(p.liveOf);
   const packedRef = useRef(p.packedOf);
   const blurRef = useRef(p.blurOf);
@@ -391,6 +345,7 @@ export function ProgramPlayer(p: {
   const loopRef = useRef(loop);
   useEffect(() => {
     docRef.current = doc;
+    selectedRef.current = p.selectedId;
     liveRef.current = p.liveOf;
     packedRef.current = p.packedOf;
     blurRef.current = p.blurOf;
@@ -433,13 +388,18 @@ export function ProgramPlayer(p: {
       }
     }
     // elements that were deleted: let go of their pictures
-    for (const id of elementPics.current.keys()) if (!findClip(doc, id)) elementPics.current.delete(id);
+    pruneFrameCache(frameCache.current, doc);
   }, [doc, p.media, p.localVersion]);
+  // the fonts the texts use (Google and Brand Kit ones): loaded as they're needed; the picture is drawn again when they arrive
+  useEffect(() => {
+    void ensureDocFonts(doc);
+  }, [doc]);
   useEffect(() => {
     const fonts = typeof document !== "undefined" ? document.fonts : undefined;
     if (!fonts) return;
     const onLoaded = () => {
-      fontGen.current++;
+      // (a font that loads later: elements drawn with the fallback are drawn again)
+      frameCache.current.fontGen++;
       // (text drawn with a font that just arrived)
       keepAwake(awakeUntil);
     };
@@ -674,233 +634,6 @@ export function ProgramPlayer(p: {
       keepAwake(awakeUntil, 250);
       return;
     }
-    // draw
-    let aiPending = false;
-    const k = cv.width / d.canvas.width;
-    /**
-     * One picture (w × h of a texture texW × texH) at rect r: crop, flip, color and shape on the GPU
-     * (lib/player/glLook), then turned around its middle — the same order and numbers as the export.
-     */
-    const drawPicture = (src: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement, w: number, h: number, texW: number, texH: number, c: VideoClip | Extract<AnyClip, { type: "image" }> | ElementClip | BlankClip, r: Rect, mo?: { rot: number; into: number }) => {
-      if (c.type === "blank") {
-        // a blank scene: its color over the frame (a transition may turn or move it)
-        ctx.save();
-        ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
-        if (mo?.rot) ctx.rotate((mo.rot * Math.PI) / 180);
-        ctx.drawImage(src, -r.w / 2, -r.h / 2, r.w, r.h);
-        ctx.restore();
-        return;
-      }
-      if (c.type === "element") {
-        // an element: its drawn picture, turned around its middle and flipped (like the export)
-        const rot = mo ? mo.rot : (c.transform.rotation ?? 0);
-        const skewX = c.transform.skewX ?? 0;
-        const skewY = c.transform.skewY ?? 0;
-        if (hasCorners(c.transform.corners)) {
-          const quad = boxQuad({ cx: r.x + r.w / 2, cy: r.y + r.h / 2, w: r.w, h: r.h }, { rotation: rot, skewX, skewY, corners: c.transform.corners });
-          if (quadOk(quad)) {
-            if (warperRef.current === null) warperRef.current = GlWarp.create() ?? false;
-            const warper = warperRef.current || null;
-            let srcCanvas: HTMLCanvasElement | HTMLImageElement = src as any;
-            if (c.transform.flipX || c.transform.flipY) {
-              const fc = document.createElement("canvas");
-              fc.width = w;
-              fc.height = h;
-              const fx = fc.getContext("2d");
-              if (fx) {
-                fx.translate(w / 2, h / 2);
-                fx.scale(c.transform.flipX ? -1 : 1, c.transform.flipY ? -1 : 1);
-                fx.drawImage(src, -w / 2, -h / 2, w, h);
-                srcCanvas = fc;
-              }
-            }
-            const at = warper?.render(srcCanvas, w, h, 0, 0, w, h, quad);
-            if (warper && at) {
-              ctx.drawImage(warper.canvas, at.x, at.y);
-              return;
-            }
-            drawWarpMesh(ctx, srcCanvas, 0, 0, w, h, quad);
-            return;
-          }
-        }
-        ctx.save();
-        ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
-        if (rot) ctx.rotate((rot * Math.PI) / 180);
-        if (skewX || skewY) ctx.transform(1, Math.tan((skewY * Math.PI) / 180), Math.tan((skewX * Math.PI) / 180), 1, 0, 0);
-        if (c.transform.flipX || c.transform.flipY) ctx.scale(c.transform.flipX ? -1 : 1, c.transform.flipY ? -1 : 1);
-        ctx.drawImage(src, -r.w / 2, -r.h / 2, r.w, r.h);
-        ctx.restore();
-        return;
-      }
-      // watermark / logo boxes: on the source picture first (lib/player/patches, like the export)
-      if (c.patches?.length) {
-        patchCanvas.current ??= document.createElement("canvas");
-        const pc = patchCanvas.current;
-        if (pc.width !== w || pc.height !== h) {
-          pc.width = w;
-          pc.height = h;
-        }
-        const px = pc.getContext("2d", { willReadFrequently: true })!;
-        px.clearRect(0, 0, w, h);
-        px.drawImage(src, 0, 0, w, h, 0, 0, w, h);
-        for (const patch of c.patches) {
-          const pr = patchRect(patch, w, h);
-          if (patch.mode === "remove") {
-            const img = px.getImageData(pr.x - 1, pr.y - 1, pr.w + 2, pr.h + 2);
-            fillFromBorder(img.data, pr.w + 2, { x: 1, y: 1, w: pr.w, h: pr.h });
-            px.putImageData(img, pr.x - 1, pr.y - 1);
-          } else if (patch.mode === "blur") {
-            const f = Math.max(2, (patch.strength ?? 12) / 1.5);
-            const small = document.createElement("canvas");
-            small.width = Math.max(1, Math.round(pr.w / f));
-            small.height = Math.max(1, Math.round(pr.h / f));
-            small.getContext("2d")!.drawImage(pc, pr.x, pr.y, pr.w, pr.h, 0, 0, small.width, small.height);
-            px.imageSmoothingEnabled = true;
-            px.drawImage(small, 0, 0, small.width, small.height, pr.x, pr.y, pr.w, pr.h);
-          } else {
-            const pic = patch.mediaId ? images.current.get(patch.mediaId) : undefined;
-            if (pic?.complete && pic.naturalWidth) {
-              const k2 = Math.min(pr.w / pic.naturalWidth, pr.h / pic.naturalHeight);
-              const dw = pic.naturalWidth * k2;
-              const dh = pic.naturalHeight * k2;
-              px.drawImage(pic, pr.x + (pr.w - dw) / 2, pr.y + (pr.h - dh) / 2, dw, dh);
-            } else {
-              px.fillStyle = patch.color ?? "#000000";
-              px.fillRect(pr.x, pr.y, pr.w, pr.h);
-            }
-          }
-        }
-        src = pc;
-        texW = w;
-        texH = h;
-      }
-      // crop mode: the whole picture, standing still (the crop box moves over it)
-      const editing = cropIdRef.current === c.id;
-      const keyed = hasKeys(c) && !!mo;
-      const at = keyed ? transformAt(c, mo!.into) : c.transform;
-      const t = editing ? { ...at, crop: undefined } : c.transform;
-      if (editing) r = cropViewRect(w, h, cv.width, cv.height, at);
-      const crop = cropRect(w, h, t);
-      const matrix = colorMatrix(c.color);
-      const mask = c.mask && (c.mask.shape !== "rect" || c.mask.border?.width) ? c.mask : null;
-      const rot = editing ? rotationOf(t) : mo ? mo.rot : rotationOf(t);
-      // a moving clip's shape is made at its biggest size and scaled (so its soft edge shrinks with it, like the export)
-      let work: { w: number; h: number } | null = null;
-      if (mask && keyed && !editing) {
-        const span = motionSpan(c);
-        if (span.moving) {
-          const unit = placeRect(w, h, cv.width, cv.height, { ...c.transform, x: 0, y: 0, scale: 1 });
-          const s = workScale(unit.w, unit.h, span.max.scale, cv.width, cv.height);
-          work = { w: unit.w * s, h: unit.h * s };
-        }
-      }
-      const vig = vignetteOf(c.color);
-      const fancy = !isIdentity(matrix) || !!mask || !!t.flipX || !!t.flipY || vig > 0;
-      if (hasCorners(t.corners)) {
-        const quad = boxQuad({ cx: r.x + r.w / 2, cy: r.y + r.h / 2, w: r.w, h: r.h }, { rotation: rot, skewX: t.skewX, skewY: t.skewY, corners: t.corners });
-        if (quadOk(quad)) {
-          if (warperRef.current === null) warperRef.current = GlWarp.create() ?? false;
-          const warper = warperRef.current || null;
-          let warpSrc: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement = src;
-          let wsx = crop.sx, wsy = crop.sy, wsw = crop.sw, wsh = crop.sh, wtw = texW, wth = texH;
-          if (fancy) {
-            if (lookRef.current === null) lookRef.current = GlLook.create() ?? false;
-            const gl = lookRef.current || null;
-            const ok =
-              !!gl &&
-              gl.render(src, texW, texH, {
-                crop: crop,
-                flipX: !!t.flipX,
-                flipY: !!t.flipY,
-                matrix,
-                outW: work?.w ?? r.w,
-                outH: work?.h ?? r.h,
-                vignette: vig,
-                mask: mask ? { shape: mask.shape === "circle" ? 2 : mask.shape === "rounded" ? 1 : 0, radius: maskRadius(mask, work?.w ?? r.w, work?.h ?? r.h), feather: mask.feather * k, border: mask.border?.width ? { rgb: hexToRgb(mask.border.color).map((v) => v / 255) as [number, number, number], width: mask.border.width * k } : null } : null,
-              });
-            if (ok && gl) {
-              warpSrc = gl.canvas;
-              wtw = gl.canvas.width;
-              wth = gl.canvas.height;
-              wsx = 0;
-              wsy = 0;
-              wsw = gl.canvas.width;
-              wsh = gl.canvas.height;
-            }
-          }
-          const at = warper?.render(warpSrc, wtw, wth, wsx, wsy, wsw, wsh, quad);
-          if (warper && at) {
-            ctx.drawImage(warper.canvas, at.x, at.y);
-            return;
-          }
-          drawWarpMesh(ctx, warpSrc, wsx, wsy, wsw, wsh, quad);
-          return;
-        }
-      }
-      ctx.save();
-      ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
-      if (rot) ctx.rotate((rot * Math.PI) / 180);
-      if (t.skewX || t.skewY) ctx.transform(1, Math.tan(((t.skewY ?? 0) * Math.PI) / 180), Math.tan(((t.skewX ?? 0) * Math.PI) / 180), 1, 0, 0);
-      if (fancy) {
-        // made once (false: this browser can't, don't try every frame)
-        if (lookRef.current === null) lookRef.current = GlLook.create() ?? false;
-        const gl = lookRef.current || null;
-        const ok =
-          !!gl &&
-          gl.render(src, texW, texH, {
-            crop: crop,
-            flipX: !!t.flipX,
-            flipY: !!t.flipY,
-            matrix,
-            outW: work?.w ?? r.w,
-            outH: work?.h ?? r.h,
-            vignette: vig,
-            mask: mask ? { shape: mask.shape === "circle" ? 2 : mask.shape === "rounded" ? 1 : 0, radius: maskRadius(mask, work?.w ?? r.w, work?.h ?? r.h), feather: mask.feather * k, border: mask.border?.width ? { rgb: hexToRgb(mask.border.color).map((v) => v / 255) as [number, number, number], width: mask.border.width * k } : null } : null,
-          });
-        if (ok && gl) ctx.drawImage(gl.canvas, -r.w / 2, -r.h / 2, r.w, r.h);
-        else ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, -r.w / 2, -r.h / 2, r.w, r.h);
-      } else ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, -r.w / 2, -r.h / 2, r.w, r.h);
-      ctx.restore();
-    };
-    /** A blank scene's color, as a tiny picture (drawn over the whole frame, so transitions work on it too). */
-    const colorPic = (fill: string) => {
-      let e = colorPics.current.get(fill);
-      if (!e) {
-        e = document.createElement("canvas");
-        e.width = e.height = 4;
-        const x = e.getContext("2d");
-        if (x) {
-          x.fillStyle = fill;
-          x.fillRect(0, 0, 4, 4);
-        }
-        colorPics.current.set(fill, e);
-      }
-      return e;
-    };
-    /** An element's picture at w × h (cached; a progress bar or ticker changes every frame). */
-    const elementPic = (c: ElementClip, w: number, h: number, into: number, len: number) => {
-      const pw = Math.max(1, Math.round(w));
-      const ph = Math.max(1, Math.round(h));
-      const key = `${JSON.stringify(c.el)}|${pw}x${ph}|${fontGen.current}${movesByItself(c.el) ? `|${into.toFixed(3)}|${len}` : ""}`;
-      let e = elementPics.current.get(c.id);
-      if (!e) {
-        e = { key: "", canvas: document.createElement("canvas") };
-        elementPics.current.set(c.id, e);
-      }
-      if (e.key !== key) {
-        const pc = e.canvas;
-        if (pc.width !== pw || pc.height !== ph) {
-          pc.width = pw;
-          pc.height = ph;
-        }
-        const px = pc.getContext("2d");
-        if (!px) return null;
-        px.clearRect(0, 0, pw, ph);
-        drawElement(px, c.el, pw, ph, { into, len });
-        e.key = key;
-      }
-      return e.canvas;
-    };
     // In paused / scrubbing / trimming mode:
     // If any active video element is seeking or not ready, keep the last valid frame on canvas.
     // Safari WebKit draws transparent pixels if drawImage is called while video is seeking!
@@ -911,355 +644,68 @@ export function ProgramPlayer(p: {
       return;
     }
     // Never wipe canvas to transparent during scrubbing/trimming if project has clips
-    if (layers.length === 0 && !playing.current && d.tracks.some((tr) => tr.clips.length > 0)) {
+    if (layers.length === 0 && !playing.current && d.tracks.some((tr) => tr.kind !== "audio" && !tr.hidden && tr.clips.length > 0)) {
       return;
     }
-    ctx.globalAlpha = 1;
-    ctx.clearRect(0, 0, cv.width, cv.height);
-    if (d.canvas.background !== "transparent") {
-      ctx.fillStyle = d.canvas.background;
-      ctx.fillRect(0, 0, cv.width, cv.height);
-    }
-    // the backdrop (Replace Background): drawn studio set / gradient, or a picture / looping video filling the canvas
+    // the backdrop video (Replace Background with a video) plays along with the timeline
     const bd = d.canvas.backdrop;
-    if (bd?.kind === "media") {
-      const m = p.media[bd.mediaId];
-      let src: HTMLImageElement | HTMLVideoElement | null = null;
-      let sw = 0;
-      let sh = 0;
-      if (m?.kind === "image") {
-        const img = images.current.get(bd.mediaId);
-        if (img?.complete && img.naturalWidth) [src, sw, sh] = [img, img.naturalWidth, img.naturalHeight];
-      } else if (m?.kind === "video") {
-        let v = bdVideo.current;
-        const bdUrl = localSrc(bd.mediaId) ?? sourceUrl(bd.mediaId);
-        if (!v || v.dataset.src !== bdUrl) {
-          v?.remove();
-          v = document.createElement("video");
-          v.muted = true;
-          v.playsInline = true;
-          v.loop = true;
-          v.preload = "auto";
-          v.dataset.src = bdUrl;
-          v.src = bdUrl;
-          poolBox.current?.appendChild(v);
-          bdVideo.current = v;
-        }
-        const want = m.duration ? t % m.duration : 0;
-        if (playing.current) {
-          if (v.paused) void v.play().catch(() => undefined);
-          if (Math.abs(v.currentTime - want) > 1.2) v.currentTime = want;
-        } else {
-          if (!v.paused) v.pause();
-          if (Math.abs(v.currentTime - want) > 0.5 / fps && !v.seeking) v.currentTime = want;
-        }
-        if (v.readyState >= 2) [src, sw, sh] = [v, v.videoWidth, v.videoHeight];
+    const bdMedia = bd?.kind === "media" ? p.media[bd.mediaId] : undefined;
+    if (bd?.kind === "media" && bdMedia?.kind === "video") {
+      let v = bdVideo.current;
+      const bdUrl = localSrc(bd.mediaId) ?? sourceUrl(bd.mediaId);
+      if (!v || v.dataset.src !== bdUrl) {
+        v?.remove();
+        v = document.createElement("video");
+        v.muted = true;
+        v.playsInline = true;
+        v.loop = true;
+        v.preload = "auto";
+        v.dataset.src = bdUrl;
+        v.src = bdUrl;
+        poolBox.current?.appendChild(v);
+        bdVideo.current = v;
       }
-      if (src && sw && sh) {
-        const k = Math.max(cv.width / sw, cv.height / sh);
-        ctx.drawImage(src, (cv.width - sw * k) / 2, (cv.height - sh * k) / 2, sw * k, sh * k);
+      const want = bdMedia.duration ? t % bdMedia.duration : 0;
+      if (playing.current) {
+        if (v.paused) void v.play().catch(() => undefined);
+        if (Math.abs(v.currentTime - want) > 1.2) v.currentTime = want;
+      } else {
+        if (!v.paused) v.pause();
+        if (Math.abs(v.currentTime - want) > 0.5 / fps && !v.seeking) v.currentTime = want;
       }
-    } else if (bd) {
-      const key = `${JSON.stringify(bd)}|${cv.width}x${cv.height}`;
-      if (bdCache.current?.key !== key) {
-        const c = document.createElement("canvas");
-        c.width = cv.width;
-        c.height = cv.height;
-        const x = c.getContext("2d");
-        if (x) drawBackdrop(x, bd, cv.width, cv.height);
-        bdCache.current = { key, canvas: c };
-      }
-      ctx.drawImage(bdCache.current.canvas, 0, 0);
     } else if (bdVideo.current) {
       bdVideo.current.pause();
       bdVideo.current.remove();
       bdVideo.current = null;
     }
-    // transitions on all tracks (lib/player/transitions, the same curves as the export)
-    const mainIdx = d.tracks.indexOf(main);
-    const mt = docTransitionsAt(d, t);
-    let dipDone = false;
-    const drawDip = () => {
-      if (dipDone) return;
-      dipDone = true;
-      if (!mt.dip || mt.dip.alpha <= 0) return;
-      ctx.globalAlpha = mt.dip.alpha;
-      ctx.fillStyle = mt.dip.color;
-      ctx.fillRect(0, 0, cv.width, cv.height);
-      ctx.globalAlpha = 1;
-    };
-    for (const l of layers) {
-      const c = l.clip;
-      if (l.trackIndex !== mainIdx) drawDip();
-      const into = Math.max(0, t - l.start);
-      const len = clipLength(c);
-      // (a typewriter counts the letters)
-      const typing = c.type === "text" && (c.anim.in === "typewriter" || c.anim.out === "typewriter");
-      const an = "anim" in c ? animState(into, len, c.anim, typing ? letterCount(textPlacement(c as TextClip, into, d.canvas.width, d.canvas.height).clip, d.canvas.width, d.canvas.height) : 0) : null;
-      const ts = mt.states.get(c.id);
-      // (keyframes / opacity multiply in: motionAt)
-      const mop = c.type === "audio" || c.type === "blank" ? 1 : motionAt(c as MotionClip, into).opacity;
-      const base = cropIdRef.current === c.id ? 1 : ("fadeIn" in c ? fadeAlpha(into, len, c.fadeIn, c.fadeOut) : 1) * (ts?.alpha ?? 1) * mop;
-      ctx.globalAlpha = cropIdRef.current === c.id ? 1 : base * (an?.alpha ?? 1);
-      // blur (in / out): a blurred copy over the sharp one, like the export (BLUR × the height)
-      const blurA = cropIdRef.current === c.id ? 0 : base * (an?.blur ?? 0);
-      const blurPx = BLUR * cv.height;
-      const tx = (ts?.dx ?? 0) * cv.width;
-      const ty = (ts?.dy ?? 0) * cv.height;
-      // a transition into it: a size, a turn (around its middle) and a reveal (lib/player/transitions)
-      const draw = (src: Parameters<typeof drawPicture>[0], w: number, h: number, texW: number, texH: number, clip: Parameters<typeof drawPicture>[5], r: Rect, mo: { rot: number; into: number }) => {
-        // (and its pop / zoom: around its middle)
-        const k = (ts?.scale ?? 1) * (cropIdRef.current === c.id ? 1 : (an?.scale ?? 1));
-        const rr = k === 1 ? r : { x: r.x + (r.w * (1 - k)) / 2, y: r.y + (r.h * (1 - k)) / 2, w: r.w * k, h: r.h * k };
-        const rv = ts?.reveal;
-        if (rv) {
-          ctx.save();
-          ctx.beginPath();
-          const e = rv.p;
-          const cx = r.x + r.w / 2;
-          const cy = r.y + r.h / 2;
-          const R = Math.hypot(r.w, r.h) / 2;
-          if (rv.kind === "wipeLeft") ctx.rect(r.x + r.w * (1 - e), r.y, r.w * e, r.h);
-          else if (rv.kind === "wipeRight") ctx.rect(r.x, r.y, r.w * e, r.h);
-          else if (rv.kind === "wipeUp") ctx.rect(r.x, r.y + r.h * (1 - e), r.w, r.h * e);
-          else if (rv.kind === "wipeDown") ctx.rect(r.x, r.y, r.w, r.h * e);
-          else if (rv.kind === "circleOpen") ctx.arc(cx, cy, R * e, 0, Math.PI * 2);
-          else {
-            ctx.rect(r.x, r.y, r.w, r.h);
-            ctx.arc(cx, cy, R * (1 - e), 0, Math.PI * 2);
-          }
-          ctx.clip(rv.kind === "circleClose" ? "evenodd" : "nonzero");
-        }
-        drawPicture(src, w, h, texW, texH, clip, rr, { ...mo, rot: mo.rot + (ts?.rot ?? 0) });
-        if (blurA > 0.001) {
-          const a0 = ctx.globalAlpha;
-          ctx.globalAlpha = blurA;
-          ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
-          drawPicture(src, w, h, texW, texH, clip, rr, { ...mo, rot: mo.rot + (ts?.rot ?? 0) });
-          ctx.filter = "none";
-          ctx.globalAlpha = a0;
-        }
-        if (rv) ctx.restore();
-      };
-      const attInfo = findTrackingAttachmentForClip(d, c.id);
-      let renderClip = c;
-      if (attInfo && "transform" in c) {
-        const videoT = Math.max(0, (t - attInfo.videoStart) * (attInfo.videoClip.speed ?? 1));
-        const evalT = evaluateAttachmentTransform(attInfo.point, attInfo.attachment, c as MotionClip, videoT);
-        renderClip = { ...c, transform: evalT };
-      }
-
-      if (renderClip.type === "text") {
-        // drawn in project pixels (like the export's PNG), scaled down to the preview
-        const PW = d.canvas.width;
-        const PH = d.canvas.height;
-        const tp = textPlacement(renderClip as TextClip, into, PW, PH);
-        const sx = cv.width / PW;
-        const sy = cv.height / PH;
-        // pop / zoom: around its anchor too (like the export)
-        const k = tp.k * (an?.scale ?? 1);
-        const ox = tp.ox + tp.qx * (tp.k - k);
-        const oy = tp.oy + tp.qy * (tp.k - k);
-        const upTo = typing && an ? typedCount(an.typed, letterCount(tp.clip, PW, PH)) : Infinity;
-        // word-by-word captions: how far through the caption we are (the highlighted word follows it)
-        const said = captionProgress(tp.clip, into, len);
-        ctx.save();
-        ctx.setTransform(sx * k, 0, 0, sy * k, sx * ox + (an?.dx ?? 0) * cv.width, sy * oy + (an?.dy ?? 0) * cv.height);
-        drawText(ctx, tp.clip, PW, PH, upTo, said);
-        if (blurA > 0.001) {
-          ctx.globalAlpha = blurA;
-          // (blur in project pixels: the context is scaled)
-          ctx.filter = `blur(${(blurPx / Math.max(1e-6, sy * k)).toFixed(1)}px)`;
-          drawText(ctx, tp.clip, PW, PH, upTo, said);
-          ctx.filter = "none";
-        }
-        ctx.restore();
-      } else if (renderClip.type === "blank") {
-        if (renderClip.backdrop) {
-          ctx.save();
-          drawBackdrop(ctx, renderClip.backdrop, cv.width, cv.height, into);
-          ctx.restore();
-        } else {
-          const pic = colorPic(renderClip.fill);
-          draw(pic, pic.width, pic.height, pic.width, pic.height, renderClip, { x: tx, y: ty, w: cv.width, h: cv.height }, { rot: 0, into });
-        }
-      } else if (renderClip.type === "element") {
-        const r = elementRect(renderClip, into, cv.width, cv.height);
-        const pic = elementPic(renderClip, r.w, r.h, into, len);
-        if (!pic) continue;
-        draw(pic, pic.width, pic.height, pic.width, pic.height, renderClip, { x: r.x + (an?.dx ?? 0) * cv.width + tx, y: r.y + (an?.dy ?? 0) * cv.height + ty, w: r.w, h: r.h }, { rot: r.rot, into });
-      } else if (renderClip.type === "image") {
-        const img = images.current.get(renderClip.mediaId);
-        if (!img?.complete || !img.naturalWidth) continue;
-        const r = motionRect(img.naturalWidth, img.naturalHeight, cv.width, cv.height, renderClip, into);
-        draw(img, img.naturalWidth, img.naturalHeight, img.naturalWidth, img.naturalHeight, renderClip, { x: r.x + (an?.dx ?? 0) * cv.width + tx, y: r.y + (an?.dy ?? 0) * cv.height + ty, w: r.w, h: r.h }, { rot: r.rot, into });
-      } else if (renderClip.type === "video") {
-        const el = elOf.get(renderClip.id);
-        if (!el || el.readyState < 2) {
-          const pic = standIn(renderClip as VideoClip, el, timeIn(renderClip as VideoClip, into));
-          if (pic) {
-            const m = p.media[(renderClip as VideoClip).mediaId];
-            const r = motionRect(m?.width || pic.naturalWidth, m?.height || pic.naturalHeight, cv.width, cv.height, renderClip as VideoClip, into);
-            draw(pic, pic.naturalWidth, pic.naturalHeight, pic.naturalWidth, pic.naturalHeight, renderClip, { x: r.x + tx, y: r.y + ty, w: r.w, h: r.h }, { rot: r.rot, into });
-          }
-          continue;
-        }
-        // (this element has shown a frame of its file: from now on it holds its last frame while it seeks)
-        el.dataset.shown = el.dataset.src ?? "";
-        const packedSrc = packedRef.current?.(renderClip as VideoClip) ?? null;
-        const packed = !!packedSrc && el.dataset.src === packedSrc;
-        const vw = el.videoWidth;
-        const vh = packed ? el.videoHeight / 2 : el.videoHeight;
-        const r = motionRect(vw, vh, cv.width, cv.height, renderClip as VideoClip, into);
-        const mo = { rot: r.rot, into };
-        let live = liveRef.current(renderClip as VideoClip);
-        // AI Removal whose preview video isn't ready: show the clip as it is (never the wrong half)
-        if (live?.method === "packed" && !packed) {
-          live = null;
-          aiPending = true;
-        }
-        if (live || packed) {
-          glCanvas.current ??= document.createElement("canvas");
-          renderer.current ??= LiveKeyRenderer.create(glCanvas.current);
-          if (renderer.current && renderer.current.render(el, packed ? { ...(live ?? ({} as LiveKeyParams)), method: "packed" } : live!, "result")) {
-            let src: HTMLCanvasElement = glCanvas.current;
-            // Blur background: the cut-out subject over a blurred copy of the picture (like the export's aiMatte)
-            const blur = packed ? (blurRef.current?.(renderClip as VideoClip) ?? null) : null;
-            if (blur) {
-              mixCanvas.current ??= document.createElement("canvas");
-              const mc = mixCanvas.current;
-              if (mc.width !== vw || mc.height !== vh) {
-                mc.width = vw;
-                mc.height = vh;
-              }
-              const mx = mc.getContext("2d")!;
-              mx.clearRect(0, 0, vw, vh);
-              blurInto(mx, el, vw, vh, blur);
-              mx.drawImage(src, 0, 0, vw, vh);
-              src = mc;
-            }
-            draw(src, vw, vh, vw, vh, renderClip, { x: r.x + tx, y: r.y + ty, w: r.w, h: r.h }, mo);
-            continue;
-          }
-        }
-        draw(el, vw, vh, el.videoWidth, el.videoHeight, renderClip, { x: r.x + tx, y: r.y + ty, w: r.w, h: r.h }, mo);
-      }
-    }
-    drawDip();
-    // Render tracked blur attachments on canvas
-    const mStarts = mainStarts(main.clips);
-    for (const tr of d.tracks) {
-      if (tr.kind !== "main" && tr.kind !== "overlay") continue;
-      tr.clips.forEach((c, idx) => {
-        if (c.type !== "video") return;
-        const pts = (c.id === p.selectedId && p.trackingPoints) ? p.trackingPoints : c.tracking?.points;
-        if (!pts || !pts.length) return;
-        const cStart = tr.kind === "main" ? mStarts[idx] : (c as unknown as { start: number }).start;
-        const into = (t - cStart) * (c.speed ?? 1);
-        if (into < 0 || into > clipLength(c)) return;
-
-        for (const pt of pts) {
-          if (!pt.attachments?.length || (!pt.keyframes?.length && !p.isTrackingOpen)) continue;
-          const kf = trackingAt(pt, into) ?? (p.isTrackingOpen && !pt.keyframes?.length ? {
-            x: pt.initial.x,
-            y: pt.initial.y,
-            scale: 1,
-            rotation: 0,
-            confidence: 1,
-            box: pt.initial?.box,
-          } : null);
-          if (!kf) continue;
-          for (const att of pt.attachments) {
-            if (att.type !== "blur") continue;
-            const dp = dragPreviewRef.current;
-            const isDragThis = !!(dp && dp.pointId === pt.id);
-            const effKfX = isDragThis && dp ? dp.x : kf.x;
-            const effKfY = isDragThis && dp ? dp.y : kf.y;
-            const effBox = isDragThis && dp?.box ? dp.box : kf.box;
-            const wNorm = effBox?.w ?? (att as BlurAttachment).size?.w ?? pt.initial?.box?.w ?? 0.14;
-            const hNorm = effBox?.h ?? (att as BlurAttachment).size?.h ?? pt.initial?.box?.h ?? 0.14;
-            const padX = ((att.padding ?? 0) / 100) * cv.width * 0.4;
-            const padY = ((att.padding ?? 0) / 100) * cv.height * 0.4;
-            const bw = Math.max(16, (wNorm * cv.width + padX * 2) * (kf.scale ?? 1));
-            const bh = Math.max(16, (hNorm * cv.height + padY * 2) * (kf.scale ?? 1));
-            const offX = (att.offset?.x ?? 0) * cv.width;
-            const offY = (att.offset?.y ?? 0) * cv.height;
-            const cx = effKfX * cv.width + offX;
-            const cy = effKfY * cv.height + offY;
-            const bx = cx - bw / 2;
-            const by = cy - bh / 2;
-
-            ctx.save();
-            if (att.shape === "ellipse") {
-              ctx.beginPath();
-              ctx.ellipse(cx, cy, bw / 2, bh / 2, ((kf.rotation ?? 0) * Math.PI) / 180, 0, Math.PI * 2);
-              ctx.clip();
-            } else {
-              ctx.beginPath();
-              ctx.rect(bx, by, bw, bh);
-              ctx.clip();
-            }
-
-            mixCanvas.current ??= document.createElement("canvas");
-            const mc = mixCanvas.current;
-
-            const sx = Math.max(0, Math.min(cv.width - 2, bx));
-            const sy = Math.max(0, Math.min(cv.height - 2, by));
-            const sw = Math.max(2, Math.min(bw, cv.width - sx));
-            const sh = Math.max(2, Math.min(bh, cv.height - sy));
-
-            if (att.mode === "pixelate") {
-              const pixelSize = Math.max(6, Math.round(((att.intensity ?? 20) / 50) * 32));
-              const destW = Math.max(1, Math.floor(sw / pixelSize));
-              const destH = Math.max(1, Math.floor(sh / pixelSize));
-              mc.width = destW;
-              mc.height = destH;
-              const mx = mc.getContext("2d");
-              if (mx) {
-                mx.imageSmoothingEnabled = false;
-                mx.drawImage(cv, sx, sy, sw, sh, 0, 0, destW, destH);
-                ctx.imageSmoothingEnabled = false;
-                ctx.drawImage(mc, 0, 0, destW, destH, sx, sy, sw, sh);
-                ctx.imageSmoothingEnabled = true;
-              }
-            } else {
-              // High-quality smooth Gaussian Blur via downsample-upsample + filter
-              const blurFactor = Math.max(4, Math.round(((att.intensity ?? 25) / 50) * 14));
-              const destW = Math.max(2, Math.floor(sw / blurFactor));
-              const destH = Math.max(2, Math.floor(sh / blurFactor));
-              mc.width = destW;
-              mc.height = destH;
-              const mx = mc.getContext("2d");
-              if (mx) {
-                mx.imageSmoothingEnabled = true;
-                mx.drawImage(cv, sx, sy, sw, sh, 0, 0, destW, destH);
-                ctx.imageSmoothingEnabled = true;
-                const blurPx = Math.max(4, Math.round(((att.intensity ?? 25) / 50) * 10));
-                ctx.filter = `blur(${blurPx}px)`;
-                ctx.drawImage(mc, 0, 0, destW, destH, sx, sy, sw, sh);
-                ctx.filter = "none";
-              }
-            }
-            ctx.restore();
-          }
-        }
-      });
-    }
-    // your logo on top of everything (Brand Kit), like the export
-    const wm = d.watermark;
-    const logo = wm ? images.current.get(wm.mediaId) : undefined;
-    if (wm && logo?.complete && logo.naturalWidth) {
-      // (a part of the video, coming in / going out: lib/player/logo; a box and rounded corners: its badge)
-      const lr = watermarkRect(wm, cv.width, cv.height, logo.naturalWidth, logo.naturalHeight);
-      const st = logoState(wm, t, docDuration(d), cv.width, lr);
-      if (st.show) {
-        ctx.globalAlpha = wm.opacity * st.alpha;
-        const bw = lr.w * st.scale;
-        const bh = lr.h * st.scale;
-        drawLogoBadge(ctx, logo, logo.naturalWidth, logo.naturalHeight, wm, { x: lr.x + lr.w / 2 + st.dx - bw / 2, y: lr.y + lr.h / 2 - bh / 2, w: bw, h: bh }, watermarkPad(wm, cv.width) * st.scale);
-      }
-    }
-    ctx.globalAlpha = 1;
+    // draw (lib/render/frame: the same drawing as the browser export)
+    const pictures = images.current;
+    const { aiPending } = drawFrame(
+      ctx,
+      d,
+      t,
+      {
+        media: p.media,
+        video: (c) => {
+          const el = elOf.get(c.id);
+          if (!el || el.readyState < 2) return null;
+          // (this element has shown a frame of its file: from now on it holds its last frame while it seeks)
+          el.dataset.shown = el.dataset.src ?? "";
+          const packedSrc = packedRef.current?.(c) ?? null;
+          return { el, packed: !!packedSrc && el.dataset.src === packedSrc };
+        },
+        standIn: (c, into) => standIn(c, elOf.get(c.id), timeIn(c, into)),
+        image: (id) => {
+          const img = pictures.get(id);
+          return img?.complete && img.naturalWidth ? img : null;
+        },
+        backdropVideo: () => (bdVideo.current && bdVideo.current.readyState >= 2 ? bdVideo.current : null),
+        live: (c) => liveRef.current(c),
+        blur: (c) => blurRef.current?.(c) ?? null,
+      },
+      frameCache.current,
+      { cropId: cropIdRef.current, tracking: { clipId: p.selectedId ?? null, points: p.trackingPoints, open: p.isTrackingOpen, drag: dragPreviewRef.current } },
+    );
     if (aiPending !== aiWaitingRef.current) {
       aiWaitingRef.current = aiPending;
       setAiWaiting(aiPending);
@@ -1304,7 +750,13 @@ export function ProgramPlayer(p: {
         }
         tRef.current = t;
         p.clock.set(t);
-        setTime(t);
+        // (the player's own state: every frame while a clip's box is shown, else about 10 times a second
+        // for the time label; the picture itself is drawn every frame below)
+        const now = performance.now();
+        if (selectedRef.current || now - lastTimeState.current > 100) {
+          lastTimeState.current = now;
+          setTime(t);
+        }
       }
       // one bad frame must not stop the loop (it also pauses and silences what shouldn't play);
       // paused and nothing changed for a moment: nothing to draw
@@ -2182,7 +1634,17 @@ export function ProgramPlayer(p: {
             onPointerMove={onStageMove}
             onPointerUp={onStageUp}
             onPointerCancel={onStageUp}
-            onDoubleClick={() => (selLayer?.clip.type === "text" || selLayer?.clip.type === "element") && p.onEditText?.(selLayer.clip.id)}
+            onDoubleClick={(e) => {
+              if (!selLayer || (selLayer.clip.type !== "text" && selLayer.clip.type !== "element")) return;
+              // a text: the letter under the pointer (its word gets selected in the Text panel)
+              let pos: number | null = null;
+              if (selLayer.clip.type === "text" && stageRef.current) {
+                const pt = toCanvas(e, stageRef.current.getBoundingClientRect());
+                const tp = textPlacement(selLayer.clip, time - selLayer.start, PW, PH);
+                pos = hitTestText(tp.clip, (pt.x - tp.ox) / tp.k, (pt.y - tp.oy) / tp.k, PW, PH);
+              }
+              p.onEditText?.(selLayer.clip.id, pos);
+            }}
             onDragOver={onStageDragOver}
             onDragLeave={(e) => !stageRef.current?.contains(e.relatedTarget as Node | null) && setDropAt(null)}
             onDrop={onStageDrop}

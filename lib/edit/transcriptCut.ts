@@ -1,6 +1,7 @@
 import { clipLength, isReversed, mainDuration, mainStarts, mainTrack, speedOf, type TimelineDoc } from "./doc";
 import { removeRangesInClip } from "./docEdit";
 import type { Range } from "./timeline";
+import { remapMarks } from "../text/marks";
 
 /** A word in a caption clip: its index among the caption's words (lines included). */
 export type CaptionWordRef = { clipId: string; index: number };
@@ -41,9 +42,13 @@ export function removeCaptionWords(doc: TimelineDoc, words: CaptionWordRef[]): T
         if (!lines.length) return [];
         const count = c.text.split(/\s+/).filter(Boolean).length;
         const times = c.wordTimes && c.wordTimes.length === count ? c.wordTimes.filter((_, k) => !drop.has(k)) : undefined;
-        const { wordTimes: _w, ...rest } = c;
+        const { wordTimes: _w, marks: _m, ...rest } = c;
         void _w;
-        return [times ? { ...rest, text: lines.join("\n"), wordTimes: times } : { ...rest, text: lines.join("\n") }];
+        void _m;
+        const text = lines.join("\n");
+        // (styled letters stay on the words that are left)
+        const marks = remapMarks(c.text, text, c.marks);
+        return [{ ...rest, text, ...(times ? { wordTimes: times } : {}), ...(marks ? { marks } : {}) }];
       });
       return changed ? ({ ...t, clips } as typeof t) : t;
     }),

@@ -144,27 +144,29 @@ export async function projectReferences(): Promise<{
       }
     }
   }
-  // the Brand Kit's logo, intro and outro (read here: lib/brand depends on this module)
+  // every person's Brand Kits: their logos, intros, outros and brand videos (read here: lib/brand depends on this
+  // module); also the shared brand.json of older versions until it has moved
+  const brandFiles: string[] = [storagePath("brand.json")];
   try {
-    const b = JSON.parse(
-      await readFile(storagePath("brand.json"), "utf8"),
-    ) as Record<string, unknown>;
-    for (const k of ["logo", "intro", "outro"])
-      if (isId(b[k])) videos.add(b[k] as string);
-    if (Array.isArray(b.videos)) {
-      for (const v of b.videos) {
-        if (
-          v &&
-          typeof v === "object" &&
-          "id" in v &&
-          isId((v as { id: unknown }).id)
-        ) {
-          videos.add((v as { id: string }).id);
-        }
-      }
-    }
+    for (const n of await readdir(storagePath("brand"))) if (n.endsWith(".json")) brandFiles.push(storagePath("brand", n));
   } catch {
-    /* no Brand Kit yet */
+    /* no Brand Kits yet */
+  }
+  const kitMedia = (b: Record<string, unknown> | undefined) => {
+    if (!b) return;
+    for (const k of ["logo", "intro", "outro"]) if (isId(b[k])) videos.add(b[k] as string);
+    if (Array.isArray(b.videos))
+      for (const v of b.videos) if (v && typeof v === "object" && "id" in v && isId((v as { id: unknown }).id)) videos.add((v as { id: string }).id);
+  };
+  for (const f of brandFiles) {
+    try {
+      const b = JSON.parse(await readFile(f, "utf8")) as Record<string, unknown> & { kits?: { brand?: Record<string, unknown> }[] };
+      // (the multi-kit shape, or the oldest single-kit one)
+      if (Array.isArray(b.kits)) for (const k of b.kits) kitMedia(k?.brand);
+      else kitMedia(b);
+    } catch {
+      /* not there */
+    }
   }
   // your templates' video and sound, and the clips / sounds uploaded in the template pane (lib/templates/custom)
   try {

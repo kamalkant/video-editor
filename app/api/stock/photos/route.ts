@@ -3,8 +3,9 @@ import { aiKey } from "@/lib/ai/keys";
 import { importFile } from "@/lib/videos";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { apiError } from "@/lib/http/errors";
+import { requireUser } from "@/lib/auth/requireUser";
 
 export const runtime = "nodejs";
 
@@ -198,45 +199,61 @@ export async function GET(request: Request) {
   });
 }
 
-/** Import a photo directly into My Assets and return the VideoMeta */
+/** Where a stock photo may be downloaded from (the libraries' own picture hosts; nothing else is fetched). */
+const PHOTO_HOSTS = [/^images\.unsplash\.com$/, /^cdn\.pixabay\.com$/, /^pixabay\.com$/, /(^|\.)pexels\.com$/];
+/** The biggest photo taken (a 4K JPEG is a few MB). */
+const MAX_PHOTO_BYTES = 25 * 1024 * 1024;
+
+/**
+ * Import a stock photo into your My Assets: { url, title? } → { media }. Signed in only, from the libraries'
+ * hosts only (it used to fetch any address for anyone: a way into the server's own network), at most 25 MB.
+ */
 export async function POST(request: Request) {
+  const user = await requireUser("Sign in to import photos.");
+  if (user instanceof Response) return user;
+  let body: { url?: unknown; title?: unknown };
   try {
-    const body = (await request.json()) as { url: string; title?: string };
-    if (!body?.url || typeof body.url !== "string") {
-      return NextResponse.json({ error: "Missing image URL" }, { status: 400 });
+    body = (await request.json()) as { url?: unknown; title?: unknown };
+  } catch {
+    return apiError(400, "bad_request", "Send JSON.");
+  }
+  let url: URL | null = null;
+  try {
+    url = typeof body.url === "string" ? new URL(body.url) : null;
+  } catch {
+    url = null;
+  }
+  if (!url || url.protocol !== "https:" || !PHOTO_HOSTS.some((h) => h.test(url!.hostname))) return apiError(400, "bad_request", "That isn't a stock library photo.");
+  const title = (typeof body.title === "string" && body.title ? body.title : "Stock Photo").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
+  const dir = await mkdtemp(join(tmpdir(), "vdo-photo-"));
+  const tempPath = join(dir, "photo.jpg");
+  try {
+    // (no redirects: only the allowed hosts are ever fetched)
+    const res = await fetch(url, { redirect: "error", headers: { "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ViPlay-Studio/1.0" }, signal: AbortSignal.timeout(30_000) }).catch(() => null);
+    const type = res?.headers.get("content-type") ?? "";
+    if (!res?.ok || !type.startsWith("image/") || !res.body) return apiError(502, "download_failed", "Couldn't download that photo.");
+    if (Number(res.headers.get("content-length") ?? 0) > MAX_PHOTO_BYTES) return apiError(413, "too_big", "That photo is too big.");
+    // read it with a limit (the size header can be missing or wrong)
+    const parts: Uint8Array[] = [];
+    let size = 0;
+    const reader = res.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > MAX_PHOTO_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return apiError(413, "too_big", "That photo is too big.");
+      }
+      parts.push(value);
     }
-
-    const title = (body.title || "Stock Photo")
-      .replace(/[^a-zA-Z0-9_-]/g, "_")
-      .slice(0, 40);
-
-    // Download image to temp file
-    const res = await fetch(body.url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) ViPlay-Studio/1.0",
-      },
-    });
-
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: `Failed to download image (status: ${res.status})` },
-        { status: 502 },
-      );
-    }
-
-    const arrayBuf = await res.arrayBuffer();
-    const tempPath = join(tmpdir(), `vdo-photo-${randomUUID()}.jpg`);
-    await writeFile(tempPath, Buffer.from(arrayBuf));
-
-    // Register into library as an asset
-    const media = await importFile(tempPath, `${title}.jpg`);
-
+    await writeFile(tempPath, Buffer.concat(parts));
+    const media = await importFile(tempPath, `${title}.jpg`, user.id);
     return NextResponse.json({ media }, { status: 201 });
   } catch (err) {
     console.error("Photo import failed:", err);
-    return NextResponse.json(
-      { error: (err as Error).message || "Failed to import photo" },
-      { status: 500 },
-    );
+    return apiError(500, "import_failed", "Couldn't import that photo.");
+  } finally {
+    await rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
 }

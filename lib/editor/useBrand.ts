@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { Brand, BrandFont, ActiveBrandResult } from "../brand";
-import { brandFamily } from "../text/layout";
+import { brandFamily, ensureBrandFont } from "../text/fonts";
 
 export { brandFamily };
 
@@ -10,24 +10,9 @@ export { brandFamily };
 export const BrandContext = createContext<ActiveBrandResult | null>(null);
 export const useBrandKit = () => useContext(BrandContext);
 
-const loaded = new Set<string>();
-/** Load Brand Kit fonts into the page (so the preview and the exported text use them). */
+/** Load Brand Kit fonts into the page (so the preview and the exported text use them; lib/text/fonts). */
 export async function loadBrandFonts(fonts: BrandFont[]) {
-  if (typeof FontFace === "undefined") return;
-  await Promise.all(
-    fonts
-      .filter((f) => !loaded.has(f.id))
-      .map(async (f) => {
-        try {
-          const face = new FontFace(brandFamily(f.id), `url(/api/brand/fonts/${f.id})`);
-          await face.load();
-          document.fonts.add(face);
-          loaded.add(f.id);
-        } catch {
-          /* a broken font: the text falls back to Sans */
-        }
-      }),
-  );
+  await Promise.all(fonts.map((f) => ensureBrandFont(f.id)));
 }
 
 /** The Brand Kit (logo, colors, fonts, intro / outro), shared by all projects. */

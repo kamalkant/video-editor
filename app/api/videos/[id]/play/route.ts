@@ -2,6 +2,7 @@ import { apiError } from "@/lib/http/errors";
 import { fileResponse } from "@/lib/http/range";
 import { getVideo, kindOf, sourcePath, whenPlayable } from "@/lib/videos";
 import { storagePath } from "@/lib/storage";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,9 @@ export const runtime = "nodejs";
  */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/play">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   let video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
   if (video.playablePending) {

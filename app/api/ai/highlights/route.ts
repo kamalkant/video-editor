@@ -2,6 +2,7 @@ import { aiError, jsonBody } from "@/lib/ai/http";
 import { meteredAi } from "@/lib/ai/meter";
 import { extractHighlights, type HighlightGoal } from "@/lib/ai/highlights";
 import { apiError } from "@/lib/http/errors";
+import { mediaDenied } from "@/lib/auth/media";
 import { isId } from "@/lib/storage";
 import { isSubLanguage } from "@/lib/subtitles/segments";
 
@@ -12,6 +13,9 @@ export const maxDuration = 600;
 async function handle(request: Request): Promise<Response> {
   const b = await jsonBody(request);
   if (!b || !isId(b.mediaId)) return apiError(400, "bad_request", "Send the video clip.");
+  // (only your own file)
+  const denied = await mediaDenied(b.mediaId);
+  if (denied) return denied;
 
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
   const inSec = num(b.in);

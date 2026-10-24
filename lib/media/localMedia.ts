@@ -228,6 +228,55 @@ async function frameOf(v: HTMLVideoElement): Promise<Blob | null> {
 }
 
 /**
+ * The frame at `t` seconds of a video from this computer, full size, as PNG (the Thumbnail maker's background:
+ * the server may not have the file, and needn't make the frame). null: the file isn't here, or the browser
+ * won't draw it.
+ */
+export async function localFrame(id: string, t: number, timeoutMs = 10_000): Promise<Blob | null> {
+  let url = localSrc(id);
+  let own: string | null = null;
+  if (!url) {
+    const file = await localFileOf(id);
+    if (!file) return null;
+    url = own = URL.createObjectURL(file);
+  }
+  const v = document.createElement("video");
+  v.muted = true;
+  v.playsInline = true;
+  v.preload = "auto";
+  // (in the page, out of sight: some browsers only decode videos that are in a document)
+  v.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;";
+  document.body.appendChild(v);
+  v.src = url;
+  try {
+    if (!(await once(v, "loadeddata", timeoutMs)) || !v.videoWidth || !v.videoHeight) return null;
+    const want = Math.max(0, Math.min(t, (v.duration || t) - 1e-3));
+    if (Math.abs(v.currentTime - want) > 1e-4) {
+      const seeked = once(v, "seeked", timeoutMs);
+      v.currentTime = want;
+      if (!(await seeked)) return null;
+    }
+    // (the new frame is ready for drawing once the browser has presented it)
+    const rvfc = (v as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }).requestVideoFrameCallback;
+    if (rvfc) await Promise.race([new Promise<void>((r) => rvfc.call(v, () => r())), new Promise<void>((r) => setTimeout(r, 120))]);
+    const c = document.createElement("canvas");
+    c.width = v.videoWidth;
+    c.height = v.videoHeight;
+    const ctx = c.getContext("2d");
+    if (!ctx) return null;
+    ctx.drawImage(v, 0, 0);
+    return await new Promise((r) => c.toBlob(r, "image/png"));
+  } catch {
+    return null;
+  } finally {
+    v.removeAttribute("src");
+    v.load();
+    v.remove();
+    if (own) URL.revokeObjectURL(own);
+  }
+}
+
+/**
  * Can this browser play the file, and what is it? Decodes the first frame (a video) or the start (a sound):
  * a container the browser opens but can't decode (HEVC on some systems) counts as not playable.
  * null: not playable here.

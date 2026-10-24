@@ -9,6 +9,7 @@ import { apiError } from "@/lib/http/errors";
 import { maskParamsOf } from "@/lib/ops/aiMatte";
 import { storagePath } from "@/lib/storage";
 import { getVideo, type VideoMeta } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,9 @@ const isVideo = (v: VideoMeta) => v.info.duration > 0 && v.info.width > 0;
  */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/film">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   const plain = () => cachedVideoImage(id, "film-v3.jpg", "image/jpeg", (src, v) => renderFilm(src, v.info, null, null, request.signal), isVideo);
   const param = new URL(request.url).searchParams.get("ops");
   if (!param) return plain();

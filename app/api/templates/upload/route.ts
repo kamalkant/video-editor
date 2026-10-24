@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     const title = customTitle || file.name.replace(/\.[^/.]+$/, "");
     let videoMeta;
     try {
-      videoMeta = await importFile(tmpFilePath, `${title}${ext}`);
+      videoMeta = await importFile(tmpFilePath, `${title}${ext}`, user.id);
     } catch (err) {
       // not a usable file: don't leave it in public/
       await rm(permanentFilePath, { force: true });
@@ -95,6 +95,7 @@ export async function POST(request: Request) {
     await rm(tmpDir, { recursive: true, force: true }).catch(() => undefined);
     // remembered (and kept by the clean-up), so it's listed with its file after a reload
     await rememberUpload(
+      user.id,
       videoMeta.id,
       type === "audio" ? "audio" : "video",
     ).catch(() => undefined);

@@ -38,7 +38,9 @@ import {
 import { LooksStrip } from "./LooksStrip";
 import { cropForAspect } from "@/lib/player/look";
 import { ANIM_LABELS, TEXT_ONLY_ANIMS } from "@/lib/player/anim";
-import { FONTS, TEXT_PRESETS, type BuiltinFont } from "@/lib/text/layout";
+import { TEXT_PRESETS } from "@/lib/text/layout";
+import { FontPicker } from "./FontPicker";
+import { RichTextField } from "./RichTextField";
 import { useBrandKit } from "@/lib/editor/useBrand";
 import { changedAreas, resetAllPatch, resetPatch, type ResetArea } from "@/lib/editor/clipReset";
 import { clipLength, type MediaLite } from "@/lib/edit/doc";
@@ -655,7 +657,6 @@ export function BrandSwatches({
 }
 
 const PRESET_IDS = Object.keys(TEXT_PRESETS) as TextClip["style"]["preset"][];
-const FONT_IDS = Object.keys(FONTS) as BuiltinFont[];
 
 /** A text clip: the words, its style and how it comes in and goes out. */
 function TextCard({
@@ -681,20 +682,18 @@ function TextCard({
   const twoColors = st.preset === "lowerThird" || st.preset === "breaking";
   return (
     <Card title="Text" id="clip-card-title" action={action}>
-      <label className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1">
         <span className="text-xs font-medium text-muted">Text</span>
-        <textarea
+        {/* select letters to give them their own size, color, font… (lib/text/marks) */}
+        <RichTextField
           id="text-content"
-          className="field min-h-16 resize-y py-1.5 leading-snug"
+          clip={clip}
+          onPatch={(p, group) => onPatch(p as Record<string, unknown>, group)}
+          brandFonts={brandFonts}
           rows={st.preset === "lowerThird" ? 2 : 3}
-          maxLength={1000}
-          value={clip.text}
-          onChange={(e) => onPatch({ text: e.target.value }, "text:words")}
-          aria-describedby={
-            st.preset === "lowerThird" ? "text-help" : undefined
-          }
+          describedBy={st.preset === "lowerThird" ? "text-help" : undefined}
         />
-      </label>
+      </div>
       {st.preset === "lowerThird" && (
         <p id="text-help" className="-mt-1.5 text-xs text-muted">
           First line: the name. Next line: the role.
@@ -720,35 +719,11 @@ function TextCard({
             ))}
           </select>
         </label>
-        <label className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-xs font-medium text-muted">Font</span>
-          <select
-            className="field"
-            value={st.font}
-            onChange={(e) =>
-              style({ font: e.target.value as TextClip["style"]["font"] })
-            }
-          >
-            {FONT_IDS.map((k) => (
-              <option key={k} value={k}>
-                {FONTS[k].label}
-              </option>
-            ))}
-            {brandFonts.length > 0 && (
-              <optgroup label="Brand Kit">
-                {brandFonts.map((f) => (
-                  <option key={f.id} value={`brand:${f.id}`}>
-                    {f.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {st.font.startsWith("brand:") &&
-              !brandFonts.some((f) => `brand:${f.id}` === st.font) && (
-                <option value={st.font}>Brand font (removed)</option>
-              )}
-          </select>
-        </label>
+          {/* the whole text's font: built in, Google Fonts (Hindi too) or your Brand Kit fonts */}
+          <FontPicker value={st.font} onChange={(f) => style({ font: f })} brandFonts={brandFonts} label="Font of the whole text" />
+        </div>
       </div>
       <LabeledSlider
         label="Text size"
@@ -1148,26 +1123,10 @@ function ElementCard({
           )}
           {words && (
             <div className="flex items-end gap-2">
-              <label className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-xs font-medium text-muted">Font</span>
-                <select className="field" value={font} onChange={(e) => set({ font: e.target.value as ElementLook["font"] })}>
-                  {FONT_IDS.map((f) => (
-                    <option key={f} value={f}>
-                      {FONTS[f].label}
-                    </option>
-                  ))}
-                  {brandFonts.length > 0 && (
-                    <optgroup label="Brand Kit">
-                      {brandFonts.map((f) => (
-                        <option key={f.id} value={`brand:${f.id}`}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {font.startsWith("brand:") && !brandFonts.some((f) => `brand:${f.id}` === font) && <option value={font}>Brand font (removed)</option>}
-                </select>
-              </label>
+                <FontPicker value={font} onChange={(f) => set({ font: f })} brandFonts={brandFonts} label="Font of the words" />
+              </div>
               <Switch compact label="Bold" checked={el.bold !== false} onCheckedChange={(v) => set({ bold: v ? undefined : false })} />
             </div>
           )}

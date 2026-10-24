@@ -1,6 +1,7 @@
 import { apiError } from "@/lib/http/errors";
 import { fileResponse } from "@/lib/http/range";
 import { getVideo, kindOf, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,9 @@ const AUDIO_MIME: Record<string, string> = { mp3: "audio/mpeg", wav: "audio/wav"
 /** The uploaded file (video, picture or sound), with Range support, for the preview. */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/source">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
   const kind = kindOf(video);

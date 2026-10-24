@@ -58,6 +58,7 @@ export async function POST(request: Request) {
     const meta = await importFile(
       tmpFile,
       matched?.title ? `${matched.title}.mp4` : fileName,
+      user.id,
     );
     await rm(tmpDir, { recursive: true, force: true }).catch(() => {});
 

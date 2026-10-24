@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Spinner } from "@/components/ui/Spinner";
+import { localFrame } from "@/lib/media/localMedia";
 
 /** A YouTube thumbnail (1280 × 720) or a Shorts cover (1080 × 1920). */
 const SIZES = {
@@ -21,14 +22,14 @@ const CLASSIC = ["#ffffff", "#facc15", "#ef4444", "#22c55e", "#38bdf8"];
 export function ThumbnailDialog({
   open,
   onClose,
-  frameUrl,
+  frameAt,
   brandColors,
   projectName,
 }: {
   open: boolean;
   onClose: () => void;
-  /** the frame at the playhead (/api/videos/<id>/frame?t=…), or null for a plain background */
-  frameUrl: string | null;
+  /** the frame at the playhead: which file and the second in it, or null for a plain background */
+  frameAt: { mediaId: string; t: number } | null;
   brandColors: string[];
   projectName: string;
 }) {
@@ -44,18 +45,26 @@ export function ThumbnailDialog({
   const [frame, setFrame] = useState<HTMLImageElement | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // the frame picture, loaded once per opening
+  // the frame picture, loaded once per opening: taken from this computer's file when it's here (the server
+  // may not have it yet), else made by the server
   useEffect(() => {
-    if (!open || !frameUrl) return;
+    if (!open || !frameAt) return;
+    let gone = false;
+    let own: string | null = null;
     const img = new Image();
     img.onload = () => setFrame(img);
     img.onerror = () => setError("Couldn't load the frame at the playhead.");
-    img.src = frameUrl;
+    void localFrame(frameAt.mediaId, frameAt.t).then((blob) => {
+      if (gone) return;
+      img.src = blob ? (own = URL.createObjectURL(blob)) : `/api/videos/${frameAt.mediaId}/frame?t=${frameAt.t.toFixed(3)}`;
+    });
     return () => {
+      gone = true;
       img.onload = null;
       img.onerror = null;
+      if (own) URL.revokeObjectURL(own);
     };
-  }, [open, frameUrl]);
+  }, [open, frameAt]);
 
   useEffect(() => {
     const cv = canvas.current;
@@ -144,7 +153,7 @@ export function ThumbnailDialog({
       <div className="flex flex-col gap-3 text-xs">
         <div className="relative">
           <canvas ref={canvas} className="w-full rounded-md border border-line bg-black" style={{ aspectRatio: `${SIZES[size].w} / ${SIZES[size].h}`, maxHeight: "50vh", objectFit: "contain" }} aria-label="Thumbnail preview" />
-          {frameUrl && !frame && !error && (
+          {frameAt && !frame && !error && (
             <span role="status" className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <span className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-white">
                 <Spinner size="sm" /> Getting the frame…
@@ -152,7 +161,7 @@ export function ThumbnailDialog({
             </span>
           )}
         </div>
-        {!frameUrl && <p className="text-muted">Tip: put the playhead on a video frame first to use it as the background.</p>}
+        {!frameAt && <p className="text-muted">Tip: put the playhead on a video frame first to use it as the background.</p>}
         {error && <p className="text-red-500" role="alert">{error}</p>}
         <div className="grid grid-cols-2 gap-2">
           <label className="flex flex-col gap-1 text-muted">

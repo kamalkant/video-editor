@@ -5,6 +5,7 @@ import { apiError } from "@/lib/http/errors";
 import { copyForImport, uploadAssetId } from "@/lib/library";
 import { getVideo, importFile } from "@/lib/videos";
 import { requireUser } from "@/lib/auth/requireUser";
+import { canUseMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -23,7 +24,8 @@ export async function POST(
   const asset = uploadAssetId(id);
   if (asset) {
     const m = await getVideo(asset);
-    return m
+    // (someone else's sound: as if it weren't there)
+    return m && canUseMedia(user, m)
       ? Response.json(m, { status: 201 })
       : apiError(404, "not_found", "That sound is no longer here.");
   }
@@ -32,7 +34,7 @@ export async function POST(
     const c = await copyForImport(id, dir);
     if (!c)
       return apiError(404, "not_found", "That sound isn't in the library.");
-    const meta = await importFile(c.path, c.name);
+    const meta = await importFile(c.path, c.name, user.id);
     if (hide) {
       const { hideVideoFromLibrary } = await import("@/lib/videos");
       await hideVideoFromLibrary(meta.id);

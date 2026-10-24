@@ -2,6 +2,7 @@ import { apiError } from "@/lib/http/errors";
 import { fileResponse } from "@/lib/http/range";
 import { ensureReversed, reversedFile, reversedStatus, reversedUrl } from "@/lib/media/reverse";
 import { getVideo, kindOf } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,9 @@ const MAX_SECONDS = 120;
 /** Start (or check) the backwards copy of [in, out]. Body: { in, out } (seconds). Call again to poll. */
 export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]/reversed">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video || kindOf(video) !== "video") return apiError(404, "not_found", "This video is no longer here.");
   let body: { in?: unknown; out?: unknown };
@@ -33,6 +37,9 @@ export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]
 /** The backwards copy (Range support). ?a=&b= in milliseconds. */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/reversed">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   if (!(await getVideo(id))) return apiError(404, "not_found", "This video is no longer here.");
   const q = new URL(request.url).searchParams;
   const a = Number(q.get("a"));

@@ -270,7 +270,8 @@ function FileResults({ job, file, onAgain }: { job: Job; file: JobFile; onAgain:
         <button type="button" className="btn btn-secondary" onClick={onAgain}>
           Change export settings
         </button>
-        <DeleteNowButton jobId={job.id} />
+        {/* (made in this browser: nothing on the server to delete) */}
+        {!job.id.startsWith("local-") && <DeleteNowButton jobId={job.id} />}
       </div>
     </div>
   );

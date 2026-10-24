@@ -161,7 +161,7 @@ describe("your own templates (server)", () => {
     const video = await imp("plain.mp4", "show.mp4");
     const sound = await imp("theme.m4a", "theme.m4a");
     const base = BROADCAST_TEMPLATES.find((t) => t.aspectRatio === "16:9")!;
-    const t = await createCustom({
+    const t = await createCustom("test-user", {
       name: "My show",
       baseId: base.id,
       videoId: video.id,
@@ -174,11 +174,11 @@ describe("your own templates (server)", () => {
       video: { assetId: video.id, width: 640, height: 360 },
       audio: { assetId: sound.id },
     });
-    expect((await listCustom()).map((x) => x.id)).toContain(t.id);
+    expect((await listCustom("test-user")).map((x) => x.id)).toContain(t.id);
     const refs = (await projectReferences())!;
     expect(refs.videos.has(video.id) && refs.videos.has(sound.id)).toBe(true);
     // its sound is in the Audio library ("My uploads"), and adding it doesn't copy the file
-    const item = (await listLibrary()).items.find(
+    const item = (await listLibrary("test-user")).items.find(
       (x) => x.id === `upload-${sound.id}`,
     );
     expect(item).toMatchObject({ source: "upload", mood: "My show" });
@@ -186,37 +186,37 @@ describe("your own templates (server)", () => {
       await libraryAdd(new Request("http://x"), ctx(`upload-${sound.id}`))
     ).json();
     expect(added.id).toBe(sound.id);
-    expect((await updateCustom(t.id, { name: "Evening show" })).name).toBe(
+    expect((await updateCustom("test-user", t.id, { name: "Evening show" })).name).toBe(
       "Evening show",
     );
-    expect(await deleteCustom(t.id)).toBe(true);
-    expect(await listCustom()).toEqual([]);
+    expect(await deleteCustom("test-user", t.id)).toBe(true);
+    expect(await listCustom("test-user")).toEqual([]);
   });
   it("refuses a missing file, a sound as the video, and a look made for another shape", async () => {
     const tall = await imp("tall.mp4", "tall.mp4");
     const sound = await imp("theme.m4a", "theme2.m4a");
     const wide = BROADCAST_TEMPLATES.find((t) => t.aspectRatio === "16:9")!;
     await expect(
-      createCustom({
+      createCustom("test-user", {
         name: "X",
         baseId: null,
         videoId: "44444444-4444-4444-8444-444444444444",
       }),
     ).rejects.toThrow(/no longer here/);
     await expect(
-      createCustom({ name: "X", baseId: null, videoId: sound.id }),
+      createCustom("test-user", { name: "X", baseId: null, videoId: sound.id }),
     ).rejects.toThrow(/video file/);
     await expect(
-      createCustom({ name: "X", baseId: wide.id, videoId: tall.id }),
+      createCustom("test-user", { name: "X", baseId: wide.id, videoId: tall.id }),
     ).rejects.toThrow(/made for 16:9/);
     expect(
-      (await createCustom({ name: "Tall", baseId: null, videoId: tall.id }))
+      (await createCustom("test-user", { name: "Tall", baseId: null, videoId: tall.id }))
         .aspectRatio,
     ).toBe("9:16");
   });
   it("clips uploaded in the template pane come back after a reload, with their files", async () => {
     const clip = await imp("plain.mp4", "loop.mp4");
-    await rememberUpload(clip.id, "video");
+    await rememberUpload("test-user", clip.id, "video");
     const data = await (await mediaGet()).json();
     const tile = data.clips.find(
       (c: { assetId?: string }) => c.assetId === clip.id,

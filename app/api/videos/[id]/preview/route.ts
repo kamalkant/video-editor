@@ -7,6 +7,7 @@ import { apiError } from "@/lib/http/errors";
 import { specFromBody } from "@/lib/edit/spec";
 import { DEFAULTS, parseSettings } from "@/lib/settings";
 import { getVideo, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,9 @@ export async function POST(
   ctx: RouteContext<"/api/videos/[id]/preview">,
 ) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video)
     return apiError(404, "not_found", "This video is no longer here.");

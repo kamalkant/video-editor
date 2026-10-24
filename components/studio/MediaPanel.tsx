@@ -802,7 +802,7 @@ export function MediaPanel(p: {
                           <Icon name="audio" className="size-6 text-teal-500" />
                         </span>
                       ) : (
-                        <Thumb src={thumbOf(a.id)} className="size-full object-contain pointer-events-none" />
+                        <Thumb src={thumbOf(a.id)} className="size-full object-cover pointer-events-none" />
                       )}
                       {/* just the picture, with its details on it: length · size bottom left, what it is bottom right;
                           the name on hover (and in the tip) */}

@@ -2,7 +2,11 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
+
+// a file plays for its owner only (lib/auth/media): user-1 uploads it below
+vi.mock("@/lib/auth/session", async (orig) => ({ ...(await orig<typeof import("@/lib/auth/session")>()), getCurrentUser: async () => ({ id: "user-1", email: "u1@example.com", name: "U1", role: "user", status: "active" }) }));
+
 import { GET as play } from "@/app/api/videos/[id]/play/route";
 import { storagePath } from "@/lib/storage";
 import { getVideo, saveUpload, whenPlayable } from "@/lib/videos";

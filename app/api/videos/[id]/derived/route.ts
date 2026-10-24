@@ -1,6 +1,7 @@
 import { derivedStatus, derivedUrl, ensureDerived, type DerivedKind } from "@/lib/media/derived";
 import { apiError } from "@/lib/http/errors";
 import { getVideo, kindOf } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -9,6 +10,9 @@ const KINDS: DerivedKind[] = ["stabilize"];
 /** Start (or check) a derived version of a video, e.g. { kind: "stabilize" }. Call again to poll. */
 export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]/derived">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video || kindOf(video) !== "video") return apiError(404, "not_found", "This video is no longer here.");
   let kind: unknown;

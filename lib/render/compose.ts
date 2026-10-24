@@ -1,4 +1,4 @@
-import { clipLength, DEFAULT_TRANSFORM, docDuration, isReversed, mainStarts, mainTrack, speedOf, type AnyClip, type AudioPlaced, type ElementClip, type TextClip, type TimelineDoc, type Transform, type VideoClip, watermarkRect } from "../edit/doc";
+import { clipLength, DEFAULT_TRANSFORM, docDuration, isReversed, mainStarts, mainTrack, speedOf, type AnyClip, type AudioPlaced, type BlankClip, type ElementClip, type TextClip, type TimelineDoc, type Transform, type VideoClip, watermarkRect } from "../edit/doc";
 import type { Range } from "../edit/timeline";
 import { DENOISE } from "../audio/denoise";
 import { DUCK_LEVEL } from "../audio/ducking";
@@ -142,7 +142,7 @@ function rangesExpr(r: Range[]): string {
  * "type" (default) = typewriter steps (0 letters … all); "words" = a word-by-word caption,
  * row i highlights word i, evenly through the clip or at `times` (seconds into the clip, one per word).
  */
-export type TextSprite = { frames: number; chars: number; box: { x: number; y: number; w: number; h: number }; kind?: "type" | "words"; times?: number[] };
+export type TextSprite = { frames: number; chars: number; box: { x: number; y: number; w: number; h: number }; kind?: "type" | "words"; times?: number[]; cols?: number };
 
 /**
  * An element the browser drew (lib/elements/render): its PNG, w × h (a progress
@@ -168,6 +168,10 @@ export type ComposeOptions = {
   textSpriteOf?: (clip: TextClip) => TextSprite | null;
   /** The pictures drawn for an element (lib/elements/render), or null to leave it out. */
   elementOf?: (clip: ElementClip) => ElementSprite | null;
+  /** Where a text with a transition sits (its area on the canvas, from the browser): it is cut out of its PNG so the transition acts on it alone. */
+  textBoxOf?: (clip: TextClip) => { x: number; y: number; w: number; h: number } | null;
+  /** The PNG the browser drew of a blank scene's backdrop (a gradient or studio set), or null. */
+  blankBackdropOf?: (clip: BlankClip) => string | null;
   /** A derived file to read instead of the upload (e.g. the stabilized copy). */
   sourceOf?: (clip: VideoClip) => string | null;
   /** The backwards copy of a reversed clip's [in, out] (lib/media/reverse). */
@@ -281,12 +285,16 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
       if (!png) continue;
       const k = addInput(["-loop", "1", "-framerate", String(F), "-t", f3(len), "-i", png]);
       let head = `[${k}:v]`;
+      const lm = layerMotion(c, W, H, W, H, F);
+      const tt = transOf(c.id, len);
+      // a still text with a transition: just its own area, so a wipe, a circle, a turn or a zoom acts on it (like the preview)
+      const own = tt && !lm?.anim ? (o.textSpriteOf?.(c)?.box ?? o.textBoxOf?.(c) ?? null) : null;
       const sp = o.textSpriteOf?.(c);
       if (sp) {
         const n = sp.frames;
         let row: string;
         if (sp.kind === "words") {
-          // word-by-word caption: the row of the word being said (its own times, or evenly spread)
+          // word-by-word caption: the cell of the word being said (its own times, or evenly spread)
           row =
             sp.times && sp.times.length === n
               ? `(${sp.times.slice(1).map((ts) => `gte(t\\,${n4(ts)})`).join("+") || "0"})`
@@ -298,12 +306,22 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
           const pout = c.anim.out === "typewriter" ? `clip((${n4(len)}-t)/${n4(tIn)}\\,0\\,1)` : "1";
           row = `min(${n}\\,min(floor(${pin}*${n}+0.000001)\\,floor(${pout}*${n}+0.000001)))`;
         }
+        // (the cells are in a grid of `cols` a row: lib/text/render spriteGrid)
         const b = sp.box;
+        const cols = Math.max(1, sp.cols ?? 1);
+        const cx = cols > 1 ? `'mod(${row}\\,${cols})*${b.w}'` : "0";
+        const cy = cols > 1 ? `floor(${row}/${cols})*${b.h}` : `${row}*${b.h}`;
         const tw = g.label("tw");
-        g.add(`${head}format=rgba,crop=w=${b.w}:h=${b.h}:x=0:y='${row}*${b.h}',pad=${W}:${H}:${b.x}:${b.y}:color=black@0[${tw}]`);
+        g.add(`${head}format=rgba,crop=w=${b.w}:h=${b.h}:x=${cx}:y='${cy}'${own ? "" : `,pad=${W}:${H}:${b.x}:${b.y}:color=black@0`}[${tw}]`);
+        head = `[${tw}]`;
+      } else if (own) {
+        const tw = g.label("tw");
+        g.add(`${head}format=rgba,crop=w=${own.w}:h=${own.h}:x=${own.x}:y=${own.y}[${tw}]`);
         head = `[${tw}]`;
       }
-      comp = placeLayer(g, comp, head, { x: 0, y: 0, w: W, h: H }, c, layer.start, len, W, H, true, null, null, layerMotion(c, W, H, W, H, F), false, blendOf(c));
+      comp = own
+        ? placeLayer(g, comp, head, own, c, layer.start, len, W, H, false, null, tt, lm, false, blendOf(c), F)
+        : placeLayer(g, comp, head, { x: 0, y: 0, w: W, h: H }, c, layer.start, len, W, H, true, null, tt, lm, false, blendOf(c));
       continue;
     }
     if (c.type === "element") {
@@ -347,12 +365,20 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
       const r = lm?.anim ? { x: 0, y: 0, w: unit.w * lm.anim.sRef, h: unit.h * lm.anim.sRef } : { x: ec.x - (unit.w * t.scale) / 2, y: ec.y - (unit.h * t.scale) / 2, w: unit.w * t.scale, h: unit.h * t.scale };
       // (drawn at its size already: no resizing)
       const resize = !(even(r.w) === e.w && even(r.h) === e.h);
-      comp = placeLayer(g, comp, head, r, c, layer.start, len, W, H, resize, { addInput, F }, null, lm, true, blendOf(c));
+      comp = placeLayer(g, comp, head, r, c, layer.start, len, W, H, resize, { addInput, F }, transOf(c.id, len), lm, true, blendOf(c));
       continue;
     }
     if (c.type === "blank") {
-      // a blank scene: its color over the frame, placed like a picture (so its transition and fades work)
-      const head = `color=c=0x${c.fill.slice(1)}:s=${W}x${H}:r=${F}:d=${f3(len)},`;
+      // a blank scene: its color (or its backdrop: a drawn gradient / studio set, a picture or a video) over the
+      // frame, placed like a picture (so its transition and fades work)
+      const bdk = c.backdrop;
+      const bdPng = bdk && bdk.kind !== "media" ? (o.blankBackdropOf?.(c) ?? null) : null;
+      const bdMedia = bdk?.kind === "media" ? media[bdk.mediaId] : undefined;
+      let head = `color=c=0x${c.fill.slice(1)}:s=${W}x${H}:r=${F}:d=${f3(len)},`;
+      if (bdPng || bdMedia) {
+        const k = bdPng || bdMedia?.still ? addInput(["-loop", "1", "-framerate", String(F), "-t", f3(len), "-i", bdPng ?? bdMedia!.path]) : addInput(["-stream_loop", "-1", "-t", f3(len), "-i", bdMedia!.path]);
+        head = `[${k}:v]fps=${F},scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},setsar=1,`;
+      }
       comp = placeLayer(g, comp, head, { x: 0, y: 0, w: W, h: H }, c, layer.start, len, W, H, false, { addInput, F }, transOf(c.id, len), { transform: DEFAULT_TRANSFORM, opacity: 1, F });
       continue;
     }
@@ -435,6 +461,8 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
   } else if (!audioOnly) g.add(`[${comp}]${kind === "mov" ? MOV_TAIL[movEnc] : TAIL[kind]}[${vout}]`);
 
   // sound
+  // (output.audio is the single-video setting: a silent first video sets it to "remove", and music added later must
+  // still be heard, so a timeline keeps all its sound)
   const sounds = STILL_KINDS.has(kind) || kind === "gif" ? [] : audioLayers(doc, media);
   let aout: string | null = null;
   if (sounds.length) {
@@ -686,9 +714,11 @@ function placeLayer(
   clean = false,
   /** A blend mode (overlay tracks): put on a see-through canvas first, then mixed with the composite (lib/render/blend). */
   bl: { mode: BlendMode; transparent: boolean; total: number; F: number } | null = null,
+  /** A text in its own area (not a picture, but a transition may reveal or turn it): the frame rate. */
+  ownF: number | null = null,
 ): string {
   // (a blank scene has no place of its own: the whole frame)
-  const t = lm?.transform ?? ("transform" in c ? c.transform : DEFAULT_TRANSFORM);
+  const t = lm?.transform ?? ("transform" in c && c.transform ? c.transform : DEFAULT_TRANSFORM);
   const rs = (f: string) => (clean ? `premultiply=inplace=1,${f},unpremultiply=inplace=1` : f);
   const matrix = pic && "color" in c ? colorMatrix(c.color) : IDENTITY;
   const styled = !!pic && (hasCrop(t) || !!t.flipX || !!t.flipY || !isIdentity(matrix));
@@ -703,12 +733,26 @@ function placeLayer(
     if (t.flipY) pre.push("vflip");
     if (!isIdentity(matrix)) pre.push(mixerFilter(matrix));
   }
+  // Effects ▸ VFX (the same numbers as the preview's shader, lib/player/glLook)
+  const fx = pic && "color" in c && c.color ? { glow: c.color.glow ?? 0, grain: c.color.grain ?? 0, blur: c.color.blur ?? 0, pixelate: c.color.pixelate ?? 0 } : null;
+  // glow: the bright parts brighter (after the color, like the shader)
+  if (fx && fx.glow > 0) {
+    const ch = `min(maxval\\,val+255*pow(max(0\\,val/255-0.4)\\,2)*${n4(fx.glow * 2)})`;
+    pre.push("format=rgba", `lutrgb=r='${ch}':g='${ch}':b='${ch}'`);
+  }
   const w = even(r.w);
   const h = even(r.h);
   // "Enhance quality" / "Upscale": sized with Lanczos (sharper than bicubic when enlarging), then a light sharpen
   const sharpen = pic && "color" in c ? (c.color?.sharpen ?? 0) : 0;
   if (resize) pre.push(rs(`scale=${w}:${h}:flags=${sharpen > 0 ? "lanczos" : "bicubic"}`));
   if (sharpen > 0) pre.push(`unsharp=5:5:${n4(0.3 + sharpen * 1.2)}:5:5:0`);
+  if (fx && fx.pixelate > 0) {
+    // blocks of max(2, 48 × strength) pixels, each one the color of its first pixel
+    const B = Math.max(2, fx.pixelate * 48);
+    pre.push(`scale=${Math.max(1, Math.round(w / B))}:${Math.max(1, Math.round(h / B))}:flags=neighbor`, `scale=${w}:${h}:flags=neighbor`);
+  }
+  // soft blur: the shader's five taps 12 × strength pixels apart are about this Gaussian
+  if (fx && fx.blur > 0) pre.push(`gblur=sigma=${n4(7.4 * fx.blur)}`);
   pre.push("format=rgba");
   // vignette (Looks): darker corners, the same curve as the preview (lib/player/look vignetteGain); alpha stays
   const vig = pic && "color" in c ? vignetteOf(c.color) : 0;
@@ -723,6 +767,8 @@ function placeLayer(
     pre.length = 0;
     pre.push("format=rgba");
   }
+  // film grain: the same speckle on red, green and blue (on the brightness), new every frame
+  if (fx && fx.grain > 0) pre.push("format=yuva444p", `noise=c0s=${Math.min(100, Math.max(1, Math.round(89 * fx.grain)))}:c0f=t+u`, "format=rgba");
   // shape mask (round camera bubble, rounded corners) and its border: pictures drawn once by FFmpeg, then repeated
   const mask = pic && "mask" in c && c.mask && c.mask.shape !== "rect" ? c.mask : pic && "mask" in c && c.mask?.border?.width ? c.mask : null;
   if (mask && pic) {
@@ -756,11 +802,12 @@ function placeLayer(
   const steady = am ? (am.span.animated.opacity ? 1 : am.span.min.opacity) : (lm?.opacity ?? 1);
   if (steady < 0.999) chain.push("format=rgba", `colorchannelmixer=aa=${n4(steady)}`);
   // a transition that reveals this clip (a wipe, a circle): its mask, at the picture's size (before it moves)
-  if (tr?.mask && tr.d && pic) {
+  const shapeF = pic?.F ?? ownF;
+  if (tr?.mask && tr.d && shapeF) {
     const [pk, pa, po] = [g.label("tp"), g.label("tm"), g.label("to")];
     g.add(`${head}${[...chain, "format=gbrap"].join(",")}[${pk}]`);
     // (the mask lasts the transition; after it, its last frame, all shown, repeats)
-    g.add(`color=c=white:s=${w}x${h}:r=${pic.F}:d=${f3(tr.d)},format=gbrap,geq=r='255':g='255':b='255':a='${tr.mask}'[${pa}]`);
+    g.add(`color=c=white:s=${w}x${h}:r=${shapeF}:d=${f3(tr.d)},format=gbrap,geq=r='255':g='255':b='255':a='${tr.mask}'[${pa}]`);
     g.add(`[${pk}][${pa}]blend=c3_mode=multiply,format=rgba[${po}]`);
     head = `[${po}]`;
     chain.length = 0;
@@ -810,7 +857,7 @@ function placeLayer(
   // a transition into this clip: a reveal (wipe / circle), a turn, a size (lib/player/transitions)
   let tw = am ? 0 : w;
   let thh = am ? 0 : h;
-  const trTurn = !!pic && !!tr?.rot;
+  const trTurn = !!shapeF && !!tr?.rot;
   if (trTurn) {
     const D = even(Math.ceil(Math.hypot(tw || w, thh || h)) + 2);
     chain.push("format=rgba", `rotate=a='${tr!.rot}*0.0174533':ow=${D}:oh=${D}:c=black@0`);
@@ -849,13 +896,13 @@ function placeLayer(
   const midY = warped ? warped.oy + warped.fh / 2 : r.y + r.h / 2;
   let bx = byMiddle ? `${n4(midX)}-overlay_w/2` : String(warped ? warped.ox : Math.round(r.x));
   let by = byMiddle ? `${n4(midY)}-overlay_h/2` : String(warped ? warped.oy : Math.round(r.y));
-  if (!am && anim?.scale && c.type === "text") {
-    // a text growing in: around its anchor (where it is on the canvas)
+  if (!am && anim?.scale && c.type === "text" && !byMiddle) {
+    // a text growing in: around its anchor (where it is on the canvas); a text in its own area: that area grows from it
     const a = textAnchor(c.style.preset, W, H);
     const qx = a.x + t.x * W;
     const qy = a.y + t.y * H;
-    bx = `${n4(qx)}-${n4(qx / W)}*overlay_w`;
-    by = `${n4(qy)}-${n4(qy / H)}*overlay_h`;
+    bx = ownF ? `${n4(qx)}+(${n4(r.x - qx)})*overlay_w/${n4(w)}` : `${n4(qx)}-${n4(qx / W)}*overlay_w`;
+    by = ownF ? `${n4(qy)}+(${n4(r.y - qy)})*overlay_h/${n4(h)}` : `${n4(qy)}-${n4(qy / H)}*overlay_h`;
   }
   if (am) {
     // moving: its middle follows the keyframes (text: its anchor, scaled from the picture's own size)

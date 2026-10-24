@@ -1,5 +1,18 @@
 import type { NextConfig } from "next";
 
+/**
+ * Security headers on every page and file: no framing by other sites (clickjacking), no type guessing, a
+ * short referrer, only this site may use the camera / microphone / screen (Record, voice search), and HTTPS
+ * from now on when live. A Content-Security-Policy is still to do (EDITOR_AUDIT.md backlog).
+ */
+const SECURITY_HEADERS = [
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(self), display-capture=(self), geolocation=(), browsing-topics=()" },
+  ...(process.env.NODE_ENV === "production" ? [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }] : []),
+];
+
 const nextConfig: NextConfig = {
   // the browser tests run a second dev server with its own build folder (and storage)
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -10,7 +23,10 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     cpus: Number(process.env.BUILD_CPUS || 2),
-    webpackBuildWorker: false, 
+    webpackBuildWorker: false,
+  },
+  headers() {
+    return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },
 };
 

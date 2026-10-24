@@ -24,6 +24,8 @@ export type LookPass = {
   grain?: number;
   blur?: number;
   pixelate?: number;
+  /** The frame number: film grain changes every frame. */
+  seed?: number;
 };
 
 const VERT = `
@@ -51,6 +53,7 @@ uniform float u_glow;    // glow strength
 uniform float u_grain;   // film grain strength
 uniform float u_blur;    // blur strength
 uniform float u_pixel;   // pixelate strength
+uniform float u_seed;    // the frame number (grain moves)
 varying vec2 v_uv;
 
 // same as maskDistance() in lib/player/look.ts
@@ -112,7 +115,7 @@ void main() {
   }
 
   if (u_grain > 0.0) {
-    float noise = (fract(sin(dot(v_uv * u_size, vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * u_grain * 0.35;
+    float noise = (fract(sin(dot(v_uv * u_size + vec2(mod(u_seed, 97.0) * 13.0, mod(u_seed, 89.0) * 7.0), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * u_grain * 0.35;
     o.rgb = clamp(o.rgb + noise, 0.0, 1.0);
   }
 
@@ -180,7 +183,7 @@ export class GlLook {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    for (const n of ["u_tex", "u_crop", "u_flip", "u_m", "u_size", "u_shape", "u_radius", "u_feather", "u_bw", "u_bcol", "u_vig", "u_glow", "u_grain", "u_blur", "u_pixel"]) this.loc[n] = gl.getUniformLocation(prog, n);
+    for (const n of ["u_tex", "u_crop", "u_flip", "u_m", "u_size", "u_shape", "u_radius", "u_feather", "u_bw", "u_bcol", "u_vig", "u_glow", "u_grain", "u_blur", "u_pixel", "u_seed"]) this.loc[n] = gl.getUniformLocation(prog, n);
   }
 
   /** Draw `source` (srcW × srcH) with the look into this.canvas (outW × outH). */
@@ -228,6 +231,7 @@ export class GlLook {
     gl.uniform1f(this.loc.u_grain, p.grain ?? 0);
     gl.uniform1f(this.loc.u_blur, p.blur ?? 0);
     gl.uniform1f(this.loc.u_pixel, p.pixelate ?? 0);
+    gl.uniform1f(this.loc.u_seed, p.seed ?? 0);
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

@@ -8,6 +8,7 @@ import {
   type TemplateAudioTrack,
 } from "@/lib/templates/templateMediaAssets";
 import { listUploads } from "@/lib/templates/custom";
+import { getCurrentUser } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
@@ -75,8 +76,9 @@ export async function GET() {
     // audio dir may be empty
   }
 
-  // clips and sounds uploaded in the template pane (My Assets files: they work after a reload too)
-  const uploaded = await listUploads().catch(() => []);
+  // your clips and sounds uploaded in the template pane (My Assets files: they work after a reload too)
+  const user = await getCurrentUser();
+  const uploaded = user ? await listUploads(user.id).catch(() => []) : [];
   const upClips: TemplateVideoClip[] = uploaded
     .filter((u) => u.upload.kind === "video")
     .map(({ meta }) => ({ id: `asset-${meta.id}`, assetId: meta.id, title: meta.fileName.replace(/\.[^/.]+$/, ""), category: "Uploaded", url: `/api/videos/${meta.id}/play`, thumbUrl: `/api/videos/${meta.id}/thumb`, thumbGradient: "from-blue-600 to-indigo-900", videoMeta: meta, isCustom: true }));

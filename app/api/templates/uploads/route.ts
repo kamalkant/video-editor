@@ -19,7 +19,7 @@ export async function POST(request: Request) {
   }
   if (typeof body.assetId !== "string" || (body.kind !== "video" && body.kind !== "audio")) return apiError(400, "bad_request", "Send { assetId, kind }.");
   try {
-    return Response.json({ upload: await rememberUpload(body.assetId, body.kind) }, { status: 201 });
+    return Response.json({ upload: await rememberUpload(user.id, body.assetId, body.kind) }, { status: 201 });
   } catch (e) {
     return templateErrorResponse(e);
   }

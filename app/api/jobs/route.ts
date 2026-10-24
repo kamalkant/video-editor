@@ -4,7 +4,7 @@ import { getCapabilities } from "@/lib/ffmpeg/capabilities";
 import { apiError } from "@/lib/http/errors";
 import { isFormat } from "@/lib/export/presets";
 import { createDocJob, createJob, FormatError } from "@/lib/jobs/queue";
-import { docSchema, elementClipsOf, textClipsOf } from "@/lib/edit/doc";
+import { docSchema, elementClipsOf, mediaIdsOf, textClipsOf } from "@/lib/edit/doc";
 import { isRenderId, renderExists } from "@/lib/renders";
 import { cleanDoc } from "@/lib/projects/store";
 import { specFromBody } from "@/lib/edit/spec";
@@ -12,6 +12,7 @@ import { DEFAULTS, limitsOf, parseSettings } from "@/lib/settings";
 import { getVideo } from "@/lib/videos";
 import { getCurrentUser } from "@/lib/auth/session";
 import { entitlementsFor, exportBlocked } from "@/lib/billing/entitlements";
+import { canUseMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return apiError(401, "unauthorized", "Sign in to export.");
   const ent = entitlementsFor(user);
-  let body: { videoId?: unknown; spec?: unknown; settings?: unknown; doc?: unknown; texts?: unknown; textSprites?: unknown; elements?: unknown; backdrop?: unknown; logo?: unknown; format?: unknown; at?: unknown };
+  let body: { videoId?: unknown; spec?: unknown; settings?: unknown; doc?: unknown; texts?: unknown; textSprites?: unknown; textBoxes?: unknown; blankBackdrops?: unknown; elements?: unknown; backdrop?: unknown; logo?: unknown; format?: unknown; at?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -37,6 +38,11 @@ export async function POST(request: Request) {
       if (!doc.tracks.some((t) => t.clips.length)) return apiError(400, "empty", "The timeline is empty.");
       const tooBig = exportBlocked(ent, doc.canvas.width, doc.canvas.height);
       if (tooBig) return apiError(403, "needs_upgrade", tooBig);
+      // only your own files go into your export (an id of someone else's upload is as if it weren't there)
+      for (const id of mediaIdsOf(doc)) {
+        const m = await getVideo(id);
+        if (m && !canUseMedia(user, m)) return apiError(404, "not_found", "A file on the timeline is no longer here.");
+      }
       // every text clip that shows comes as a PNG the editor drew (POST /api/renders)
       const sent = body.texts && typeof body.texts === "object" ? (body.texts as Record<string, unknown>) : {};
       const renders: Record<string, string> = {};
@@ -65,7 +71,18 @@ export async function POST(request: Request) {
       const logo = doc.watermark && isRenderId(body.logo) && (await renderExists(body.logo)) ? body.logo : undefined;
       // typewriter texts: their PNG holds every step (how many, and where the text's area is)
       const textSprites = spritesOf(body.textSprites, doc.canvas.width, doc.canvas.height, new Set(Object.keys(renders)));
-      const job = await createDocJob(doc, renders, backdrop, { format: isFormat(body.format) ? body.format : undefined, at, logo, textSprites, elements, planMark: ent.watermark });
+      // texts with a transition: where their area is (the export cuts it out, so the transition acts on it alone)
+      const textBoxes = boxesOf(body.textBoxes, doc.canvas.width, doc.canvas.height, new Set(Object.keys(renders)));
+      // blank scenes with a drawn backdrop (gradient / studio set): its PNG
+      const sentBd = body.blankBackdrops && typeof body.blankBackdrops === "object" ? (body.blankBackdrops as Record<string, unknown>) : {};
+      const blankBackdrops: Record<string, string> = {};
+      for (const t of doc.tracks)
+        for (const c of t.clips) {
+          if (c.type !== "blank" || !c.backdrop || c.backdrop.kind === "media") continue;
+          const id = sentBd[c.id];
+          if (isRenderId(id) && (await renderExists(id))) blankBackdrops[c.id] = id;
+        }
+      const job = await createDocJob(doc, renders, backdrop, { format: isFormat(body.format) ? body.format : undefined, at, logo, textSprites, elements, planMark: ent.watermark, textBoxes, blankBackdrops, userId: user.id });
       return Response.json({ jobId: job.id }, { status: 201 });
     } catch (err) {
       if (err instanceof ZodError) return apiError(400, "bad_settings", err.issues[0]?.message ?? "Invalid timeline");
@@ -74,7 +91,8 @@ export async function POST(request: Request) {
     }
   }
   const video = typeof body.videoId === "string" ? await getVideo(body.videoId) : null;
-  if (!video) return apiError(404, "not_found", "This video is no longer here. Upload it again.");
+  // (someone else's upload: as if it weren't there)
+  if (!video || !canUseMedia(user, video)) return apiError(404, "not_found", "This video is no longer here. Upload it again.");
   const caps = await getCapabilities();
   if (!caps.ok) return apiError(503, "missing_ffmpeg_features", caps.message ?? "FFmpeg is missing features.");
   try {
@@ -84,7 +102,7 @@ export async function POST(request: Request) {
     const outW = spec.output.resolution === "original" ? video.info.width : spec.output.resolution;
     const tooBig = exportBlocked(ent, outW, Math.round((outW * video.info.height) / Math.max(1, video.info.width)));
     if (tooBig) return apiError(403, "needs_upgrade", tooBig);
-    const job = await createJob(video.id, spec);
+    const job = await createJob(video.id, spec, user.id);
     return Response.json({ jobId: job.id }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) return apiError(400, "bad_settings", err.issues[0]?.message ?? "Invalid settings");
@@ -104,21 +122,37 @@ const elementSentSchema = z.object({
 });
 type ElementSent = z.infer<typeof elementSentSchema>;
 
+const boxSchema = z.object({ x: z.number().int().min(0), y: z.number().int().min(0), w: z.number().int().min(2), h: z.number().int().min(2) });
 const spriteSchema = z.object({
   frames: z.number().int().min(1).max(TYPE_STEPS_MAX),
   chars: z.number().int().min(0).max(5000),
-  box: z.object({ x: z.number().int().min(0), y: z.number().int().min(0), w: z.number().int().min(2), h: z.number().int().min(2) }),
+  box: boxSchema,
   // word-by-word captions (lib/text/render wordSpriteOf); times: when each word starts, seconds into the clip
   kind: z.enum(["type", "words"]).optional(),
   times: z.array(z.number().finite().min(0).max(3600)).max(TYPE_STEPS_MAX).optional(),
+  // the cells are in a grid of `cols` a row (lib/text/render spriteGrid)
+  cols: z.number().int().min(1).max(TYPE_STEPS_MAX + 1).optional(),
 });
-/** The typewriter steps sent with the texts (only for texts on the timeline, inside the canvas). */
+/** The typewriter steps sent with the texts (only for texts on the timeline, inside the canvas, in a picture the server takes). */
 function spritesOf(raw: unknown, W: number, H: number, ids: Set<string>): Record<string, z.infer<typeof spriteSchema>> {
   const out: Record<string, z.infer<typeof spriteSchema>> = {};
   if (!raw || typeof raw !== "object") return out;
   for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
     const p = spriteSchema.safeParse(v);
-    if (ids.has(id) && p.success && p.data.box.x + p.data.box.w <= W && p.data.box.y + p.data.box.h <= H) out[id] = p.data;
+    if (!ids.has(id) || !p.success) continue;
+    const { box, cols = 1, frames, kind } = p.data;
+    const cells = kind === "words" ? frames : frames + 1;
+    if (box.x + box.w <= W && box.y + box.h <= H && box.w * Math.min(cols, cells) <= 8192 && box.h * Math.ceil(cells / cols) <= 8192) out[id] = p.data;
+  }
+  return out;
+}
+/** Text areas sent with the texts (only for texts on the timeline, inside the canvas). */
+function boxesOf(raw: unknown, W: number, H: number, ids: Set<string>): Record<string, z.infer<typeof boxSchema>> {
+  const out: Record<string, z.infer<typeof boxSchema>> = {};
+  if (!raw || typeof raw !== "object") return out;
+  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+    const p = boxSchema.safeParse(v);
+    if (ids.has(id) && p.success && p.data.x + p.data.w <= W && p.data.y + p.data.h <= H) out[id] = p.data;
   }
   return out;
 }

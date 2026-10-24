@@ -63,7 +63,7 @@ describe("a template's files", () => {
   it("can be removed from My Assets while keeping the template functional", async () => {
     const v = await imp("wide.mp4", "show.mp4");
     const a = await imp("theme.m4a", "theme.m4a");
-    const t = await createCustom({
+    const t = await createCustom("test-user", {
       name: "Evening show",
       baseId: null,
       videoId: v.id,
@@ -78,14 +78,14 @@ describe("a template's files", () => {
       );
       expect(r.status).toBe(204);
     }
-    const listed = (await listCustomWithStatus()).find((x) => x.id === t.id)!;
+    const listed = (await listCustomWithStatus("test-user")).find((x) => x.id === t.id)!;
     expect(listed.missing).toBeUndefined();
   });
   it("a template whose files were deleted anyway says so, and gets a new video and sound in place", async () => {
     const v = await imp("wide.mp4", "gone.mp4");
     const a = await imp("theme.m4a", "gone.m4a");
     const base = BROADCAST_TEMPLATES.find((x) => x.aspectRatio === "16:9")!;
-    const t = await createCustom({
+    const t = await createCustom("test-user", {
       name: "Lost files",
       baseId: base.id,
       videoId: v.id,
@@ -94,19 +94,19 @@ describe("a template's files", () => {
     // (e.g. deleted before this guard existed)
     await deleteVideo(v.id);
     await deleteVideo(a.id);
-    const listed = (await listCustomWithStatus()).find((x) => x.id === t.id)!;
+    const listed = (await listCustomWithStatus("test-user")).find((x) => x.id === t.id)!;
     expect(listed.missing).toEqual({ video: true, audio: true });
     // a new video: it must fit the base look's shape
     const tall = await imp("tall.mp4", "tall.mp4");
-    await expect(updateCustom(t.id, { videoId: tall.id })).rejects.toThrow(
+    await expect(updateCustom("test-user", t.id, { videoId: tall.id })).rejects.toThrow(
       /made for 16:9/,
     );
     const wide = await imp("wide.mp4", "new.mp4");
     const sound = await imp("theme.m4a", "new.m4a");
-    await expect(updateCustom(t.id, { videoId: sound.id })).rejects.toThrow(
+    await expect(updateCustom("test-user", t.id, { videoId: sound.id })).rejects.toThrow(
       /video file/,
     );
-    const fixed = await updateCustom(t.id, {
+    const fixed = await updateCustom("test-user", t.id, {
       videoId: wide.id,
       audioId: sound.id,
     });
@@ -118,9 +118,9 @@ describe("a template's files", () => {
       audio: { assetId: sound.id },
     });
     expect(
-      (await listCustomWithStatus()).find((x) => x.id === t.id)!.missing,
+      (await listCustomWithStatus("test-user")).find((x) => x.id === t.id)!.missing,
     ).toBeUndefined();
     // and the sound can be taken off
-    expect((await updateCustom(t.id, { audioId: null })).audio).toBeUndefined();
+    expect((await updateCustom("test-user", t.id, { audioId: null })).audio).toBeUndefined();
   });
 });

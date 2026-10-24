@@ -3,6 +3,7 @@ import { MIN_SEGMENT_FRAMES, segmentsOf } from "./timeline";
 import { BLEND_MODES } from "../render/blend";
 import { DEFAULT_OUTPUT, editSpecSchema, opInstanceSchema, outputSchema, sanitizeOutput, sanitizeSpec, type EditSpec, type OpInstance, type OutputSettings } from "./spec";
 import { clipTrackingSchema, type ClipTracking, type TrackingPoint, type TrackingKeyframe } from "../tracking/types";
+import { normalizeMarks } from "../text/marks";
 
 /**
  * The project timeline (EditSpec v2): a canvas and tracks of clips.
@@ -263,8 +264,8 @@ export const imageClipSchema = z.object({
   ...motion,
   generation: clipGenerationSchema.optional(),
 });
-/** A built-in font, or one of your Brand Kit fonts ("brand:<id>"). */
-export const fontSchema = z.union([z.enum(["sans", "serif", "rounded", "mono", "condensed"]), z.string().regex(/^brand:[a-f0-9]{12}$/)]);
+/** A built-in font, a Google font ("gf:<Family>", lib/text/fonts), or one of your Brand Kit fonts ("brand:<id>"). */
+export const fontSchema = z.union([z.enum(["sans", "serif", "rounded", "mono", "condensed"]), z.string().regex(/^brand:[a-f0-9]{12}$/), z.string().regex(/^gf:[A-Za-z0-9 ]{1,64}$/)]);
 export const textStyleSchema = z.object({
   preset: z.enum(["title", "lowerThird", "breaking", "caption", "plain"]),
   font: fontSchema,
@@ -292,7 +293,31 @@ export const textStyleSchema = z.object({
   highlightStyle: z.enum(["none", "karaoke", "bounce", "glow", "box", "pop"]).optional(),
   /** Highlight accent color for active spoken words. */
   highlightColor: hex.optional(),
+  /** Slanted letters, a line under them, a line through them (the whole text; marks can change parts). */
+  italic: z.boolean().optional(),
+  underline: z.boolean().optional(),
+  strike: z.boolean().optional(),
 });
+/**
+ * Part of a text drawn its own way (select letters in the Text panel): from…to are positions in `text`
+ * (on whole letters), and only what it changes is set. `size` is times the text's size.
+ */
+export const textMarkSchema = z
+  .object({
+    from: z.number().int().min(0).max(1000),
+    to: z.number().int().min(1).max(1000),
+    font: fontSchema.optional(),
+    size: z.number().finite().min(0.25).max(4).optional(),
+    color: hex.optional(),
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    strike: z.boolean().optional(),
+    /** a marker-pen color behind these letters */
+    highlight: hex.optional(),
+  })
+  .refine((m) => m.to > m.from, "A styled part needs at least one letter.");
+export type TextMark = z.infer<typeof textMarkSchema>;
 export const textClipSchema = z.object({
   id: localId,
   type: z.literal("text"),
@@ -301,6 +326,8 @@ export const textClipSchema = z.object({
   duration: z.number().finite().min(0.1).max(3600),
   /** Subtitles: when each word is said, seconds from the clip's start (word-by-word styles follow them). */
   wordTimes: z.array(z.number().finite().min(0).max(3600)).max(60).optional(),
+  /** Letters styled their own way (lib/text/marks): sorted, not overlapping. */
+  marks: z.array(textMarkSchema).max(200).optional(),
   transform: transformSchema,
   anim: animSchema,
   ...fades,
@@ -744,8 +771,8 @@ export function asSingleVideo(doc: TimelineDoc): { mediaId: string; spec: EditSp
   if (!v.every((c) => c.transform.fit === "fit" && c.transform.scale === 1 && c.transform.x === 0 && c.transform.y === 0 && !c.transform.crop && !c.transform.rotation && !c.transform.flipX && !c.transform.flipY && !c.color && !c.mask && !c.patches?.length)) return null;
   // (stretched, skewed or pinned pictures too)
   if (!v.every((c) => !c.transform.skewX && !c.transform.skewY && (c.transform.scaleX ?? 1) === 1 && (c.transform.scaleY ?? 1) === 1 && !c.transform.corners && !c.transform.pivot)) return null;
-  // (moving or see-through clips need the full timeline export)
-  if (v.some((c) => c.keyframes?.length || (c.opacity ?? 1) < 1)) return null;
+  // (moving or see-through clips, transitions between the parts and blend modes need the full timeline export)
+  if (v.some((c) => c.keyframes?.length || (c.opacity ?? 1) < 1 || c.transitionIn || (c.blend && c.blend !== "normal"))) return null;
   for (let i = 1; i < v.length; i++) if (v[i].in < v[i - 1].out - 1e-6) return null;
   return { mediaId: first.mediaId, spec: { version: 1, ops: first.ops, output: doc.output, timeline: { clips: v.map((c) => ({ id: c.id, in: c.in, out: c.out })) } } };
 }
@@ -784,7 +811,8 @@ export function layersAt(doc: TimelineDoc, t: number): Layer[] {
   const out: Layer[] = [];
   const main = mainTrack(doc);
   const starts = mainStarts(main.clips);
-  main.clips.forEach((c, i) => {
+  // (a hidden Video 1 shows nothing, like the server export)
+  if (!main.hidden) main.clips.forEach((c, i) => {
     const s = starts[i];
     const len = clipLength(c);
     const isLeadingTrim = i === 0 && s > 0 && t <= s + 1e-4;
@@ -993,6 +1021,14 @@ export function sanitizeDoc(doc: TimelineDoc, media: (id: string) => MediaLite |
       const clips = t.clips
         .map((c) => {
           if ((c as any).generation) return c;
+          if (c.type === "text") {
+            // (styled letters: inside the words, sorted, not overlapping)
+            const marks = normalizeMarks(c.text, c.marks);
+            const { marks: _m, ...rest } = c;
+            void _m;
+            return cleanKeyframes(marks ? { ...rest, marks } : rest, fps);
+          }
+          if (c.type === "blank") return c;
           return c.type === "video" ? cleanVideo(c) : c.type === "image" ? (media(c.mediaId)?.kind === "image" ? cleanKeyframes(c, fps) : null) : cleanKeyframes(c, fps);
         })
         .filter((c): c is OverlayClip => !!c);

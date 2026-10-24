@@ -241,6 +241,17 @@ export async function resetDeviceFolder(accountCode: string): Promise<void> {
   }
 }
 
+let serverFolder: Promise<boolean> | null = null;
+/** Whether this editor's server keeps drafts in its own Documents folder (only a local install). */
+function serverFolderOn(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  serverFolder ??= fetch("/api/storage/device-folder")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j: { local?: boolean } | null) => !!j?.local)
+    .catch(() => false);
+  return serverFolder;
+}
+
 export async function writeToDeviceFolder(
   accountCode: string,
   fileName: string,
@@ -265,7 +276,10 @@ export async function writeToDeviceFolder(
     console.warn("Could not write to local handle:", err);
   }
 
-  // 2. Always sync automatically to Documents/vdo on the device via local API
+  // 2. A local install (the editor on your own Mac, VDO_LOCAL_MODE=1 on the server) also keeps a copy in
+  //    ~/Documents/VDO through its own server. On a shared server that route is off: nobody's drafts go to the
+  //    server's disk (asked once, not on every save)
+  if (!(await serverFolderOn())) return writtenDirectly;
   try {
     const payload =
       typeof content === "string"

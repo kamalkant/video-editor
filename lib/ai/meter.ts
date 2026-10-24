@@ -6,6 +6,7 @@ import { deductAICredits, getUserAICredits, refundAICredits } from "../db/ai-cre
 import { getDb } from "../db/index";
 import { apiError } from "../http/errors";
 import { aiKeyScope } from "./keys";
+import { ownerScope } from "../auth/owner";
 import { parseAiCosts, type AiTool } from "./costs";
 import type { ProviderId } from "./providers";
 
@@ -67,7 +68,8 @@ export async function meteredAi(tool: AiTool, provider: ProviderId, run: () => P
 
   let res: Response;
   try {
-    res = await aiKeyScope.run(scope, run);
+    // (what it makes is theirs: lib/auth/owner)
+    res = await ownerScope.run({ userId: user.id }, () => aiKeyScope.run(scope, run));
   } catch (err) {
     if (charge > 0) refundAICredits(user.id, charge, `Refund: AI ${tool} failed`);
     throw err;

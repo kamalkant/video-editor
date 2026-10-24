@@ -8,6 +8,7 @@ import {
   invalidateProxy,
   proxyFilePath,
 } from "@/lib/media/proxy";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -28,6 +29,9 @@ async function fileExists(p: string): Promise<boolean> {
  */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/proxy">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
 
@@ -62,6 +66,9 @@ export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/
  */
 export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]/proxy">) {
   const { id } = await ctx.params;
+  // only your own file (and a fair share of FFmpeg work per person)
+  const own = await requireMedia(id, { heavy: true });
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
 
@@ -79,6 +86,9 @@ export async function POST(request: Request, ctx: RouteContext<"/api/videos/[id]
  */
 export async function DELETE(_request: Request, ctx: RouteContext<"/api/videos/[id]/proxy">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video) return apiError(404, "not_found", "This video is no longer here.");
 

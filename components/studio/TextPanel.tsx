@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon";
 import { createDragChip, setTextDrag, TEXT_DRAG } from "@/lib/editor/mediaDrag";
 import { textClipOfStyle, TEXT_STYLES } from "@/lib/text/layout";
 import { drawText } from "@/lib/text/render";
+import { ensureDocFonts } from "@/lib/text/fonts";
 
 /** A small picture of a text style, drawn by the same code as the preview and the export. */
 function StyleThumb({ id }: { id: string }) {
@@ -16,13 +17,18 @@ function StyleThumb({ id }: { id: string }) {
     const W = 1920;
     const H = 1080;
     ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
-    const g = ctx.createLinearGradient(0, 0, W, H);
-    g.addColorStop(0, "#1e293b");
-    g.addColorStop(1, "#334155");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-    void document.fonts?.ready.then(() => drawText(ctx, textClipOfStyle(id), W, H));
-    drawText(ctx, textClipOfStyle(id), W, H);
+    const clip = textClipOfStyle(id);
+    const draw = () => {
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, "#1e293b");
+      g.addColorStop(1, "#334155");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      drawText(ctx, clip, W, H);
+    };
+    draw();
+    // (a style in a Google font: drawn again once the font is here)
+    void ensureDocFonts({ tracks: [{ clips: [clip] }] }).then(draw);
   }, [id]);
   return <canvas ref={ref} width={224} height={126} aria-hidden="true" className="block aspect-video w-full rounded-md" />;
 }

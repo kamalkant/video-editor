@@ -3,6 +3,7 @@ import { meteredAi } from "@/lib/ai/meter";
 import { VEO_PRICE, type VeoResolution, type VeoSeconds, type VeoTier } from "@/lib/ai/pricing";
 import { startVeo } from "@/lib/ai/veo";
 import { apiError } from "@/lib/http/errors";
+import { mediaDenied } from "@/lib/auth/media";
 import { isId } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -15,6 +16,11 @@ async function handle(request: Request): Promise<Response> {
   const resolution = (b.resolution === "1080p" ? "1080p" : b.resolution === "720p" ? "720p" : null) as VeoResolution | null;
   const seconds = ([4, 6, 8].includes(b.seconds as number) ? b.seconds : null) as VeoSeconds | null;
   if (!tier || !resolution || !seconds) return apiError(400, "bad_request", "Pick the quality, size and length.");
+  // (a first frame: only your own picture)
+  if (isId(b.startImageId)) {
+    const denied = await mediaDenied(b.startImageId);
+    if (denied) return denied;
+  }
   try {
     const job = await startVeo({ prompt: b.prompt, aspect: b.aspect === "9:16" ? "9:16" : "16:9", seconds, tier, resolution, startImageId: isId(b.startImageId) ? b.startImageId : null });
     return Response.json(job, { status: 201 });

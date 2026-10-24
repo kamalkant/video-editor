@@ -2,6 +2,7 @@ import { measureBusyness } from "@/lib/ffmpeg/busyness";
 import { AbortedError } from "@/lib/ffmpeg/run";
 import { apiError } from "@/lib/http/errors";
 import { getVideo, sourcePath } from "@/lib/videos";
+import { requireMedia } from "@/lib/auth/media";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,9 @@ export const runtime = "nodejs";
  */
 export async function GET(request: Request, ctx: RouteContext<"/api/videos/[id]/busyness">) {
   const { id } = await ctx.params;
+  // only your own file
+  const own = await requireMedia(id);
+  if (own instanceof Response) return own;
   const video = await getVideo(id);
   if (!video || (video.kind ?? "video") !== "video") return apiError(404, "not_found", "This video is no longer here.");
   const q = new URL(request.url).searchParams;

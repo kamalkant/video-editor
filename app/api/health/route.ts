@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { getCapabilities } from "@/lib/ffmpeg/capabilities";
 import { fetchStatus } from "@/lib/ffmpeg/ensure";
+import { getCurrentUser } from "@/lib/auth/session";
+import { isAdmin } from "@/lib/auth/permissions";
 
 export const runtime = "nodejs";
 
@@ -15,7 +17,9 @@ const BUILD = (() => {
 })();
 
 export async function GET(request: Request) {
-  const refresh = new URL(request.url).searchParams.has("refresh");
+  // (probing FFmpeg again runs it several times: staff only, not for anyone who asks)
+  const wantsRefresh = new URL(request.url).searchParams.has("refresh");
+  const refresh = wantsRefresh && isAdmin(await getCurrentUser());
   const caps = await getCapabilities(refresh);
   return Response.json(
     {

@@ -220,6 +220,17 @@ export function queueStats(): { running: string | null; waiting: number; known: 
   return { running: Q.running, waiting: Q.waiting.length, known: Q.jobs.size };
 }
 
+/**
+ * How long one export encode may run before it's stopped as stuck: `floorMs`, or longer for a long or big
+ * video. VP9 at 1080p30 on two threads (the Linux default) makes about 0.42 s of video a second, so a fixed
+ * 30 minutes stopped a VP9 export of a 13-minute timeline (clips go up to 30). This allows 6 s per second of
+ * 1080p30, more for a bigger frame or a higher frame rate.
+ */
+export function encodeTimeoutMs(floorMs: number, duration: number, out: { width: number; height: number; fps: number }): number {
+  const load = Math.max(1, (out.width * out.height * out.fps) / (1920 * 1080 * 30));
+  return Math.max(floorMs, Math.round(duration * 6 * load * 1000));
+}
+
 const jobJson = (id: string) => storagePath("jobs", id, "job.json");
 const lastWrite = new Map<string, number>();
 
@@ -712,7 +723,7 @@ async function runDocJob(job: Job, doc: TimelineDoc, signal: AbortSignal) {
         }),
         {
           signal,
-          timeoutMs: 30 * 60 * 1000,
+          timeoutMs: encodeTimeoutMs(30 * 60 * 1000, duration, job.output),
           onProgress: (t) => {
             step.percent = Math.min(99, Math.round((100 * t) / duration));
             void save(job, false);
@@ -929,7 +940,7 @@ async function runJob(job: Job, signal: AbortSignal) {
       buildEncodeArgs(kind, job.spec, video.info, src, out, { crop, mask, movEncoder: (await getCapabilities()).movEncoder }),
       {
         signal,
-        timeoutMs: 15 * 60 * 1000,
+        timeoutMs: encodeTimeoutMs(15 * 60 * 1000, duration, job.output),
         onProgress: (t) => {
           step.percent = Math.min(
             99,

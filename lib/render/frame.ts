@@ -32,11 +32,19 @@ import { compositeOp } from "./blend";
  * the full size); layouts are in project pixels and scaled to it.
  */
 
+/** A video clip's picture: a <video> at the right time, or a canvas holding a decoded frame (the export, lib/export/clipDecoder). */
+export type VideoPicture = HTMLVideoElement | HTMLCanvasElement;
+
+/** The size of a video clip's picture. */
+export function picSize(el: VideoPicture): { w: number; h: number } {
+  return "videoWidth" in el ? { w: el.videoWidth, h: el.videoHeight } : { w: el.width, h: el.height };
+}
+
 /** The decoded pictures one frame needs. */
 export type FrameSources = {
   media: Record<string, MediaLite>;
   /** A video clip's element showing the frame to draw (null: not drawn this frame). `packed`: it plays the AI preview (picture over mask). */
-  video: (c: VideoClip) => { el: HTMLVideoElement; packed: boolean } | null;
+  video: (c: VideoClip) => { el: VideoPicture; packed: boolean } | null;
   /** A stand-in while a video clip has no frame yet, `into` seconds into it (the preview: the picture taken at import). */
   standIn?: (c: VideoClip, into: number) => HTMLImageElement | null;
   /** A loaded picture (picture clips, a picture backdrop, the logo, pictures that cover a watermark), or null. */
@@ -113,7 +121,7 @@ export function textPlacement(c: TextClip, into: number, W: number, H: number): 
 }
 
 /** A blurred copy of the picture (top of a packed AI video) into ctx. Safari has no canvas filters: shrink and grow instead. */
-function blurInto(ctx: CanvasRenderingContext2D, el: HTMLVideoElement, w: number, h: number, sigma: number, cache: FrameCache) {
+function blurInto(ctx: CanvasRenderingContext2D, el: VideoPicture, w: number, h: number, sigma: number, cache: FrameCache) {
   if (typeof ctx.filter === "string") {
     ctx.save();
     ctx.filter = `blur(${Math.max(1, sigma).toFixed(1)}px)`;
@@ -581,8 +589,9 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
         return;
       }
       const { el, packed } = v;
-      const vw = el.videoWidth;
-      const vh = packed ? el.videoHeight / 2 : el.videoHeight;
+      const size = picSize(el);
+      const vw = size.w;
+      const vh = packed ? size.h / 2 : size.h;
       const r = motionRect(vw, vh, CW, CH, clip, into);
       const mo = { rot: r.rot, into };
       let live = src.live(clip);
@@ -615,7 +624,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
           return;
         }
       }
-      draw(el, vw, vh, el.videoWidth, el.videoHeight, clip, { x: r.x + tx, y: r.y + ty, w: r.w, h: r.h }, mo);
+      draw(el, vw, vh, size.w, size.h, clip, { x: r.x + tx, y: r.y + ty, w: r.w, h: r.h }, mo);
     }
   };
 

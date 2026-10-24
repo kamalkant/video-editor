@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { audioPlan, canExportLocally, isWebCodecsSupported, localExportBlockers, partLevel } from "@/lib/export/localExport";
+import { audioPlan, canExportLocally, frameWaitMs, isWebCodecsSupported, localExportBlockers, partLevel } from "@/lib/export/localExport";
 import { docDuration, emptyDoc, layersAt, mainStarts, mainTrack, videoClipOf } from "@/lib/edit/doc";
 
 describe("localExport WebCodecs engine", () => {
@@ -158,5 +158,16 @@ describe("what the browser export makes, and what goes to the server", () => {
     // (v2 starts at 3 s; half way through the overlap both are at half)
     expect(partLevel(out, 3.5)).toBeCloseTo(0.5, 5);
     expect(partLevel(inn, 0.5)).toBeCloseTo(0.5, 5);
+  });
+});
+
+// a seeked frame is drawn after at most a frame's wait: the old 120 ms was paid on nearly every frame
+// (Chromium rarely presents a paused, seeked video): a 10-minute export took twice as long
+describe("the browser export's wait for a seeked frame", () => {
+  it("is one frame, never more than 20 ms", () => {
+    expect(frameWaitMs(30)).toBe(20);
+    expect(frameWaitMs(60)).toBe(17);
+    expect(frameWaitMs(24)).toBe(20);
+    expect(frameWaitMs(0)).toBe(20);
   });
 });

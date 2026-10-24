@@ -241,12 +241,16 @@ function waitFor(el: HTMLMediaElement, events: string[], ms: number, what: strin
   });
 }
 
+/** How long a seeked frame may take to be presented before it's drawn anyway: one frame, at most 20 ms. */
+export const frameWaitMs = (fps: number) => Math.min(20, Math.ceil(1000 / Math.max(1, fps)));
+
 /** One <video> per video clip on screen (a cut of the same file reuses one), seeked to the exact frame. */
 class FrameVideos {
   private byClip = new Map<string, HTMLVideoElement>();
   private idle: HTMLVideoElement[] = [];
   private box: HTMLDivElement;
-  constructor() {
+  /** `fps`: the export's frame rate (how long a seeked frame may take to be presented, see frame()). */
+  constructor(private fps: number) {
     // (in the page, out of sight: some browsers only decode videos that are in a document)
     this.box = document.createElement("div");
     this.box.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;overflow:hidden;opacity:0;pointer-events:none;";
@@ -288,9 +292,11 @@ class FrameVideos {
       el.currentTime = want;
       await seeked;
     }
-    // (the new frame is ready for drawing once the browser has presented it)
+    // (the new frame is ready for drawing once the browser has presented it; after a seek on a paused video
+    // Chromium mostly never calls back, and `seeked` already means the frame is decoded, so this waits at most
+    // a frame: the 120 ms it used to wait was paid on nearly every frame and doubled a 10-minute export)
     const rvfc = (el as HTMLVideoElement & { requestVideoFrameCallback?: (cb: () => void) => number }).requestVideoFrameCallback;
-    if (rvfc) await Promise.race([new Promise<void>((r) => rvfc.call(el, () => r())), new Promise<void>((r) => setTimeout(r, 120))]);
+    if (rvfc) await Promise.race([new Promise<void>((r) => rvfc.call(el, () => r())), new Promise<void>((r) => setTimeout(r, frameWaitMs(this.fps)))]);
     return el;
   }
 
@@ -421,7 +427,7 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
   const ctx = canvas.getContext("2d", { alpha: true });
   if (!ctx) throw new Error("This browser can't draw the video.");
   const cache = createFrameCache();
-  const videos = new FrameVideos();
+  const videos = new FrameVideos(F);
   const urls: string[] = [];
 
   try {
@@ -495,6 +501,9 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
     const isWebmAlpha = format === "webm-alpha";
     const isHevc = format === "hevc";
     const parts = audioPlan(doc, (id) => media[id]?.hasAudio !== false);
+    // an MP4's sound is AAC, which some browsers can't encode (Chromium on Linux): the server makes it instead
+    if (parts.length && !isWebm && !(await AudioEncoder.isConfigSupported({ codec: "mp4a.40.2", numberOfChannels: 2, sampleRate: SAMPLE_RATE, bitrate: audioKbpsOf(format) * 1000 }).then((r) => !!r.supported, () => false)))
+      throw new LocalExportUnavailable("This browser can't encode AAC sound.");
     const decoded = new Map<string, AudioBuffer | null>();
     const decoder = new OfflineAudioContext(2, SAMPLE_RATE, SAMPLE_RATE);
     for (const p of parts) {

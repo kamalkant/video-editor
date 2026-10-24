@@ -19,7 +19,8 @@ import type { FileKind, Job, JobFile, JobStep } from "../jobs/queue";
 import { localFileOf, localInfo, localSrc } from "../media/localMedia";
 import { soundLevel } from "../player/sound";
 import { docTransitions, type TransitionType } from "../player/transitions";
-import { createFrameCache, drawFrame, type FrameSources } from "../render/frame";
+import { createFrameCache, drawFrame, type FrameSources, type VideoPicture } from "../render/frame";
+import { ClipDecoders } from "./clipDecoder";
 import { ensureDocFonts } from "../text/fonts";
 
 /**
@@ -428,6 +429,8 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
   if (!ctx) throw new Error("This browser can't draw the video.");
   const cache = createFrameCache();
   const videos = new FrameVideos(F);
+  // (MP4 / MOV clips read in order with WebCodecs; the rest, and reversed clips, seek a <video>)
+  const decoders = new ClipDecoders();
   const urls: string[] = [];
 
   try {
@@ -451,7 +454,7 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
 
     /** Seek every video on screen at time t to its frame, then draw the frame. */
     const drawAt = async (t: number) => {
-      const shown = new Map<string, HTMLVideoElement>();
+      const shown = new Map<string, VideoPicture>();
       const visible = layersAt(doc, t).filter((l) => l.clip.type === "video");
       await Promise.all(
         visible.map(async (l) => {
@@ -460,12 +463,14 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
           const sp = c.speed ?? 1;
           // (the middle of the frame, so a seek never lands on the frame before)
           const srcT = c.reversed ? Math.max(c.in, c.out - off * sp) : Math.min(c.out - 1e-3, c.in + off * sp);
-          shown.set(c.id, await videos.frame(c.id, fileUrl(c.mediaId), srcT));
+          const decoded = c.reversed ? null : await decoders.frame(c.id, c.mediaId, srcT);
+          shown.set(c.id, decoded ?? (await videos.frame(c.id, fileUrl(c.mediaId), srcT)));
         }),
       );
       let backdrop: HTMLVideoElement | null = null;
       if (bdVideoId) backdrop = await videos.frame("backdrop", fileUrl(bdVideoId), bdDuration > 0 ? (t + 0.5 / F) % bdDuration : 0);
       videos.keepOnly(new Set([...shown.keys(), "backdrop"]));
+      decoders.keepOnly(new Set(shown.keys()));
       const src: FrameSources = {
         media,
         video: (c) => {
@@ -679,5 +684,6 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
     throw err;
   } finally {
     videos.destroy();
+    decoders.destroy();
   }
 }

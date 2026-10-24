@@ -197,12 +197,15 @@ export class LiveKeyRenderer {
     for (const n of ["u_tex", "u_texel", "u_keyUV", "u_sim", "u_blend", "u_spill", "u_despill", "u_mode", "u_method", "u_bthresh", "u_restore", "u_mlo", "u_mhi"]) this.loc[n] = gl.getUniformLocation(prog, n);
   }
 
-  render(video: HTMLVideoElement, p: LiveKeyParams, mode: "result" | "alpha" = "result"): boolean {
+  /** `video`: a <video>, or a canvas holding a decoded frame (the export, lib/export/clipDecoder). */
+  render(video: HTMLVideoElement | HTMLCanvasElement, p: LiveKeyParams, mode: "result" | "alpha" = "result"): boolean {
     const gl = this.gl;
     const packed = p.method === "packed";
-    const w = video.videoWidth;
-    const h = packed ? Math.round(video.videoHeight / 2) : video.videoHeight;
-    if (!w || !h || video.readyState < 2) return false;
+    const isVideo = "videoWidth" in video;
+    const w = isVideo ? video.videoWidth : video.width;
+    const fullH = isVideo ? video.videoHeight : video.height;
+    const h = packed ? Math.round(fullH / 2) : fullH;
+    if (!w || !h || (isVideo && video.readyState < 2)) return false;
     const canvas = gl.canvas as HTMLCanvasElement;
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;

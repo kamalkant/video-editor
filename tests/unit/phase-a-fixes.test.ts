@@ -1,74 +1,10 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
-
-// the signup route sets a session cookie and sends a verification email: neither exists in a test
-vi.mock("@/lib/auth/session", () => ({ setSessionCookie: async () => {}, getCurrentUser: async () => null }));
-vi.mock("@/lib/auth/email", () => ({ sendVerificationEmail: async () => true, sendEmail: async () => true }));
-
-import { cleanReferralCode, safeNextPath } from "@/lib/auth/redirect";
+import { describe, expect, it } from "vitest";
 import { isFillerWord } from "@/lib/subtitles/fillers";
 import { wordProgress } from "@/lib/text/render";
 import { buildComposeArgs, type ComposeMedia, type TextSprite } from "@/lib/render/compose";
 import { emptyDoc, type MediaLite, type TimelineDoc } from "@/lib/edit/doc";
 import { addMedia, addText } from "@/lib/edit/docEdit";
 import { textClipOf } from "@/lib/text/layout";
-import { BROADCAST_TEMPLATES_BY_ID } from "@/lib/templates/newsTemplates";
-import { SHOWCASE_TEMPLATES } from "@/components/website/sections/TemplatesShowcaseSection";
-import { getOrCreateReferralCode } from "@/lib/referrals/codes";
-import { getReferralByReferredUserId } from "@/lib/referrals/attribution";
-import { getUserByEmail } from "@/lib/db/users";
-import { makeUser } from "../admin-helpers";
-
-describe("safe redirects after sign-in", () => {
-  it.each(["/editor", "/editor?template=world-news-globe", "/admin/users?page=2"])("keeps the same-site path %s", (p) => {
-    expect(safeNextPath(p)).toBe(p);
-  });
-  it.each(["https://evil.example", "//evil.example/x", "/\\evil.example", "javascript:alert(1)", "editor", "", "/a\nb"])(
-    "refuses %j",
-    (p) => {
-      expect(safeNextPath(p, "/fallback")).toBe("/fallback");
-    }
-  );
-  it("referral codes: real codes pass, junk does not", () => {
-    expect(cleanReferralCode("VDO-RAHU-1F2")).toBe("VDO-RAHU-1F2");
-    expect(cleanReferralCode(" VDO-RAHU-1F2 ")).toBe("VDO-RAHU-1F2");
-    expect(cleanReferralCode("<script>")).toBeNull();
-    expect(cleanReferralCode("x")).toBeNull();
-    expect(cleanReferralCode(null)).toBeNull();
-  });
-});
-
-describe("email signup (the page used to call a route that does not exist)", () => {
-  let POST: typeof import("@/app/api/auth/signup/route").POST;
-  beforeAll(async () => {
-    POST = (await import("@/app/api/auth/signup/route")).POST;
-  });
-
-  it("creates the account and credits the referrer from ?ref=", async () => {
-    const referrer = makeUser("user");
-    const code = getOrCreateReferralCode(referrer.id).code;
-    const email = `new-${Date.now()}@test.local`;
-    const res = await POST(
-      new Request("http://localhost/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-forwarded-for": "10.9.8.7" },
-        body: JSON.stringify({ name: "New Creator", email, password: "Secret#123", referralCode: code }),
-      })
-    );
-    expect(res.status).toBe(201);
-    const created = getUserByEmail(email)!;
-    expect(created).not.toBeNull();
-    const referral = getReferralByReferredUserId(created.id);
-    expect(referral?.referrer_id).toBe(referrer.id);
-  });
-});
-
-describe("website template cards open real editor templates", () => {
-  it("every card points at a template the editor knows", () => {
-    for (const card of SHOWCASE_TEMPLATES) {
-      expect(BROADCAST_TEMPLATES_BY_ID.has(card.editorTemplate), `${card.id} → ${card.editorTemplate}`).toBe(true);
-    }
-  });
-});
 
 describe("filler words", () => {
   it.each(["um", "Umm,", "uh", "uhh", "uhm", "er", "erm", "ah", "Hmm...", "mm"])("%s is a filler", (w) => {

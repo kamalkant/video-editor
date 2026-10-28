@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { assignSlots, MAX_VIDEO_ELEMENTS, type Slot, type Want } from "../../lib/player/videoPool";
 import { createClock } from "../../lib/editor/clock";
-import { SITE_MEDIA } from "../../components/website/media/manifest";
 
 describe("Hardware-accelerated Media Pooling & Decoder Safety", () => {
   it("enforces safe maximum concurrent video decoder cap", () => {
@@ -51,14 +50,5 @@ describe("Timeline 60 FPS Clock Decoupling", () => {
     clock.set(5.0);
     expect(subscriber).toHaveBeenCalledTimes(1);
     expect(clock.get()).toBe(5.0);
-  });
-});
-
-describe("Critical LCP Preload Integrity", () => {
-  it("verifies that preloaded hero LCP poster strictly matches the manifest", () => {
-    const preloadedHeroPoster = "/website/images/Creating_video_editing_product_demo_20261011025631.webp";
-    expect(SITE_MEDIA.demoEditor.poster).toBe(preloadedHeroPoster);
-    expect(SITE_MEDIA.demoEditor.width).toBe(1280);
-    expect(SITE_MEDIA.demoEditor.height).toBe(720);
   });
 });

@@ -2,9 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createUser } from "@/lib/db/users";
 import { createPaymentRecord, updatePaymentStatus } from "@/lib/db/payments";
 import { getDb } from "@/lib/db";
-import { adminAdjustWallet } from "@/lib/referrals/wallet";
-import { addBeneficiary, requestPayout } from "@/lib/referrals/payouts";
-import type { Payment, PayoutRequest, SafeUser, UserRole, UserStatus } from "@/lib/db/schema";
+import type { Payment, SafeUser, UserRole, UserStatus } from "@/lib/db/schema";
 
 /** A fresh account with a unique email; verified so payout rules don't get in the way. */
 export function makeUser(role: UserRole = "user", status: UserStatus = "active", password = "Secret#123"): SafeUser {
@@ -36,16 +34,6 @@ export function makeCapturedPayment(userId: string, amount: number, currency = "
 }
 
 /** A user with ₹15,000 in the wallet and an open ₹10,000 payout request (status 'requested'). */
-export function makePayoutRequest(adminId: string): { user: SafeUser; request: PayoutRequest } {
-  const user = makeUser("user");
-  adminAdjustWallet(user.id, 1_500_000, "Seed test balance", adminId);
-  const bene = addBeneficiary(user.id, { payoutMethod: "upi", accountHolderName: "Test Holder", upiId: "tester@upi" });
-  if (!bene.success) throw new Error(bene.error);
-  const res = requestPayout(user.id, 1_000_000, bene.beneficiary!.id);
-  if (!res.success) throw new Error(res.error);
-  return { user, request: res.request! };
-}
-
 export function walletOf(userId: string) {
   return getDb().prepare("SELECT * FROM wallets WHERE user_id = ?").get(userId) as {
     available_balance: number;

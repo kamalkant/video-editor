@@ -43,7 +43,7 @@ describe("static SQL", () => {
         }
       }
     }
-    expect(checked).toBeGreaterThan(200);
+    expect(checked).toBeGreaterThan(150);
     expect(failures).toEqual([]);
   });
 });

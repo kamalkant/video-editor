@@ -72,7 +72,6 @@ export function handle(req, res) {
   res.end();
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const port = Number(process.env.PORT) || 3000;
-  createServer(handle).listen(port, () => console.log(`coming-soon on :${port}`));
-}
+// listens however it's started: `node server.mjs`, or loaded by Hostinger's process manager
+const port = Number(process.env.PORT) || 3000;
+createServer(handle).listen(port, () => console.log(`coming-soon on :${port}`));

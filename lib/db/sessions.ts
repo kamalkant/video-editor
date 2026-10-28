@@ -70,7 +70,10 @@ export function getSessionWithUser(token: string): { session: Session; user: Saf
     created_at: row.session_created_at,
   };
 
-  return { session, user: toSafeUser(row) };
+  // (the user goes to the browser as it is, GET /api/auth/me: never with the session's token)
+  const user = { ...row } as Partial<typeof row>;
+  for (const k of ["session_id", "user_id", "token", "expires_at", "session_created_at"] as const) delete user[k];
+  return { session, user: toSafeUser(user as User) };
 }
 
 export function deleteSession(token: string): boolean {

@@ -22,6 +22,7 @@ import { docTransitions, type TransitionType } from "../player/transitions";
 import { createFrameCache, drawFrame, type FrameSources, type VideoPicture } from "../render/frame";
 import { ClipDecoders } from "./clipDecoder";
 import { ensureDocFonts } from "../text/fonts";
+import { avcCodecs, hevcCodec } from "./codecs";
 
 /**
  * The export made in this browser (WebCodecs): every frame is drawn by the
@@ -60,6 +61,8 @@ export interface LocalExportResult {
 
 /** The browser couldn't read a file or a frame: the server export makes it instead. */
 export class LocalExportUnavailable extends Error {}
+/** An encoder stopped (a graphics driver's encoder often does): made again in software, then on the server. */
+export class EncoderFailure extends LocalExportUnavailable {}
 
 /** Check if WebCodecs and OfflineAudioContext are supported in the current browser */
 export function isWebCodecsSupported(): boolean {
@@ -72,76 +75,55 @@ export function isWebCodecsSupported(): boolean {
   );
 }
 
-/** Check if a given export format can be encoded natively on the device using WebCodecs */
-export async function canExportLocally(
-  format: ExportFormat,
-  width: number,
-  height: number,
-): Promise<boolean> {
-  if (format === "png" || format === "jpg") return true;
-  if (!isWebCodecsSupported()) return false;
+/** The codec strings a video format can be encoded with at this size, best first (lib/export/codecs). */
+export function videoCodecsOf(format: ExportFormat, width: number, height: number, fps: number): string[] {
+  if (format === "mp4") return avcCodecs(width, height, fps);
+  // MOV + alpha: the MP4 muxer can't write HEVC's alpha layer, so the server makes it (Apple's encoder)
+  if (format === "hevc") return [hevcCodec(width, height, fps)];
+  if (format === "webm" || format === "webm-alpha") return ["vp09.00.10.08"];
+  return [];
+}
 
-  if (format === "mp4") {
+/** The first of the format's codecs this browser can encode at this size (null: none, the server makes it). */
+async function supportedCodec(format: ExportFormat, width: number, height: number, fps: number): Promise<string | null> {
+  for (const codec of videoCodecsOf(format, width, height, fps)) {
     try {
       const res = await VideoEncoder.isConfigSupported({
-        codec: "avc1.4d002a", // H.264 Main Profile Level 4.2
-        width: Math.min(width, 3840),
-        height: Math.min(height, 2160),
+        codec,
+        width,
+        height,
         bitrate: 8_000_000,
-        framerate: 30,
-      });
-      return !!res.supported;
-    } catch {
-      return false;
-    }
-  }
-
-  if (format === "webm" || format === "webm-alpha") {
-    try {
-      const res = await VideoEncoder.isConfigSupported({
-        codec: "vp09.00.10.08", // VP9
-        width: Math.min(width, 3840),
-        height: Math.min(height, 2160),
-        bitrate: 8_000_000,
-        framerate: 30,
+        framerate: fps,
         // the see-through one keeps its alpha (software VP9 only); else the server makes it
         ...(format === "webm-alpha" ? { alpha: "keep", hardwareAcceleration: "prefer-software" } : {}),
       } as VideoEncoderConfig);
-      return !!res.supported;
+      if (res.supported) return codec;
     } catch {
-      return false;
+      // (not this one)
     }
   }
+  return null;
+}
 
-  // MOV + alpha: the MP4 muxer can't write HEVC's alpha layer, so the server makes it (Apple's encoder)
-  if (format === "hevc") {
-    try {
-      const res = await VideoEncoder.isConfigSupported({
-        codec: "hvc1.1.6.L120.90", // HEVC Main Profile
-        width: Math.min(width, 3840),
-        height: Math.min(height, 2160),
-        bitrate: 8_000_000,
-        framerate: 30,
-      });
-      return !!res.supported;
-    } catch {
-      return false;
-    }
-  }
-
-  return false;
+/** Check if a given export format can be encoded natively on the device using WebCodecs */
+export async function canExportLocally(format: ExportFormat, width: number, height: number, fps = 30): Promise<boolean> {
+  if (format === "png" || format === "jpg") return true;
+  if (!isWebCodecsSupported()) return false;
+  return (await supportedCodec(format, width, height, fps)) !== null;
 }
 
 // ---------- what the browser export can't make ----------
 
 /** The sound of a timeline longer than this (all its files together) is mixed on the server (it is decoded whole here). */
 export const MAX_LOCAL_AUDIO_SECONDS = 20 * 60;
+/** A file with sound bigger than this is mixed on the server: the browser reads a file whole to take its sound (a tab can run out of memory). */
+export const MAX_LOCAL_AUDIO_FILE_BYTES = 512 * 1024 * 1024;
 
 /**
  * Why this timeline needs the server export (empty: the browser makes it exactly like the preview).
  * `media`: what's known about each upload (whether it has sound).
  */
-export function localExportBlockers(doc: TimelineDoc, media: Record<string, MediaLite> = {}): string[] {
+export function localExportBlockers(doc: TimelineDoc, media: Record<string, MediaLite> = {}, sizeOf: (mediaId: string) => number | undefined = (id) => localInfo(id)?.size): string[] {
   const out = new Set<string>();
   const audible = new Set(audioPlan(doc, (id) => media[id]?.hasAudio !== false).map((p) => p.clip.id));
   for (const t of doc.tracks) {
@@ -166,6 +148,7 @@ export function localExportBlockers(doc: TimelineDoc, media: Record<string, Medi
   const sources = new Set([...audible].map((id) => findMediaOf(doc, id)).filter((x): x is string => !!x));
   const total = [...sources].reduce((n, id) => n + (media[id]?.duration ?? localInfo(id)?.duration ?? 0), 0);
   if (total > MAX_LOCAL_AUDIO_SECONDS) out.add("Very long sound");
+  if ([...sources].some((id) => (sizeOf(id) ?? 0) > MAX_LOCAL_AUDIO_FILE_BYTES)) out.add("A very large file");
   return [...out];
 }
 
@@ -384,6 +367,17 @@ const aborted = () => new Error("Export canceled.");
  * WebCodecs; pictures (PNG / JPG) are the frame at the playhead. Nothing is uploaded.
  */
 export async function exportLocally(opts: LocalExportOptions): Promise<LocalExportResult> {
+  try {
+    return await exportOnce(opts, false);
+  } catch (e) {
+    // the hardware encoder failed: once more with the browser's software encoder (still no upload)
+    if (!(e instanceof EncoderFailure) || opts.signal?.aborted) throw e;
+    return await exportOnce(opts, true);
+  }
+}
+
+/** One go at the export; `software`: the encoders the browser has in software (after a hardware one failed). */
+async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<LocalExportResult> {
   const { doc, format, signal } = opts;
   const media = opts.media ?? {};
   const W = opts.size?.width ?? doc.canvas.width;
@@ -506,9 +500,6 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
     const isWebmAlpha = format === "webm-alpha";
     const isHevc = format === "hevc";
     const parts = audioPlan(doc, (id) => media[id]?.hasAudio !== false);
-    // an MP4's sound is AAC, which some browsers can't encode (Chromium on Linux): the server makes it instead
-    if (parts.length && !isWebm && !(await AudioEncoder.isConfigSupported({ codec: "mp4a.40.2", numberOfChannels: 2, sampleRate: SAMPLE_RATE, bitrate: audioKbpsOf(format) * 1000 }).then((r) => !!r.supported, () => false)))
-      throw new LocalExportUnavailable("This browser can't encode AAC sound.");
     const decoded = new Map<string, AudioBuffer | null>();
     const decoder = new OfflineAudioContext(2, SAMPLE_RATE, SAMPLE_RATE);
     for (const p of parts) {
@@ -525,6 +516,10 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
       decoded.set(id, buf);
     }
     const audible = parts.filter((p) => decoded.get(p.clip.mediaId));
+    // an MP4's sound is AAC, which some browsers can't encode (Chromium on Linux, Firefox): the server makes it
+    // instead; only when there's sound to hear (a new video counts as having sound until its file is read)
+    if (audible.length && !isWebm && !(await AudioEncoder.isConfigSupported({ codec: "mp4a.40.2", numberOfChannels: 2, sampleRate: SAMPLE_RATE, bitrate: audioKbpsOf(format) * 1000 }).then((r) => !!r.supported, () => false)))
+      throw new LocalExportUnavailable("This browser can't encode AAC sound.");
     job.output.hasAudio = audible.length > 0;
 
     // 4. the file
@@ -546,7 +541,7 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
     // the first encoder error stops the export (never a broken file that looks finished)
     let failure: Error | null = null;
     const fail = (e: unknown) => {
-      failure ??= e instanceof Error ? e : new Error(String(e));
+      failure ??= new EncoderFailure(`The video encoder stopped: ${e instanceof Error ? e.message : String(e)}`);
     };
 
     if (audible.length) {
@@ -611,21 +606,32 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
 
     // the same bitrate the Export dialog's size shows (lib/export/rates, lib/export/size)
     const bitrate = videoBitrate(bitrateCodecOf(format) ?? "h264", quality, W, H, F, contentCapBpp(doc, localInfo, { width: W, height: H }));
+    // (a level that holds this size: a fixed one refused 21:9 and 4K)
+    const codec = await supportedCodec(format, W, H, F);
+    if (!codec) throw new LocalExportUnavailable("This browser can't encode this size.");
     const videoConfig: VideoEncoderConfig = {
-      codec: isWebm ? "vp09.00.10.08" : isHevc ? "hvc1.1.6.L120.90" : "avc1.4d002a",
+      codec,
       width: W,
       height: H,
       bitrate,
       bitrateMode: "variable",
       framerate: F,
       // alpha is only encoded in software (VP9)
-      hardwareAcceleration: isWebmAlpha ? "prefer-software" : "prefer-hardware",
+      hardwareAcceleration: isWebmAlpha || software ? "prefer-software" : "prefer-hardware",
       ...(isWebmAlpha ? { alpha: "keep" as const } : {}),
     };
     // no hardware encoder for this codec here (VP9 on a Mac): whichever the browser has
-    if (!isWebmAlpha && !(await VideoEncoder.isConfigSupported(videoConfig).then((r) => r.supported, () => false))) videoConfig.hardwareAcceleration = "no-preference";
+    if (!isWebmAlpha && !(await VideoEncoder.isConfigSupported(videoConfig).then((r) => r.supported, () => false))) {
+      // (no software encoder for this codec here: the server makes it)
+      if (software) throw new LocalExportUnavailable("This browser has no software encoder for this video.");
+      videoConfig.hardwareAcceleration = "no-preference";
+    }
     const videoEncoder = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: fail });
-    videoEncoder.configure(videoConfig);
+    try {
+      videoEncoder.configure(videoConfig);
+    } catch (e) {
+      throw new EncoderFailure(`The video encoder couldn't start: ${e instanceof Error ? e.message : String(e)}`);
+    }
 
     // 5. every frame, drawn like the preview
     const gop = Math.max(1, Math.round(F * 2));
@@ -678,6 +684,8 @@ export async function exportLocally(opts: LocalExportOptions): Promise<LocalExpo
     return { ok: true, job, blob, blobUrl: url };
   } catch (err) {
     for (const u of urls) URL.revokeObjectURL(u);
+    // (the hardware encoder failed: exportLocally makes it again in software, nothing failed yet)
+    if (err instanceof EncoderFailure && !software) throw err;
     job.state = "failed";
     job.error = err instanceof Error ? err.message : "Export failed";
     opts.onProgress?.({ ...job, steps: [...steps] });

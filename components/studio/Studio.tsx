@@ -132,6 +132,7 @@ import { newUuid } from "@/lib/storage/uuid";
 /** How long a new file may take to show its first frame here before it goes the upload-first way. */
 const PROBE_TIMEOUT_MS = 6_000;
 import { historyReducer, initHistory } from "@/lib/editor/history";
+import { keepsOwnUndo } from "@/lib/editor/keys";
 import {
   LAST_SETTINGS_KEY,
   readLocal,
@@ -241,7 +242,7 @@ import type { Command } from "@/lib/editor/commands";
 import { stepsPercent, useTask } from "@/lib/editor/tasks";
 import { setTheme, THEMES } from "@/lib/editor/theme";
 import { isMac } from "@/lib/editor/platform";
-import type { VersionSummary } from "@/lib/projects/versions";
+import type { VersionSummary } from "@/lib/projects/versionList";
 import { BrandPanel, DEFAULT_LOGO_LOOK, LogoControls } from "./BrandPanel";
 import { ElementsPanel, type LogoState } from "./ElementsPanel";
 import {
@@ -322,7 +323,7 @@ import {
 } from "@/lib/storage/workspace";
 import { exportVDO, importVDO } from "@/lib/storage/VDO";
 import { saveFileWithPicker } from "@/lib/storage/filePicker";
-import { newProject } from "@/lib/projects/model";
+import { newProject, PROJECT_NOT_HERE } from "@/lib/projects/model";
 import { UniversalAiTooltip } from "./UniversalAiTooltip";
 import { useAiGenerationManager } from "@/lib/ai/useAiGenerationManager";
 import type {
@@ -1228,6 +1229,9 @@ function StudioInner(props: Props) {
           );
           sync.attach({ id: localProj.id, name: localProj.name });
           setNotice(null);
+        } else {
+          // (projects are kept in the browser they were made in: the server can't tell whether it was deleted)
+          setNotice(PROJECT_NOT_HERE);
         }
       } catch (err) {
         console.error("Failed to load local project on init", err);
@@ -1306,14 +1310,18 @@ function StudioInner(props: Props) {
   const madeProject = useRef(!!initialProject);
   // (after New project: the old export isn't the new project's)
   const afterReset = useRef(false);
+  const openProjectId = sync.project?.id ?? null;
   useEffect(() => {
+    // a project opened from this browser (a reload, the Projects panel, a .vdo file) is already one: a copy
+    // of it was made on every reload before
+    if (openProjectId) madeProject.current = true;
     if (madeProject.current || !hasClips) return;
     madeProject.current = true;
     void createProject(
       doc,
       afterReset.current ? undefined : initialJob?.id,
     ).then(() => refreshLists());
-  }, [hasClips, createProject, doc, initialJob, refreshLists]);
+  }, [hasClips, createProject, doc, initialJob, refreshLists, openProjectId]);
 
   /** Clip-view time (in the clip's video) → timeline time, for the playhead. */
   useEffect(
@@ -4660,7 +4668,8 @@ function StudioInner(props: Props) {
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
-        if (t instanceof HTMLInputElement && t.type === "text") return;
+        // (while typing it undoes the typing: an AI prompt, a caption, the text box; never a timeline edit behind it)
+        if (keepsOwnUndo(t)) return;
         e.preventDefault();
         dispatchHistory({ type: e.shiftKey ? "redo" : "undo" });
         return;
@@ -5386,7 +5395,7 @@ function StudioInner(props: Props) {
     try {
       // the export made in this browser: every frame drawn like the preview (lib/render/frame), nothing
       // uploaded; what only the server can make (AI Removal, stabilize, cleaned sound…) goes to the server below
-      const canLocal = !s && !localExportBlockers(d, ds.media).length && (await canExportLocally(format, d.canvas.width, d.canvas.height));
+      const canLocal = !s && !localExportBlockers(d, ds.media).length && (await canExportLocally(format, d.canvas.width, d.canvas.height, d.canvas.fps || 30));
       if (canLocal) {
         setStartStatus(isStillFormat(format) ? "Drawing the picture…" : "Rendering on this device…");
         const ac = new AbortController();
@@ -6612,31 +6621,20 @@ function StudioInner(props: Props) {
     const pid = sync.project?.id;
     if (!pid) return;
     await sync.flush();
-    const base = `/api/projects/${pid}/versions`;
-    const backup = await fetch(base, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: `Before restoring “${v.name.slice(0, 50)}”`,
-        auto: true,
-      }),
-    });
-    if (!backup.ok) throw await toApiError(backup);
-    const r = await fetch(`${base}/${v.id}`, { cache: "no-store" });
-    if (!r.ok) throw await toApiError(r);
-    const got = (await r.json()) as { doc: TimelineDoc; media: VideoMeta[] };
+    // (versions are kept in this browser, next to the project: lib/storage/workspace)
+    const ws = localWorkspaceManager.getActiveWorkspace();
+    if (!ws) throw new Error("Your storage in this browser isn't open yet. Try again in a moment.");
+    await ws.saveVersion(pid, { name: `Before restoring “${v.name.slice(0, 50)}”`, auto: true });
+    const got = await ws.getVersion(pid, v.id);
+    if (!got) throw new Error("That version was deleted.");
     if (!got.doc.tracks.some((t) => t.clips.length > 0))
       throw new Error(
         "This version's videos were deleted, so there's nothing to put back.",
       );
-    setMetas((m) => ({
-      ...m,
-      ...Object.fromEntries(got.media.map((x) => [x.id, x])),
-    }));
     dispatchDoc({
       type: "replaceDoc",
       doc: interruptOrphanedGenerations(got.doc),
-      media: Object.fromEntries(got.media.map((x) => [x.id, mediaLiteOf(x)])),
+      media: await resolveWorkspaceMedia(ws, ds.media),
     });
     setSelectedId(null);
     setSelTransition(null);

@@ -37,7 +37,8 @@ export default async function EditorPage({
   }
 
   const project = typeof p === "string" ? await getProject(p, user.id) : null;
-  let notice: string | null = typeof p === "string" && !project ? "That project was deleted." : null;
+  // (a project only this browser has: the editor opens it from there, or says it isn't here)
+  let notice: string | null = null;
   const ids = project ? mediaIdsOf(project.doc) : typeof v === "string" ? [v] : [];
   const media = (await Promise.all(ids.map(getVideo))).filter((m): m is VideoMeta => !!m);
   if (project && media.length < ids.length) {

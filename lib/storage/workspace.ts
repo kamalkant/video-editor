@@ -1,20 +1,25 @@
 import { newUuid } from "./uuid";
 import { mediaIdsOf, type TimelineDoc } from "@/lib/edit/doc";
-import { summaryOf, type Project, type ProjectSummary } from "@/lib/projects/model";
+import { PROJECT_NOT_HERE, projectNameSchema, summaryOf, type Project, type ProjectSummary } from "@/lib/projects/model";
+import { nextVersionName, versionsToDrop, versionSummaryOf, type VersionSummary } from "@/lib/projects/versionList";
 import {
   dbClearRecovery,
   dbDeleteAsset,
   dbDeleteProject,
+  dbDeleteVersions,
   dbFindAssetByHash,
   dbGetAsset,
   dbGetProject,
   dbGetRecovery,
+  dbGetVersion,
   dbListAssets,
   dbListProjects,
+  dbListVersions,
   dbSaveAccount,
   dbSaveAsset,
   dbSaveProject,
   dbSaveRecovery,
+  dbSaveVersion,
 } from "./db";
 import { calculateBlobHash } from "./hash";
 import { opfsDelete, opfsReadBlob, opfsWriteBlob } from "./opfs";
@@ -101,7 +106,51 @@ export class AccountWorkspace implements IAccountWorkspace {
       }
     }
     await this.clearRecovery(id);
+    await dbDeleteVersions((await dbListVersions(id, this.accountCode)).map((v) => v.id));
     return await dbDeleteProject(id, this.accountCode);
+  }
+
+  // ---------------- Versions ----------------
+
+  /** The project's saved versions, newest first. */
+  async listVersions(projectId: string): Promise<VersionSummary[]> {
+    return (await dbListVersions(projectId, this.accountCode)).map((v) => versionSummaryOf(v, v.doc));
+  }
+
+  /** Save the project as it is now (save your latest change first). No name: "Version N". */
+  async saveVersion(projectId: string, o: { name?: string; auto?: boolean } = {}): Promise<VersionSummary> {
+    const p = await this.getProject(projectId);
+    if (!p) throw new Error(PROJECT_NOT_HERE);
+    const existing = await dbListVersions(projectId, this.accountCode);
+    const named = o.name?.trim() ? projectNameSchema.safeParse(o.name) : null;
+    if (named && !named.success) throw new Error(named.error.issues[0]?.message ?? "Bad name");
+    const v = {
+      id: generateId(),
+      accountCode: this.accountCode,
+      projectId,
+      name: named?.data ?? nextVersionName(existing),
+      // (one after the newest, so the list keeps the order they were made in)
+      createdAt: Math.max(Date.now(), (existing[0]?.createdAt ?? 0) + 1),
+      ...(o.auto ? { auto: true } : {}),
+      doc: p.doc,
+    };
+    await dbSaveVersion(v);
+    await dbDeleteVersions(versionsToDrop(existing).map((x) => x.id));
+    return versionSummaryOf(v, v.doc);
+  }
+
+  /** A version's timeline, to put back. */
+  async getVersion(projectId: string, versionId: string): Promise<{ version: VersionSummary; doc: TimelineDoc } | null> {
+    const v = await dbGetVersion(versionId, this.accountCode);
+    if (!v || v.projectId !== projectId) return null;
+    return { version: versionSummaryOf(v, v.doc), doc: v.doc };
+  }
+
+  async deleteVersion(projectId: string, versionId: string): Promise<boolean> {
+    const v = await dbGetVersion(versionId, this.accountCode);
+    if (!v || v.projectId !== projectId) return false;
+    await dbDeleteVersions([v.id]);
+    return true;
   }
 
   // ---------------- Assets ----------------

@@ -13,6 +13,10 @@ const uuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a
 const localId = z.string().regex(/^[\w-]{1,40}$/);
 
 export const NAME_MAX = 80;
+
+/** A project link opened where the project isn't: projects are kept in the browser they were made in. */
+export const PROJECT_NOT_HERE =
+  "That project isn't saved in this browser. Projects stay in the browser they were made in: open it there, or save it as a .vdo file (Projects) and import it here.";
 export const projectNameSchema = z
   .string()
   .transform((s) => s.replace(/\s+/g, " ").trim().slice(0, NAME_MAX))

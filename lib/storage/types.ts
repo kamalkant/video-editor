@@ -111,3 +111,15 @@ export interface IAccountWorkspace {
   // Lifecycle
   close(): Promise<void>;
 }
+
+/** A saved version of a project: its timeline at one moment, to go back to (lib/projects/versionList). */
+export type StoredVersion = {
+  id: string;
+  accountCode: string;
+  projectId: string;
+  name: string;
+  createdAt: number;
+  /** made by the editor (before a restore), not by you */
+  auto?: boolean;
+  doc: TimelineDoc;
+};

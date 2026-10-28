@@ -5,13 +5,13 @@ import { Dialog } from "@/components/ui/Dialog";
 import { Icon } from "@/components/ui/Icon";
 import { Popover } from "@/components/ui/Popover";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { toApiError } from "@/lib/api/types";
 import { formatTime } from "@/lib/format";
-import type { VersionSummary } from "@/lib/projects/versions";
+import type { VersionSummary } from "@/lib/projects/versionList";
+import { localWorkspaceManager } from "@/lib/storage/workspace";
 
 export type VersionsProps = {
   projectId: string | null;
-  /** save the latest change first (then the server copies the saved project) */
+  /** save the latest change first (then the version copies the saved project) */
   flush: () => Promise<void>;
   /** put a version back on the timeline (after the confirm) */
   onRestore: (v: VersionSummary) => Promise<void>;
@@ -19,8 +19,15 @@ export type VersionsProps = {
 
 const when = (t: number) => new Date(t).toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
+/** This browser's account storage, where the project and its versions are kept. */
+function workspace() {
+  const ws = localWorkspaceManager.getActiveWorkspace();
+  if (!ws) throw new Error("Your storage in this browser isn't open yet. Try again in a moment.");
+  return ws;
+}
+
 /** The project's saved versions (null while loading); `load` reads them again. */
-function useVersions(base: string | null, onError: (message: string) => void) {
+function useVersions(projectId: string | null, onError: (message: string) => void) {
   const [list, setList] = useState<VersionSummary[] | null>(null);
   const [round, setRound] = useState(0);
   const errRef = useRef(onError);
@@ -28,14 +35,12 @@ function useVersions(base: string | null, onError: (message: string) => void) {
     errRef.current = onError;
   });
   useEffect(() => {
-    if (!base) return;
+    if (!projectId) return;
     let alive = true;
     void (async () => {
       try {
-        const r = await fetch(base, { cache: "no-store" });
-        if (!r.ok) throw await toApiError(r);
-        const body = (await r.json()) as { versions: VersionSummary[] };
-        if (alive) setList(body.versions);
+        const versions = await workspace().listVersions(projectId);
+        if (alive) setList(versions);
       } catch (e) {
         if (alive) errRef.current((e as Error).message);
       }
@@ -43,7 +48,7 @@ function useVersions(base: string | null, onError: (message: string) => void) {
     return () => {
       alive = false;
     };
-  }, [base, round]);
+  }, [projectId, round]);
   return { list, load: () => setRound((n) => n + 1) };
 }
 
@@ -53,9 +58,17 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  const base = projectId ? `/api/projects/${projectId}/versions` : null;
-  const { list, load } = useVersions(base, setError);
-  if (!base) return <p className="text-xs text-muted">Add a clip first: then you can save versions of the project.</p>;
+  const { list, load } = useVersions(projectId, setError);
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: "danger" | "primary";
+    action: () => Promise<void>;
+  } | null>(null);
+  const [modalBusy, setModalBusy] = useState(false);
+  // (after every hook: a project that appears while this is open mustn't change their order)
+  if (!projectId) return <p className="text-xs text-muted">Add a clip first: then you can save versions of the project.</p>;
 
   const next = `Version ${(list ?? []).filter((v) => !v.auto).length + 1}`;
   const save = async () => {
@@ -63,9 +76,7 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
     setError(null);
     try {
       await flush();
-      const r = await fetch(base, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim() || undefined }) });
-      if (!r.ok) throw await toApiError(r);
-      const v = (await r.json()) as VersionSummary;
+      const v = await workspace().saveVersion(projectId, { name: name.trim() || undefined });
       setName("");
       setSaved(v.name);
       load();
@@ -75,15 +86,6 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
       setBusy(null);
     }
   };
-  const [confirmModal, setConfirmModal] = useState<{
-    title: string;
-    message: string;
-    confirmLabel?: string;
-    variant?: "danger" | "primary";
-    action: () => Promise<void>;
-  } | null>(null);
-  const [modalBusy, setModalBusy] = useState(false);
-
   const restore = (v: VersionSummary) => {
     setConfirmModal({
       title: "Restore Version",
@@ -119,8 +121,7 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
         setModalBusy(true);
         setBusy(v.id);
         try {
-          const r = await fetch(`${base}/${v.id}`, { method: "DELETE" });
-          if (!r.ok && r.status !== 404) throw await toApiError(r);
+          await workspace().deleteVersion(projectId, v.id);
           load();
         } catch (e) {
           setError((e as Error).message);

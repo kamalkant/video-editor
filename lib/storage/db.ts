@@ -3,10 +3,12 @@ import type {
   RecoverySnapshot,
   StoredAsset,
   StoredProject,
+  StoredVersion,
 } from "./types";
 
 const DB_NAME = "VDO_local_first_db";
-const DB_VERSION = 1;
+// 2: project versions (they were kept on the server, which has no copy of the project)
+const DB_VERSION = 2;
 
 export interface FallbackBlobRecord {
   id: string; // key e.g. "accountCode:assetId" or "accountCode:thumbId"
@@ -23,6 +25,7 @@ const memoryStores = {
   projects: new Map<string, StoredProject>(),
   assets: new Map<string, StoredAsset>(),
   recovery: new Map<string, RecoverySnapshot>(),
+  versions: new Map<string, StoredVersion>(),
   blobs: new Map<string, FallbackBlobRecord>(),
 };
 
@@ -87,9 +90,23 @@ export function getLocalDb(): Promise<IDBDatabase> {
         const store = db.createObjectStore("blobs", { keyPath: "id" });
         store.createIndex("accountCode", "accountCode", { unique: false });
       }
+
+      // 6. Project versions (v2)
+      if (!db.objectStoreNames.contains("versions")) {
+        const store = db.createObjectStore("versions", { keyPath: "id" });
+        store.createIndex("by_account_project", ["accountCode", "projectId"], { unique: false });
+      }
     };
 
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // (a newer editor in another tab upgrades the database: this one lets go, else that tab waits for good)
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
   });
 
@@ -373,6 +390,70 @@ export async function dbClearRecovery(
   return new Promise((resolve, reject) => {
     const tx = db.transaction("recovery", "readwrite");
     tx.objectStore("recovery").delete(existing.id);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+// ----------------- Project Versions -----------------
+
+export async function dbSaveVersion(version: StoredVersion): Promise<void> {
+  if (!hasIndexedDB()) {
+    memoryStores.versions.set(version.id, version);
+    return;
+  }
+  const db = await getLocalDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("versions", "readwrite");
+    tx.objectStore("versions").put(version);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** A project's versions, newest first. */
+export async function dbListVersions(projectId: string, accountCode: string): Promise<StoredVersion[]> {
+  const newestFirst = (l: StoredVersion[]) => l.sort((a, b) => b.createdAt - a.createdAt);
+  if (!hasIndexedDB()) {
+    return newestFirst([...memoryStores.versions.values()].filter((v) => v.accountCode === accountCode && v.projectId === projectId));
+  }
+  const db = await getLocalDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("versions", "readonly");
+    const req = tx.objectStore("versions").index("by_account_project").getAll([accountCode, projectId]);
+    req.onsuccess = () => resolve(newestFirst((req.result as StoredVersion[]) ?? []));
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function dbGetVersion(id: string, accountCode: string): Promise<StoredVersion | null> {
+  if (!hasIndexedDB()) {
+    const v = memoryStores.versions.get(id);
+    return v && v.accountCode === accountCode ? v : null;
+  }
+  const db = await getLocalDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("versions", "readonly");
+    const req = tx.objectStore("versions").get(id);
+    req.onsuccess = () => {
+      const v = req.result as StoredVersion | undefined;
+      resolve(v && v.accountCode === accountCode ? v : null);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function dbDeleteVersions(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  if (!hasIndexedDB()) {
+    for (const id of ids) memoryStores.versions.delete(id);
+    return;
+  }
+  const db = await getLocalDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("versions", "readwrite");
+    const store = tx.objectStore("versions");
+    for (const id of ids) store.delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });

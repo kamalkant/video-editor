@@ -24,8 +24,8 @@ import {
  * was, read back like a project (older timelines are converted).
  */
 
-/** Versions kept per project (the oldest automatic ones go first). */
-export const VERSIONS_MAX = 50;
+import { VERSIONS_MAX, type VersionSummary } from "./versionList";
+export { VERSIONS_MAX, type VersionSummary };
 
 const vdir = (pid: string) => storagePath("projects", pid, "versions");
 const vfile = (pid: string, vid: string) =>
@@ -43,15 +43,6 @@ const fileSchema = z.object({
 });
 type VersionFile = z.infer<typeof fileSchema>;
 
-export type VersionSummary = {
-  id: string;
-  name: string;
-  createdAt: number;
-  auto: boolean;
-  duration: number;
-  clips: number;
-  /** uploads it uses that are gone */ missing: number;
-};
 
 async function readVersion(
   pid: string,

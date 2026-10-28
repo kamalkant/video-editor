@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { audioPlan, canExportLocally, frameWaitMs, isWebCodecsSupported, localExportBlockers, partLevel } from "@/lib/export/localExport";
+import { audioPlan, canExportLocally, frameWaitMs, isWebCodecsSupported, localExportBlockers, MAX_LOCAL_AUDIO_FILE_BYTES, partLevel } from "@/lib/export/localExport";
 import { docDuration, emptyDoc, layersAt, mainStarts, mainTrack, videoClipOf } from "@/lib/edit/doc";
 
 describe("localExport WebCodecs engine", () => {
@@ -88,6 +88,17 @@ describe("localExport WebCodecs engine", () => {
     };
     afterEach(() => vi.unstubAllGlobals());
 
+    it("MP4 asks for a level that holds the size, High first, then Main (a fixed level 4.2 refused 21:9 and 4K)", async () => {
+      stub();
+      expect(await canExportLocally("mp4", 2560, 1080, 30)).toBe(true);
+      expect(configs[0]).toMatchObject({ codec: "avc1.640032", width: 2560, height: 1080, framerate: 30 });
+      // a browser without High: Main at the same level
+      configs.length = 0;
+      vi.stubGlobal("VideoEncoder", { isConfigSupported: async (c: VideoEncoderConfig) => (configs.push(c), { supported: !c.codec.startsWith("avc1.64") }) });
+      expect(await canExportLocally("mp4", 3840, 2160, 30)).toBe(true);
+      expect(configs.map((c) => c.codec)).toEqual(["avc1.640033", "avc1.4d0033"]);
+    });
+
     it("MOV + alpha is always made by the server (the MP4 muxer can't write HEVC's alpha layer)", async () => {
       stub();
       expect(await canExportLocally("mov-alpha", 1920, 1080)).toBe(false);
@@ -131,6 +142,14 @@ describe("what the browser export makes, and what goes to the server", () => {
     const loud = docWith();
     loud.output = { ...loud.output, loudness: true };
     expect(localExportBlockers(loud, media)).toContain("Even loudness");
+  });
+
+  it("a very large file with sound goes to the server (the browser reads a file whole to take its sound)", () => {
+    const big = (id: string) => (id === V ? MAX_LOCAL_AUDIO_FILE_BYTES + 1 : undefined);
+    expect(localExportBlockers(docWith(), media, big)).toContain("A very large file");
+    expect(localExportBlockers(docWith(), media, () => MAX_LOCAL_AUDIO_FILE_BYTES)).toEqual([]);
+    // (its sound isn't used: nothing to read)
+    expect(localExportBlockers(docWith({ muted: true }), media, big)).toEqual([]);
   });
 
   it("the sound plan follows the server's rules: mutes, transitions, ducking", () => {

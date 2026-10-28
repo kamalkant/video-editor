@@ -17,8 +17,8 @@ import { metadata as signupMetadata } from "../../app/signup/layout";
 import { metadata as roadmapMetadata } from "../../app/roadmap/page";
 
 describe("Technical SEO configuration and helpers", () => {
-  it("defaults to canonical production host https://viplay.in", () => {
-    expect(CANONICAL_BASE).toBe("https://viplay.in");
+  it("defaults to canonical production host https://video.viplay.in", () => {
+    expect(CANONICAL_BASE).toBe("https://video.viplay.in");
     expect(SITE_NAME).toBe("ViPlay Studio");
     expect(DEFAULT_TITLE).toContain("ViPlay Studio");
     expect(DEFAULT_DESCRIPTION).toBeDefined();
@@ -28,12 +28,12 @@ describe("Technical SEO configuration and helpers", () => {
     const originalEnv = process.env.NEXT_PUBLIC_APP_URL;
     try {
       delete process.env.NEXT_PUBLIC_APP_URL;
-      expect(getSiteUrl()).toBe("https://viplay.in");
-      expect(getSiteUrl("/roadmap")).toBe("https://viplay.in/roadmap");
-      expect(getSiteUrl("roadmap")).toBe("https://viplay.in/roadmap");
+      expect(getSiteUrl()).toBe("https://video.viplay.in");
+      expect(getSiteUrl("/roadmap")).toBe("https://video.viplay.in/roadmap");
+      expect(getSiteUrl("roadmap")).toBe("https://video.viplay.in/roadmap");
 
       process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
-      expect(getSiteUrl()).toBe("https://viplay.in");
+      expect(getSiteUrl()).toBe("https://video.viplay.in");
 
       process.env.NEXT_PUBLIC_APP_URL = "https://staging.viplay.in/";
       expect(getSiteUrl()).toBe("https://staging.viplay.in");

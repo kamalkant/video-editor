@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
-export const CANONICAL_BASE = "https://viplay.in";
+export const CANONICAL_BASE = "https://video.viplay.in";
 
 /**
  * Returns the absolute base URL for canonical tags, sitemaps, and OpenGraph.
  * Respects NEXT_PUBLIC_APP_URL in local/staging environments, defaulting to the
- * canonical production domain https://viplay.in.
+ * canonical production domain https://video.viplay.in.
  */
 export function getSiteUrl(path: string = ""): string {
   const envUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();

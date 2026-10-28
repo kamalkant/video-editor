@@ -124,6 +124,33 @@ viplay.in is one server for everyone, but many editor routes were still written 
 | P6 | M | server compose | One looped PNG input + overlay per text clip: subtitle-heavy projects make FFmpeg graphs with hundreds of inputs | ⏭ batch captions into one track video |
 | P7 | L | "remove" patches | `getImageData` every frame | ⏭ |
 
+## Second pass — 28 Oct 2026 (editing to export)
+
+Found by driving the editor in Chromium (import, split, undo, text, versions, reload, MP4 and WebM exports) and reading the code from the timeline to the encoders. ✅ fixed · ⏭ backlog · ❓ needs a product decision.
+
+| ID | Sev | Where | Issue → impact | Status | Test |
+|---|---|---|---|---|---|
+| A1 | C | `Studio.tsx` create effect | Every reload, and opening a project from the Projects panel, made a copy of it with a new id (6 → 9 projects after 2 reloads); edits went to the copy | ✅ a project opened from this browser counts as made | checked in Chromium (IndexedDB ids) |
+| A2 | H | Versions (`VersionsMenu`, `/api/projects/[id]/versions`) | "Save a version" always failed with "This project was deleted": projects are kept in the browser, the versions on the server | ✅ versions kept next to the project (IndexedDB v2 `versions` store); hooks before the early return | local-versions |
+| A3 | H | ⌘Z / Ctrl+Z | In a text area (AI prompts, captions) and the rich text box it undid a timeline edit behind it (a split was undone while typing) | ✅ `keepsOwnUndo`: typing keeps the browser's undo | undo-keys |
+| A4 | H | `/api/auth/me` (`getSessionWithUser`) | The session token was in the JSON (CORS-readable by every *.viplay.in app): a script could take the session the HttpOnly cookie protects | ✅ only the user's fields | session-user-no-token |
+| A5 | H | browser export codec | A fixed `avc1.4d002a` (Main 4.2) was refused for 21:9 (2560 × 1080) and 4K, so they went to the server (and a Free plan couldn't make them) | ✅ the level fits the size and fps, High → Main → Baseline (`lib/export/codecs`); HEVC too | codec-level, localExport |
+| A6 | H | browser export sound | Each file with sound was read whole into memory (up to 2 GB): a tab crash | ✅ files over 512 MB with sound go to the server; ⏭ read only the sound track | localExport |
+| A7 | M | browser export | A failed hardware encoder failed the export | ✅ again in software, then the server | checked in Chromium (injected failure) |
+| A8 | M | browser export | A silent video still needed AAC (Chromium on Linux, Firefox have none), so it went to the server | ✅ AAC only when there's sound to hear | checked in Chromium |
+| A9 | M | `lib/http/range.ts` | A cancelled range request threw "Controller is already closed" (uncaught) on the server | ✅ files streamed by pull | range-cancel; 15 aborted requests on the dev server: 0 errors (was 39 lines) |
+| A10 | M | project links | Another browser said "That project was deleted" | ✅ says it's kept in the browser it was made in | — |
+| A11 | M | Export results | Every download was `video.mp4` | ✅ named after the project, any language (`filename*`) | download-name, range-cancel |
+| A12 | M | Export dialog | No time left, no tab progress, a sleeping laptop stopped the export | ✅ "about 2 min left", "42% · Exporting" / "✓ Export ready" in the tab, Wake Lock | export-eta, export-tab |
+| A13 | M | custom export size | Odd sizes (H.264 refuses them) and up to 7680 (the canvas allows 3840) | ✅ even, 64–3840 | export-custom-size |
+| A14 | M | `/editor` | Came up empty: people uploaded the same files again | ✅ opens the latest project (not after New project, a template or a link); ⏭ the same file uploaded twice is two assets | checked in Chromium |
+| A15 | L | new projects | All "Untitled project" | ✅ named after the first video or picture | project-name-of |
+| A16 | L | captions | Only from the Subtitles panel | ✅ .srt / .vtt next to a finished video export | caption-downloads |
+| A17 | L | address bar, restart message | `/?p=` (a redirect on reload); "Make transparent video again" for any export | ✅ | job-restart-message |
+| A18 | M | quality | 1080p30 Balanced is 4.35 Mbit/s (YouTube suggests 8), capped at the clips' own bitrate (a re-encode at the same rate loses detail); the server uses one-pass ABR | ❓ more quality means bigger files | — |
+| A19 | L | sound | No de-click fade at hard cuts; one-pass `loudnorm` at −16 LUFS | ❓ a fade at every cut would also dip a split that plays on | — |
+| A20 | L | tests | 13 failing tests: Mac-only expectations (VideoToolbox, `tar --format=gnutar`), heavy benchmarks, network | ⏭ make them host-aware | — |
+
 ## Preview ↔ export parity (after)
 
 | Feature | Preview | Browser export | Server export |

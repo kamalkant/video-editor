@@ -45,6 +45,13 @@ export function nameFromFile(fileName: string): string {
   return (base || "Untitled project").slice(0, NAME_MAX);
 }
 
+/** A new project's name: its first video or picture's file name ("Goa trip"), else "Untitled project". */
+export function projectNameOf(doc: TimelineDoc, media: Record<string, MediaLite>): string {
+  const cover = coverMediaId(doc);
+  const file = cover ? media[cover]?.fileName : undefined;
+  return file ? nameFromFile(file) : "Untitled project";
+}
+
 // ---------- older projects ----------
 
 const v2ClipSchema = z.object({ id: localId, videoId: uuid, start: z.number(), in: z.number().min(0), out: z.number().positive().nullable(), ops: z.array(opInstanceSchema).max(20) });

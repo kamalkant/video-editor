@@ -14,6 +14,8 @@ import { downloadNameOf } from "@/lib/export/fileName";
 import type { Job, JobFile } from "@/lib/jobs/queue";
 import type { VideoMeta } from "@/lib/videos";
 import { Section } from "./Section";
+import { CaptionDownloads } from "./CaptionDownloads";
+import type { TimelineDoc } from "@/lib/edit/doc";
 
 const FILE_TEXT: Record<string, { title: string; note: string }> = {
   webm: { title: "For Chrome, Edge, Firefox, Android (.webm)", note: "VP9 + transparency" },
@@ -112,11 +114,11 @@ export function ExportSummary({ video, spec, crop, estimateOn }: { video: VideoM
 }
 
 /** Downloads, embed code, checklist and test links of a finished export. */
-export function ExportResults({ job, spec, onGenerate, onShowFinal, onAgain, projectName }: { job: Job; spec: EditSpec; onGenerate: () => void; onShowFinal: () => void; onAgain: () => void; projectName?: string | null }) {
+export function ExportResults({ job, spec, onGenerate, onShowFinal, onAgain, projectName, doc }: { job: Job; spec: EditSpec; onGenerate: () => void; onShowFinal: () => void; onAgain: () => void; projectName?: string | null; doc?: TimelineDoc | null }) {
   // anything but the website pack (both see-through files): one file to play and download
   if (!(job.files.some((x) => x.kind === "webm") && job.files.some((x) => x.kind === "mov"))) {
     const main = job.files.find((x) => x.kind !== "poster" && x.kind !== "zip") ?? job.files[0];
-    if (main) return <FileResults job={job} file={main} onAgain={onAgain} projectName={projectName} />;
+    if (main) return <FileResults job={job} file={main} onAgain={onAgain} projectName={projectName} doc={doc} />;
   }
   const changedSinceExport = !job.doc && JSON.stringify(job.spec) !== JSON.stringify(spec);
   const f = (k: string) => job.files.find((x) => x.kind === k);
@@ -219,7 +221,7 @@ const KIND_TEXT: Record<string, { what: string; note: string }> = {
 };
 
 /** A finished export of one file: play or look at it, then download. */
-function FileResults({ job, file, onAgain, projectName }: { job: Job; file: JobFile; onAgain: () => void; projectName?: string | null }) {
+function FileResults({ job, file, onAgain, projectName, doc }: { job: Job; file: JobFile; onAgain: () => void; projectName?: string | null; doc?: TimelineDoc | null }) {
   const poster = job.files.find((x) => x.kind === "poster");
   const t = KIND_TEXT[file.kind] ?? { what: "file", note: "" };
   const src = fileUrl(job, file);
@@ -260,6 +262,7 @@ function FileResults({ job, file, onAgain, projectName }: { job: Job; file: JobF
       <a className="btn btn-primary" {...dl(job, file, projectName)}>
         Download {t.what} · {formatBytes(file.size)}
       </a>
+      {file.mime.startsWith("video/") && <CaptionDownloads doc={doc} projectName={projectName} />}
       <p className="text-sm text-muted">
         {cap}: {file.mime.startsWith("audio/") ? "" : `${gw} × ${gh} · `}
         {file.mime.startsWith("video/") ? (job.output.hasAudio ? "with sound · " : "without sound · ") : ""}

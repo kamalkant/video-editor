@@ -406,7 +406,7 @@ export function ExportDialog(p: {
   if (done && p.job && !again) {
     return (
       <Dialog open={p.open} onClose={close} title="Export & Share" size="md">
-        <ExportResults job={p.job} spec={p.spec} onGenerate={generate} onShowFinal={p.onShowFinal} onAgain={() => setAgain(true)} projectName={p.projectName} />
+        <ExportResults job={p.job} spec={p.spec} onGenerate={generate} onShowFinal={p.onShowFinal} onAgain={() => setAgain(true)} projectName={p.projectName} doc={p.doc} />
       </Dialog>
     );
   }

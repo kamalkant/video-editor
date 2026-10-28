@@ -28,7 +28,7 @@ export function useProjectSync(initial: ProjectRef | null, onChange?: () => void
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlight = useRef<Promise<void> | null>(null);
   const creating = useRef<Promise<ProjectRef | null> | null>(null);
-  const lastCreate = useRef<[TimelineDoc, string | null] | null>(null);
+  const lastCreate = useRef<[TimelineDoc, string | null, string] | null>(null);
   const changed = useRef(onChange);
 
   useEffect(() => {
@@ -136,16 +136,16 @@ export function useProjectSync(initial: ProjectRef | null, onChange?: () => void
 
   /** Make a project for a timeline that isn't in one yet. */
   const create = useCallback(
-    (doc: TimelineDoc, jobId?: string | null): Promise<ProjectRef | null> => {
+    (doc: TimelineDoc, jobId?: string | null, projectName = "Untitled project"): Promise<ProjectRef | null> => {
       if (creating.current) return creating.current;
-      lastCreate.current = [doc, jobId ?? null];
+      lastCreate.current = [doc, jobId ?? null, projectName];
       setSaveState("saving");
 
       const run = (async () => {
         try {
           const now = Date.now();
           const pId = crypto.randomUUID();
-          const name = "Untitled project";
+          const name = projectName;
 
           // 1. Save in local-first workspace
           const ws = localWorkspaceManager.getActiveWorkspace();

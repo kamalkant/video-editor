@@ -324,7 +324,7 @@ import {
 } from "@/lib/storage/workspace";
 import { exportVDO, importVDO } from "@/lib/storage/VDO";
 import { saveFileWithPicker } from "@/lib/storage/filePicker";
-import { newProject, PROJECT_NOT_HERE } from "@/lib/projects/model";
+import { newProject, PROJECT_NOT_HERE, projectNameOf } from "@/lib/projects/model";
 import { UniversalAiTooltip } from "./UniversalAiTooltip";
 import { useAiGenerationManager } from "@/lib/ai/useAiGenerationManager";
 import type {
@@ -1214,15 +1214,21 @@ function StudioInner(props: Props) {
     if (typeof window === "undefined") return;
     const searchParams = new URLSearchParams(window.location.search);
     const pid = searchParams.get("p");
-    if (!pid) return;
+    // "/editor" alone (no project, template or video asked for): you go on with your latest project
+    const latest = !pid && !window.location.search && !props.initialDoc;
+    if (!pid && !latest) return;
     const ws = workspace ?? localWorkspaceManager.getActiveWorkspace();
     if (!ws) return;
     loadedLocalProject.current = true;
 
     void (async () => {
+      const id = pid ?? [...(await ws.listProjects().catch(() => []))].sort((a, b) => b.updatedAt - a.updatedAt)[0]?.id;
+      if (!id) return;
       showStageBusy("Opening the project…");
       try {
-        const localProj = await ws.getProject(pid);
+        const localProj = await ws.getProject(id);
+        // (something added meanwhile is a new project: it isn't replaced by the latest one)
+        if (localProj && latest && docRef.current.tracks.some((t) => t.clips.length > 0)) return;
         if (localProj) {
           const assetMetas = await resolveWorkspaceMedia(ws, ds.media);
           dispatchDoc(
@@ -1235,7 +1241,7 @@ function StudioInner(props: Props) {
           );
           sync.attach({ id: localProj.id, name: localProj.name });
           setNotice(null);
-        } else {
+        } else if (pid) {
           // (projects are kept in the browser they were made in: the server can't tell whether it was deleted)
           setNotice(PROJECT_NOT_HERE);
         }
@@ -1326,8 +1332,10 @@ function StudioInner(props: Props) {
     void createProject(
       doc,
       afterReset.current ? undefined : initialJob?.id,
+      // (named after its first video or picture: "Goa trip", not "Untitled project" every time)
+      projectNameOf(doc, ds.media),
     ).then(() => refreshLists());
-  }, [hasClips, createProject, doc, initialJob, refreshLists, openProjectId]);
+  }, [hasClips, createProject, doc, initialJob, refreshLists, openProjectId, ds.media]);
 
   /** Clip-view time (in the clip's video) → timeline time, for the playhead. */
   useEffect(

@@ -787,7 +787,7 @@ export async function getJob(id: string): Promise<Job | null> {
   if (disk && (disk.state === "queued" || disk.state === "running")) {
     disk.state = "failed";
     disk.error =
-      "The editor was restarted while this was running. Click Make transparent video again.";
+      "The server restarted while this export was being made. Export it again.";
     await save(disk);
   }
   return disk;

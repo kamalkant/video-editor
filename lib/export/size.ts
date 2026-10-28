@@ -206,3 +206,13 @@ export function contentCapBpp(doc: TimelineDoc, info: FileInfo, size?: { width: 
   const share = Math.min(1, (mainVideo || longest) / D);
   return (sum / weight) * share + STILL_CAP_BPP * (1 - share);
 }
+
+/** The smallest and largest side an export can have (the canvas limits, lib/edit/doc canvasSchema). */
+export const EXPORT_MIN_SIDE = 64;
+export const EXPORT_MAX_SIDE = 3840;
+
+/** A width or height typed for an export, as the export can make it: even (H.264 / HEVC need it) and within the limits. */
+export function exportSide(v: number): number {
+  if (!Number.isFinite(v)) return EXPORT_MIN_SIDE;
+  return Math.min(EXPORT_MAX_SIDE, Math.max(EXPORT_MIN_SIDE, Math.round(v / 2) * 2));
+}

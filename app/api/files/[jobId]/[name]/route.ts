@@ -1,3 +1,4 @@
+import { downloadNameOf } from "@/lib/export/fileName";
 import { fileResponse } from "@/lib/http/range";
 import { apiError } from "@/lib/http/errors";
 import { getJob } from "@/lib/jobs/queue";
@@ -11,9 +12,12 @@ async function serve(request: Request, ctx: RouteContext<"/api/files/[jobId]/[na
   const job = await getJob(jobId);
   const file = job?.files.find((f) => f.name === name);
   if (!job || !file) return apiError(404, "not_found", "This file is no longer here. Files are deleted after 24 hours.");
-  const download = new URL(request.url).searchParams.has("download");
+  const query = new URL(request.url).searchParams;
+  const download = query.has("download");
+  // (?project=<name>: the download is named after the project, with this file's own extension)
+  const project = query.get("project")?.slice(0, 200) ?? null;
   const res = await fileResponse(storagePath("jobs", job.id, file.name), file.mime, request.headers.get("range"), {
-    downloadName: download ? file.name : undefined,
+    downloadName: download ? downloadNameOf(project, file.name) : undefined,
   });
   return head ? new Response(null, { status: res.status, headers: res.headers }) : res;
 }

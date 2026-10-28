@@ -133,6 +133,7 @@ import { newUuid } from "@/lib/storage/uuid";
 const PROBE_TIMEOUT_MS = 6_000;
 import { historyReducer, initHistory } from "@/lib/editor/history";
 import { keepsOwnUndo } from "@/lib/editor/keys";
+import { useExportTab } from "@/lib/export/useExportTab";
 import {
   LAST_SETTINGS_KEY,
   readLocal,
@@ -1121,9 +1122,6 @@ function StudioInner(props: Props) {
   const sync = useProjectSync(initialProject, refreshLists);
 
   const projectName = sync.project?.name || "Untitled project";
-  useEffect(() => {
-    document.title = `${projectName} · ViPlay Studio`;
-  }, [projectName]);
 
   const docRef = useRef(doc);
   docRef.current = doc;
@@ -1180,11 +1178,19 @@ function StudioInner(props: Props) {
   const job = localJob ?? serverJob;
   const connection = localJob ? "ok" : serverConnection;
   const running = !!job && (job.state === "queued" || job.state === "running");
+  // the tab says how far an export is (and when it's ready), and the screen stays awake meanwhile
+  useExportTab({
+    projectName,
+    running,
+    pct: job?.steps.find((s) => s.state === "running")?.percent ?? null,
+    done: job?.state === "done",
+    jobId: job?.id ?? null,
+  });
 
   // the address bar always points at the open project
   const projectId = sync.project?.id ?? null;
   useEffect(() => {
-    if (projectId) window.history.replaceState(null, "", `/?p=${projectId}`);
+    if (projectId) window.history.replaceState(null, "", `/editor?p=${projectId}`);
   }, [projectId]);
 
   // If the server didn't find the project (e.g. newly imported or offline local project), check the local workspace
@@ -1788,7 +1794,7 @@ function StudioInner(props: Props) {
             `open:${localProj.id}`,
           );
           sync.attach({ id: localProj.id, name: localProj.name });
-          window.history.pushState(null, "", `/?p=${id}`);
+          window.history.pushState(null, "", `/editor?p=${id}`);
           showStageBusy(null);
           return;
         }
@@ -1860,7 +1866,7 @@ function StudioInner(props: Props) {
         `import:${imported.id}`,
       );
       sync.attach({ id: imported.id, name: imported.name });
-      window.history.pushState(null, "", `/?p=${imported.id}`);
+      window.history.pushState(null, "", `/editor?p=${imported.id}`);
       refreshLists();
       setNotice(`Imported project “${imported.name}”`);
     } catch (err) {
@@ -9340,6 +9346,7 @@ function StudioInner(props: Props) {
         <ExportDialog
           open={exportOpen}
           onClose={() => setExportOpen(false)}
+          projectName={sync.project?.name}
           video={
             video ??
             firstVideo ??

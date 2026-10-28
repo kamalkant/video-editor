@@ -17,7 +17,8 @@ import {
   type VideoPresetId,
 } from "@/lib/export/presets";
 import { formatBytes } from "@/lib/format";
-import { contentCapBpp, estimateBytes, type SizeBasis } from "@/lib/export/size";
+import { useEta } from "@/lib/export/useEta";
+import { contentCapBpp, estimateBytes, EXPORT_MAX_SIDE, EXPORT_MIN_SIDE, exportSide, type SizeBasis } from "@/lib/export/size";
 import { useExportSize } from "@/lib/editor/useExportSize";
 import { useServerCaps } from "@/lib/editor/useServerCaps";
 import type { Job } from "@/lib/jobs/queue";
@@ -171,6 +172,8 @@ const QUICK_PRESETS: QuickPresetOption[] = [
 export function ExportDialog(p: {
   open: boolean;
   onClose: () => void;
+  /** downloads are named after it ("Goa trip.mp4") */
+  projectName?: string | null;
   video: VideoMeta | null;
   doc?: TimelineDoc | null;
   spec: EditSpec;
@@ -258,6 +261,8 @@ export function ExportDialog(p: {
     const avg = Math.round(total / p.job.steps.length);
     return Math.min(100, Math.max(0, avg));
   };
+  // (before any early return: hooks run in the same order every time)
+  const eta = useEta(running, getProgress(), p.job?.id ?? null);
 
   const close = () => {
     setAgain(false);
@@ -266,11 +271,11 @@ export function ExportDialog(p: {
   };
 
   const handleWidthChange = (val: number) => {
-    const w = Math.max(16, Math.min(7680, Math.round(val)));
+    const w = exportSide(val);
     setCustomW(w);
     if (aspectLocked && customW > 0 && customH > 0) {
       const ratio = customW / customH;
-      setCustomH(Math.max(16, Math.min(4320, Math.round(w / ratio))));
+      setCustomH(exportSide(w / ratio));
     } else {
       setAspectId("custom");
     }
@@ -278,11 +283,11 @@ export function ExportDialog(p: {
   };
 
   const handleHeightChange = (val: number) => {
-    const h = Math.max(16, Math.min(4320, Math.round(val)));
+    const h = exportSide(val);
     setCustomH(h);
     if (aspectLocked && customW > 0 && customH > 0) {
       const ratio = customW / customH;
-      setCustomW(Math.max(16, Math.min(7680, Math.round(h * ratio))));
+      setCustomW(exportSide(h * ratio));
     } else {
       setAspectId("custom");
     }
@@ -293,7 +298,7 @@ export function ExportDialog(p: {
     setAspectId(id);
     const preset = ASPECT_PRESETS.find((a) => a.id === id);
     if (preset?.ratio) {
-      const newH = Math.max(16, Math.min(4320, Math.round(customW / preset.ratio)));
+      const newH = exportSide(customW / preset.ratio);
       setCustomH(newH);
     }
     setActivePreset("custom");
@@ -401,7 +406,7 @@ export function ExportDialog(p: {
   if (done && p.job && !again) {
     return (
       <Dialog open={p.open} onClose={close} title="Export & Share" size="md">
-        <ExportResults job={p.job} spec={p.spec} onGenerate={generate} onShowFinal={p.onShowFinal} onAgain={() => setAgain(true)} />
+        <ExportResults job={p.job} spec={p.spec} onGenerate={generate} onShowFinal={p.onShowFinal} onAgain={() => setAgain(true)} projectName={p.projectName} />
       </Dialog>
     );
   }
@@ -755,8 +760,8 @@ export function ExportDialog(p: {
                   <label className="block text-[0.625rem] text-muted mb-0.5 font-medium">Width</label>
                   <input
                     type="number"
-                    min={16}
-                    max={7680}
+                    min={EXPORT_MIN_SIDE}
+                    max={EXPORT_MAX_SIDE}
                     step={2}
                     value={customW}
                     onChange={(e) => handleWidthChange(Number(e.target.value))}
@@ -777,8 +782,8 @@ export function ExportDialog(p: {
                   <label className="block text-[0.625rem] text-muted mb-0.5 font-medium">Height</label>
                   <input
                     type="number"
-                    min={16}
-                    max={4320}
+                    min={EXPORT_MIN_SIDE}
+                    max={EXPORT_MAX_SIDE}
                     step={2}
                     value={customH}
                     onChange={(e) => handleHeightChange(Number(e.target.value))}
@@ -878,6 +883,9 @@ export function ExportDialog(p: {
                     <span className="tabular-nums font-mono text-primary font-bold text-xs">
                       {progressPct}%
                     </span>
+                  </div>
+                  <div className="-mt-1 min-h-4 text-[0.6875rem] text-muted" aria-live="polite">
+                    {eta}
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/60">
                     <div

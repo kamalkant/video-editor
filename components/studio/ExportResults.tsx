@@ -10,6 +10,7 @@ import type { EditSpec } from "@/lib/edit/spec";
 import type { CropInfo } from "@/lib/editor/useCropBox";
 import { useEstimate } from "@/lib/editor/useEstimate";
 import { formatBytes } from "@/lib/format";
+import { downloadNameOf } from "@/lib/export/fileName";
 import type { Job, JobFile } from "@/lib/jobs/queue";
 import type { VideoMeta } from "@/lib/videos";
 import { Section } from "./Section";
@@ -22,10 +23,13 @@ const FILE_TEXT: Record<string, { title: string; note: string }> = {
 
 const QUALITY_TEXT = { small: "Small file", balanced: "Balanced", best: "Best quality" } as const;
 
-export function fileUrl(job: Job, f: JobFile, download = false) {
+export function fileUrl(job: Job, f: JobFile, download = false, project?: string | null) {
   if ((f as any).blobUrl) return (f as any).blobUrl;
-  return `/api/files/${job.id}/${f.name}${download ? "?download=1" : ""}`;
+  return `/api/files/${job.id}/${f.name}${download ? `?download=1${project ? `&project=${encodeURIComponent(project)}` : ""}` : ""}`;
 }
+
+/** A download link's href and name: the file named after the project ("Goa trip.mp4"). */
+const dl = (job: Job, f: JobFile, project?: string | null) => ({ href: fileUrl(job, f, true, project), download: downloadNameOf(project, f.name) });
 
 function PhoneTest({ jobId }: { jobId: string }) {
   const [share, setShare] = useState<{ phoneUrl: string | null; qrSvg: string | null; testPath: string } | null>(null);
@@ -108,11 +112,11 @@ export function ExportSummary({ video, spec, crop, estimateOn }: { video: VideoM
 }
 
 /** Downloads, embed code, checklist and test links of a finished export. */
-export function ExportResults({ job, spec, onGenerate, onShowFinal, onAgain }: { job: Job; spec: EditSpec; onGenerate: () => void; onShowFinal: () => void; onAgain: () => void }) {
+export function ExportResults({ job, spec, onGenerate, onShowFinal, onAgain, projectName }: { job: Job; spec: EditSpec; onGenerate: () => void; onShowFinal: () => void; onAgain: () => void; projectName?: string | null }) {
   // anything but the website pack (both see-through files): one file to play and download
   if (!(job.files.some((x) => x.kind === "webm") && job.files.some((x) => x.kind === "mov"))) {
     const main = job.files.find((x) => x.kind !== "poster" && x.kind !== "zip") ?? job.files[0];
-    if (main) return <FileResults job={job} file={main} onAgain={onAgain} />;
+    if (main) return <FileResults job={job} file={main} onAgain={onAgain} projectName={projectName} />;
   }
   const changedSinceExport = !job.doc && JSON.stringify(job.spec) !== JSON.stringify(spec);
   const f = (k: string) => job.files.find((x) => x.kind === k);
@@ -143,7 +147,7 @@ export function ExportResults({ job, spec, onGenerate, onShowFinal, onAgain }: {
       </div>
       <Section title="Download">
         {zip && (
-          <a className="btn btn-primary" href={fileUrl(job, zip, true)}>
+          <a className="btn btn-primary" {...dl(job, zip, projectName)}>
             Download website files · {formatBytes(zip.size)}
           </a>
         )}
@@ -157,7 +161,7 @@ export function ExportResults({ job, spec, onGenerate, onShowFinal, onAgain }: {
                   {file!.name} · {formatBytes(file!.size)} · {FILE_TEXT[file!.kind].note}
                 </span>
               </span>
-              <a className="btn btn-secondary shrink-0 px-3" href={fileUrl(job, file!, true)}>
+              <a className="btn btn-secondary shrink-0 px-3" {...dl(job, file!, projectName)}>
                 <span aria-hidden="true">⬇</span>
                 <span className="sr-only">Download {file!.name}</span>
               </a>
@@ -166,7 +170,7 @@ export function ExportResults({ job, spec, onGenerate, onShowFinal, onAgain }: {
         </ul>
         {master && (
           <p className="text-sm">
-            <a className="text-link underline" href={fileUrl(job, master, true)}>
+            <a className="text-link underline" {...dl(job, master, projectName)}>
               ProRes 4444 master · {formatBytes(master.size)}
             </a>{" "}
             <span className="text-muted">— for video editing only.</span>
@@ -215,7 +219,7 @@ const KIND_TEXT: Record<string, { what: string; note: string }> = {
 };
 
 /** A finished export of one file: play or look at it, then download. */
-function FileResults({ job, file, onAgain }: { job: Job; file: JobFile; onAgain: () => void }) {
+function FileResults({ job, file, onAgain, projectName }: { job: Job; file: JobFile; onAgain: () => void; projectName?: string | null }) {
   const poster = job.files.find((x) => x.kind === "poster");
   const t = KIND_TEXT[file.kind] ?? { what: "file", note: "" };
   const src = fileUrl(job, file);
@@ -253,7 +257,7 @@ function FileResults({ job, file, onAgain }: { job: Job; file: JobFile; onAgain:
     <div className="flex flex-col gap-3">
       <Notice tone="success" title={file.mime.startsWith("video/") ? "Your video is ready" : `Your ${t.what} is ready`} />
       {media}
-      <a className="btn btn-primary" href={fileUrl(job, file, true)} download={file.name}>
+      <a className="btn btn-primary" {...dl(job, file, projectName)}>
         Download {t.what} · {formatBytes(file.size)}
       </a>
       <p className="text-sm text-muted">
@@ -263,7 +267,7 @@ function FileResults({ job, file, onAgain }: { job: Job; file: JobFile; onAgain:
       </p>
       <div className="flex flex-wrap gap-2">
         {poster && (
-          <a className="btn btn-secondary" href={fileUrl(job, poster, true)}>
+          <a className="btn btn-secondary" {...dl(job, poster, projectName)}>
             Poster image (.png)
           </a>
         )}

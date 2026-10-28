@@ -26,7 +26,7 @@ const PAGE = `<!doctype html>
   .brand { font-weight: 700; letter-spacing: .02em; color: #8db6ff; }
   h1 { font-size: clamp(2.25rem, 8vw, 3.5rem); line-height: 1.1; margin: .5rem 0 1rem; }
   p { color: #a3adc2; margin: 0 0 2rem; }
-  .links { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .links:not([hidden]) { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
   a {
     display: block; padding: 14px 18px; border-radius: 12px; text-decoration: none;
     background: #111a2e; border: 1px solid #222e48; color: #e7ebf3; font-weight: 600;
@@ -41,8 +41,9 @@ const PAGE = `<!doctype html>
 <main>
   <div class="brand">ViPlay</div>
   <h1>Coming soon</h1>
-  <p>Something new is on its way to viplay.in. Our editors are already live:</p>
-  <div class="links">
+  <p>Something new is on its way to viplay.in.<span hidden> Our editors are already live:</span></p>
+  <!-- hidden for now; remove the hidden attribute to show the links again -->
+  <div class="links" hidden>
     <a class="primary" href="${VIDEO}">ViPlay Studio <small>video.viplay.in</small></a>
     <a href="${PHOTO}">Photo Editor <small>photo.viplay.in</small></a>
   </div>

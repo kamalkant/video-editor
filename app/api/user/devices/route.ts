@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getCurrentUser, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
+import { sessionTokenFrom } from "@/lib/auth/sessionCookie";
 import { listUserDevices, revokeDevice, revokeAllOtherDevices, registerOrUpdateDevice, getUserDeviceLimit } from "@/lib/db/devices";
 import { getUserSubscriptionWithPlan } from "@/lib/db/subscriptions";
 
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
     }
 
     const cookieStore = await cookies();
-    const currentToken = cookieStore.get(SESSION_COOKIE_NAME)?.value || "";
+    const currentToken = sessionTokenFrom(cookieStore) || "";
     const userAgent = req.headers.get("user-agent") || "";
     const ipAddress = req.headers.get("x-forwarded-for") || null;
 
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
     }
 
     const cookieStore = await cookies();
-    const currentToken = cookieStore.get(SESSION_COOKIE_NAME)?.value || "";
+    const currentToken = sessionTokenFrom(cookieStore) || "";
     const body = await req.json();
     const { action, deviceId } = body || {};
 

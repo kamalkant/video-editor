@@ -1,13 +1,14 @@
 import { cookies } from "next/headers";
 import { deleteSession } from "@/lib/db/sessions";
-import { clearSessionCookie, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { clearSessionCookie } from "@/lib/auth/session";
+import { sessionTokenFrom } from "@/lib/auth/sessionCookie";
 
 export const runtime = "nodejs";
 
 export async function POST() {
   try {
     const cookieStore = await cookies();
-    const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
+    const token = sessionTokenFrom(cookieStore);
     if (token) {
       deleteSession(token);
     }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createOAuthState, getGoogleAuthUrl, isGoogleOAuthConfigured, saveOAuthContext } from "@/lib/auth/google";
-import { cleanReferralCode, safeNextPath } from "@/lib/auth/redirect";
+import { cleanReferralCode, safeNextTarget } from "@/lib/auth/redirect";
 
 export const runtime = "nodejs";
 
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   }
   // carried through Google in a short-lived cookie; read back by the callback
   await saveOAuthContext({
-    next: safeNextPath(searchParams.get("next"), "/"),
+    next: safeNextTarget(searchParams.get("next"), "/"),
     ref: cleanReferralCode(searchParams.get("ref")),
   });
 

@@ -3,21 +3,22 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
-import { cleanReferralCode, safeNextPath } from "@/lib/auth/redirect";
+import { cleanReferralCode, isAppUrl, safeNextTarget } from "@/lib/auth/redirect";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // where to continue after signing up, and who referred this person (from /signup?ref=CODE)
-  const next = safeNextPath(searchParams.get("next"));
+  const next = safeNextTarget(searchParams.get("next"));
   const referralCode = cleanReferralCode(searchParams.get("ref"));
   const { user, loading: authLoading } = useAuth();
 
   // If already logged in, redirect immediately to target destination or /editor
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace(next || "/editor");
+      if (isAppUrl(next)) window.location.replace(next);
+      else router.replace(next || "/editor");
     }
   }, [user, authLoading, next, router]);
 

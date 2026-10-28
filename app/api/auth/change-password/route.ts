@@ -3,7 +3,8 @@ import { z } from "zod";
 import { adminError, parseBody } from "@/lib/auth/admin-guard";
 import { MIN_PASSWORD_LENGTH } from "@/lib/auth/admin-policy";
 import { verifyPassword } from "@/lib/auth/passwords";
-import { getCurrentUser, SESSION_COOKIE_NAME } from "@/lib/auth/session";
+import { getCurrentUser } from "@/lib/auth/session";
+import { sessionTokenFrom } from "@/lib/auth/sessionCookie";
 import { logAudit } from "@/lib/db/audit";
 import { SEED_ADMIN_PASSWORD } from "@/lib/db/seed";
 import { deleteOtherUserSessions } from "@/lib/db/sessions";
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
   if (newPassword === SEED_ADMIN_PASSWORD) return adminError(400, "weak_password", "That password is public. Pick another one.");
 
   updateUserPassword(user.id, newPassword);
-  const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value ?? "";
+  const token = sessionTokenFrom(await cookies()) ?? "";
   const signedOut = deleteOtherUserSessions(user.id, token);
   logAudit({ actorId: user.id, action: "user.change_password", target: user.id, details: { otherSessionsEnded: signedOut } });
   return Response.json({ ok: true, message: "Password changed." });

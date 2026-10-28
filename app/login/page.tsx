@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { DeviceLimitModal } from "@/components/auth/DeviceLimitModal";
-import { safeNextPath } from "@/lib/auth/redirect";
+import { isAppUrl, safeNextTarget } from "@/lib/auth/redirect";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // only a path on this site: a crafted ?next=https://… link must not redirect after sign-in
-  const next = safeNextPath(searchParams.get("next"), "/");
+  // a path on this site or another ViPlay app (*.viplay.in): a crafted ?next=https://… link must not redirect elsewhere
+  const next = safeNextTarget(searchParams.get("next"), "/");
   const urlError = searchParams.get("error");
   const { user, loading: authLoading, isAdmin } = useAuth();
 
@@ -22,7 +22,8 @@ function LoginForm() {
       if (isAdmin && !searchParams.get("next")) {
         target = "/admin";
       }
-      router.replace(target);
+      if (isAppUrl(target)) window.location.replace(target);
+      else router.replace(target);
     }
   }, [user, authLoading, isAdmin, next, searchParams, router]);
 

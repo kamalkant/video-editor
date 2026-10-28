@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { exchangeGoogleCode, takeOAuthContext, verifyAndClearOAuthState } from "@/lib/auth/google";
-import { cleanReferralCode, safeNextPath } from "@/lib/auth/redirect";
+import { cleanReferralCode, isAppUrl, safeNextTarget } from "@/lib/auth/redirect";
 import { attributeReferral } from "@/lib/referrals/attribution";
 import { getOrCreateReferralCode } from "@/lib/referrals/codes";
 import { getUserWallet } from "@/lib/referrals/wallet";
@@ -32,7 +32,8 @@ export async function GET(request: Request) {
 
   // where the user was heading and who referred them (saved when the sign-in started)
   const ctx = await takeOAuthContext();
-  const landing = `${baseUrl}${safeNextPath(ctx.next, "/")}`;
+  const next = safeNextTarget(ctx.next, "/");
+  const landing = isAppUrl(next) ? next : `${baseUrl}${next}`;
   const referralCode = cleanReferralCode(ctx.ref);
 
   // 1. Verify CSRF state token

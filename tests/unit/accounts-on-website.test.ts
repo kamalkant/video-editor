@@ -19,6 +19,26 @@ describe("accounts are on the website (one sign-in for every ViPlay app)", () =>
     expect(to.searchParams.get("next")).toBe("https://video.viplay.in/editor?template=world-news-globe");
   });
 
+  it("comes back to the address it was opened at, whatever NEXT_PUBLIC_APP_URL says (dev-video sent people to localhost)", () => {
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    const to = new URL(login(new Request("http://localhost:3000/login?next=%2Feditor", { headers: { "x-forwarded-host": "dev-video.viplay.in", "x-forwarded-proto": "https" } })).headers.get("location")!);
+    expect(to.searchParams.get("next")).toBe("https://dev-video.viplay.in/editor");
+    // (the Host header, when there's no proxy header)
+    const direct = new URL(login(new Request("http://x/login", { headers: { host: "video.viplay.in" } })).headers.get("location")!);
+    expect(direct.searchParams.get("next")).toBe("https://video.viplay.in/editor");
+    // (a host off the ViPlay domain is never trusted: the configured address)
+    const odd = new URL(login(new Request("http://x/login", { headers: { host: "evil.example" } })).headers.get("location")!);
+    expect(odd.searchParams.get("next")).toBe("http://localhost:3000/editor");
+  });
+
+  it("a test copy (dev-video.viplay.in) signs in on the website's test copy, which shares its database", () => {
+    process.env.NEXT_PUBLIC_APP_URL = "https://dev-video.viplay.in";
+    const to = new URL(login(new Request("https://dev-video.viplay.in/login", { headers: { host: "dev-video.viplay.in" } })).headers.get("location")!);
+    expect(to.origin + to.pathname).toBe("https://dev.viplay.in/login");
+    const live = new URL(login(new Request("https://video.viplay.in/login", { headers: { host: "video.viplay.in" } })).headers.get("location")!);
+    expect(live.origin).toBe("https://stage.viplay.in");
+  });
+
   it("sign-up keeps ?ref=; a ?next= off the studio falls back to the editor", () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://video.viplay.in";
     const to = new URL(signup(new Request("https://video.viplay.in/signup?ref=VDO-AB12&next=https://evil.example")).headers.get("location")!);

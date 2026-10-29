@@ -599,7 +599,11 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
       failure ??= new EncoderFailure(`The video encoder stopped: ${e instanceof Error ? e.message : String(e)}`);
     };
 
-    if (audible.length) {
+    // the sound is mixed and encoded while the pictures are made (they used to wait for it): the muxers
+    // interleave the two, and the first error of either stops both
+    let stopped = false;
+    const encodeSound = async () => {
+      if (!audible.length) return;
       trace("sound encoder", { codec: isWebm ? "opus" : "mp4a.40.2", parts: audible.length });
       const audioEncoder = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: fail });
       audioEncoder.configure({ codec: isWebm ? "opus" : "mp4a.40.2", numberOfChannels: 2, sampleRate: SAMPLE_RATE, bitrate: audioKbpsOf(format) * 1000 });
@@ -618,49 +622,53 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
         }
         return r;
       };
-      for (let c0 = 0; c0 < D; c0 += MIX_CHUNK) {
-        if (signal?.aborted) throw aborted();
-        const cLen = Math.min(MIX_CHUNK, D - c0);
-        const frames = Math.max(1, Math.round(cLen * SAMPLE_RATE));
-        const mix = new OfflineAudioContext(2, frames, SAMPLE_RATE);
-        for (const p of audible) {
-          const from = Math.max(p.start, c0);
-          const to = Math.min(p.start + p.len, c0 + cLen);
-          if (to - from < 2 / SAMPLE_RATE) continue;
-          const node = mix.createBufferSource();
-          node.buffer = sourceOf(p);
-          const gain = mix.createGain();
-          const n = Math.max(2, Math.ceil((to - from) * GAIN_RATE) + 1);
-          const curve = new Float32Array(n);
-          for (let i = 0; i < n; i++) curve[i] = partLevel(p, from - p.start + ((to - from) * i) / (n - 1), opts.speech);
-          gain.gain.setValueCurveAtTime(curve, from - c0, to - from);
-          node.connect(gain);
-          gain.connect(mix.destination);
-          const reversed = p.clip.type === "video" && !!p.clip.reversed;
-          node.start(from - c0, (reversed ? 0 : p.clip.in) + (from - p.start), to - from);
+      try {
+        for (let c0 = 0; c0 < D; c0 += MIX_CHUNK) {
+          if (signal?.aborted || stopped) throw aborted();
+          const cLen = Math.min(MIX_CHUNK, D - c0);
+          const frames = Math.max(1, Math.round(cLen * SAMPLE_RATE));
+          const mix = new OfflineAudioContext(2, frames, SAMPLE_RATE);
+          for (const p of audible) {
+            const from = Math.max(p.start, c0);
+            const to = Math.min(p.start + p.len, c0 + cLen);
+            if (to - from < 2 / SAMPLE_RATE) continue;
+            const node = mix.createBufferSource();
+            node.buffer = sourceOf(p);
+            const gain = mix.createGain();
+            const n = Math.max(2, Math.ceil((to - from) * GAIN_RATE) + 1);
+            const curve = new Float32Array(n);
+            for (let i = 0; i < n; i++) curve[i] = partLevel(p, from - p.start + ((to - from) * i) / (n - 1), opts.speech);
+            gain.gain.setValueCurveAtTime(curve, from - c0, to - from);
+            node.connect(gain);
+            gain.connect(mix.destination);
+            const reversed = p.clip.type === "video" && !!p.clip.reversed;
+            node.start(from - c0, (reversed ? 0 : p.clip.in) + (from - p.start), to - from);
+          }
+          const rendered = await mix.startRendering();
+          trace("sound mixed", { from: c0, seconds: Math.round(cLen) });
+          const left = rendered.getChannelData(0);
+          const right = rendered.numberOfChannels > 1 ? rendered.getChannelData(1) : left;
+          const base = Math.round(c0 * SAMPLE_RATE);
+          for (let off = 0; off < rendered.length; off += 1024) {
+            const count = Math.min(1024, rendered.length - off);
+            const data = new Float32Array(count * 2);
+            data.set(left.subarray(off, off + count), 0);
+            data.set(right.subarray(off, off + count), count);
+            const ad = new AudioData({ format: "f32-planar", sampleRate: SAMPLE_RATE, numberOfFrames: count, numberOfChannels: 2, timestamp: Math.round(((base + off) / SAMPLE_RATE) * 1_000_000), data });
+            audioEncoder.encode(ad);
+            ad.close();
+          }
+          if (failure) throw failure;
         }
-        const rendered = await mix.startRendering();
-        trace("sound mixed", { from: c0, seconds: Math.round(cLen) });
-        const left = rendered.getChannelData(0);
-        const right = rendered.numberOfChannels > 1 ? rendered.getChannelData(1) : left;
-        const base = Math.round(c0 * SAMPLE_RATE);
-        for (let off = 0; off < rendered.length; off += 1024) {
-          const count = Math.min(1024, rendered.length - off);
-          const data = new Float32Array(count * 2);
-          data.set(left.subarray(off, off + count), 0);
-          data.set(right.subarray(off, off + count), count);
-          const ad = new AudioData({ format: "f32-planar", sampleRate: SAMPLE_RATE, numberOfFrames: count, numberOfChannels: 2, timestamp: Math.round(((base + off) / SAMPLE_RATE) * 1_000_000), data });
-          audioEncoder.encode(ad);
-          ad.close();
-        }
+        await flushed(audioEncoder, "sound");
+        trace("sound encoded");
         if (failure) throw failure;
+      } finally {
+        if (audioEncoder.state !== "closed") audioEncoder.close();
+        decoded.clear();
+        reversedOf.clear();
       }
-      await flushed(audioEncoder, "sound");
-      trace("sound encoded");
-      audioEncoder.close();
-      if (failure) throw failure;
-    }
-    decoded.clear();
+    };
 
     // the same bitrate the Export dialog's size shows (lib/export/rates, lib/export/size)
     const bitrate = videoBitrate(bitrateCodecOf(format) ?? "h264", quality, W, H, F, contentCapBpp(doc, localInfo, { width: W, height: H }));
@@ -705,6 +713,12 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
     // 5. every frame, drawn like the preview
     const gop = Math.max(1, Math.round(F * 2));
     let poster: Blob | null = null;
+    const sound = encodeSound().catch((e: unknown) => {
+      // (the picture loop stops at its next frame; awaited before the file is finished)
+      failure ??= e instanceof Error ? e : new Error(String(e));
+      throw failure;
+    });
+    sound.catch(() => undefined);
     try {
       for (let i = 0; i < totalFrames; i++) {
         if (signal?.aborted) throw aborted();
@@ -738,9 +752,13 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
       await flushed(videoEncoder, "video");
       trace("video encoded", { back: outputs });
       if (failure) throw failure;
+    } catch (e) {
+      stopped = true;
+      throw e;
     } finally {
       if (videoEncoder.state !== "closed") videoEncoder.close();
     }
+    await sound;
     report(1, 100, "done");
 
     // 6. the file and its poster

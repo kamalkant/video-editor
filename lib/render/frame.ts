@@ -33,11 +33,14 @@ import { compositeOp } from "./blend";
  */
 
 /** A video clip's picture: a <video> at the right time, or a canvas holding a decoded frame (the export, lib/export/clipDecoder). */
-export type VideoPicture = HTMLVideoElement | HTMLCanvasElement;
+/** A video clip's picture: a <video>, a canvas, or a decoded frame (the browser export draws those as they come). */
+export type VideoPicture = HTMLVideoElement | HTMLCanvasElement | VideoFrame;
 
 /** The size of a video clip's picture. */
 export function picSize(el: VideoPicture): { w: number; h: number } {
-  return "videoWidth" in el ? { w: el.videoWidth, h: el.videoHeight } : { w: el.width, h: el.height };
+  if ("videoWidth" in el) return { w: el.videoWidth, h: el.videoHeight };
+  if ("displayWidth" in el) return { w: el.displayWidth, h: el.displayHeight };
+  return { w: el.width, h: el.height };
 }
 
 /** The decoded pictures one frame needs. */
@@ -197,7 +200,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
    * One picture (w × h of a texture texW × texH) at rect r: crop, flip, color and shape on the GPU
    * (lib/player/glLook), then turned around its middle — the same order and numbers as the server export.
    */
-  const drawPicture = (source: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement, w: number, h: number, texW: number, texH: number, c: VideoClip | ImageClip | ElementClip | BlankClip, r: Rect, mo?: { rot: number; into: number }) => {
+  const drawPicture = (source: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | VideoFrame, w: number, h: number, texW: number, texH: number, c: VideoClip | ImageClip | ElementClip | BlankClip, r: Rect, mo?: { rot: number; into: number }) => {
     if (c.type === "blank") {
       // a blank scene: its color over the frame (a transition may turn or move it)
       ctx.save();
@@ -217,7 +220,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
         if (quadOk(quad)) {
           if (cache.warp === null) cache.warp = GlWarp.create() ?? false;
           const warper = cache.warp || null;
-          let flat: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement = source;
+          let flat: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | VideoFrame = source;
           if (c.transform.flipX || c.transform.flipY) {
             cache.scratch ??= document.createElement("canvas");
             const fc = cache.scratch;
@@ -346,7 +349,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
       if (quadOk(quad)) {
         if (cache.warp === null) cache.warp = GlWarp.create() ?? false;
         const warper = cache.warp || null;
-        let warpSrc: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement = source;
+        let warpSrc: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | VideoFrame = source;
         let [wsx, wsy, wsw, wsh, wtw, wth] = [crop.sx, crop.sy, crop.sw, crop.sh, texW, texH];
         if (fancy) {
           const gl = lookPass();

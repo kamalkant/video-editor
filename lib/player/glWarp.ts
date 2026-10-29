@@ -7,7 +7,7 @@ import { adjugate, applyH, homography, quadBounds, rectQuad, type Mat3, type Qua
  * rim, like the export's premultiplied warp). Without WebGL: a mesh of small affine triangles.
  */
 
-type Source = HTMLVideoElement | HTMLCanvasElement | HTMLImageElement;
+type Source = HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | VideoFrame;
 
 const VERT = `
 attribute vec2 a_pos;

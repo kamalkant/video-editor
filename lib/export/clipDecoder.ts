@@ -180,10 +180,14 @@ async function openSource(mediaId: string): Promise<Source | null> {
 const AHEAD = 8;
 const us = (s: number) => Math.round(s * 1_000_000);
 
-/** One decoder over one file, its frames drawn into a canvas (the export draws that like a <video>). */
+/**
+ * One decoder over one file. The frame on screen is handed to the export as it is (it draws a VideoFrame like a
+ * <video>): it stays open until the next one replaces it. (It used to be copied onto a canvas first: a third of
+ * the export's computer time.)
+ */
 class ClipDecoder {
-  readonly canvas = document.createElement("canvas");
-  private ctx = this.canvas.getContext("2d")!;
+  /** The frame shown now (null before the first one). */
+  private current: VideoFrame | null = null;
   private decoder: VideoDecoder;
   /** Decoded frames not yet shown, in the order they're shown. */
   private ready: VideoFrame[] = [];
@@ -256,12 +260,12 @@ class ClipDecoder {
     }
   }
 
-  /** The canvas showing the file's frame at source time `t` (seconds). */
-  async frameAt(t: number): Promise<HTMLCanvasElement> {
+  /** The file's frame at source time `t` (seconds); valid until the next call or close(). */
+  async frameAt(t: number): Promise<VideoFrame> {
     const { index } = this.src;
     const k = index.at(t);
     const want = index.samples[k].p;
-    if (this.shownP !== null && Math.abs(this.shownP - want) < 1e-6) return this.canvas;
+    if (this.current && this.shownP !== null && Math.abs(this.shownP - want) < 1e-6) return this.current;
     if (needsRestart(index, k, this.fed, this.shownP)) this.restartAt(k);
     const T = us(want);
     const n = index.samples.length;
@@ -273,7 +277,7 @@ class ClipDecoder {
       const f = this.ready[0];
       if (f) {
         this.show(f, want);
-        return this.canvas;
+        return f;
       }
       const more = this.fed < n || this.pending.length > 0;
       if (more && this.decoder.decodeQueueSize < AHEAD) {
@@ -297,19 +301,15 @@ class ClipDecoder {
   }
 
   private show(f: VideoFrame, p: number) {
-    const w = f.displayWidth;
-    const h = f.displayHeight;
-    if (this.canvas.width !== w || this.canvas.height !== h) {
-      this.canvas.width = w;
-      this.canvas.height = h;
-    }
-    this.ctx.drawImage(f, 0, 0, w, h);
     this.ready.shift();
-    f.close();
+    this.current?.close();
+    this.current = f;
     this.shownP = p;
   }
 
   close() {
+    this.current?.close();
+    this.current = null;
     for (const f of this.ready) f.close();
     this.ready = [];
     this.pending = [];
@@ -338,7 +338,7 @@ export class ClipDecoders {
     return s;
   }
 
-  async frame(clipId: string, mediaId: string, t: number): Promise<HTMLCanvasElement | null> {
+  async frame(clipId: string, mediaId: string, t: number): Promise<VideoFrame | null> {
     if (this.failed.has(clipId)) return null;
     let d = this.byClip.get(clipId);
     if (!d) {

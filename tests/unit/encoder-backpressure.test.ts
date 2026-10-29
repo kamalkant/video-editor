@@ -25,4 +25,11 @@ describe("encoderRoom", () => {
     expect(encoderRoom(40, ENCODER_STALL_MS + 1)).toBe("stalled");
     expect(encoderRoom(5, ENCODER_STALL_MS + 1)).toBe("stalled");
   });
+
+  it("gives up soon on an encoder that never gave anything back, its queue full", () => {
+    expect(encoderRoom(32, 3500, false)).toBe("stalled");
+    // (one that did give frames back gets the full time)
+    expect(encoderRoom(32, 3500, true)).toBe("go");
+    expect(encoderRoom(33, 3500, true)).toBe("wait");
+  });
 });

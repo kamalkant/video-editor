@@ -202,6 +202,8 @@ const ENCODER_LOOKAHEAD_MS = 100;
 const ENCODER_MAX_QUEUE = 32;
 /** An encoder that gave nothing back for this long has stopped: made again in software, then on the server. */
 export const ENCODER_STALL_MS = 30_000;
+/** One that never gave anything back, with its queue full, has stopped after this long. */
+const ENCODER_FIRST_OUTPUT_MS = 3_000;
 
 /**
  * Whether the next frame can go to the encoder: "go", "wait" (a moment, for the queue to drain) or "stalled".
@@ -209,9 +211,10 @@ export const ENCODER_STALL_MS = 30_000;
  * encoder keeps a few frames before the first comes back: waiting for its queue to drop to 4 stopped the
  * export at 0% for good.
  */
-export function encoderRoom(queue: number, sinceOutput: number): "go" | "wait" | "stalled" {
+export function encoderRoom(queue: number, sinceOutput: number, anyOutput = true): "go" | "wait" | "stalled" {
   if (queue <= ENCODER_QUEUE) return "go";
   if (sinceOutput > ENCODER_STALL_MS) return "stalled";
+  if (!anyOutput && queue >= ENCODER_MAX_QUEUE && sinceOutput > ENCODER_FIRST_OUTPUT_MS) return "stalled";
   return queue <= ENCODER_MAX_QUEUE && sinceOutput >= ENCODER_LOOKAHEAD_MS ? "go" : "wait";
 }
 
@@ -394,6 +397,9 @@ function outputOf(format: ExportFormat): { kind: FileKind; name: string; mime: s
 
 const aborted = () => new Error("Export canceled.");
 
+/** Where the export is, in the browser's console ("[export] …"): a stop that only happens in one browser shows its place. */
+const trace = (what: string, data?: Record<string, unknown>) => console.info(`[export] ${what}`, data ?? "");
+
 /**
  * Make the export in this browser: each frame drawn like the preview (lib/render/frame) and encoded with
  * WebCodecs; pictures (PNG / JPG) are the frame at the playhead. Nothing is uploaded.
@@ -461,7 +467,9 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
 
   try {
     // 1. fonts, pictures, the backdrop video
+    trace("start", { format, width: W, height: H, fps: F, frames: totalFrames, software });
     await ensureDocFonts(doc);
+    trace("fonts ready");
     if (signal?.aborted) throw aborted();
     report(0, 20);
     const pics = new Map<string, HTMLImageElement>();
@@ -474,6 +482,7 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
     );
     if (signal?.aborted) throw aborted();
     report(0, 60);
+    trace("pictures ready", { pictures: pics.size });
     const bd = doc.canvas.backdrop;
     const bdVideoId = bd?.kind === "media" && media[bd.mediaId]?.kind === "video" ? bd.mediaId : null;
     const bdDuration = bdVideoId ? media[bdVideoId]?.duration || 0 : 0;
@@ -546,6 +555,7 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
         buf = null; // (no sound track, or one this browser can't read: silent)
       }
       decoded.set(id, buf);
+      trace("sound read", { file: id, seconds: buf ? Math.round(buf.duration) : null });
     }
     const audible = parts.filter((p) => decoded.get(p.clip.mediaId));
     // an MP4's sound is AAC, which some browsers can't encode (Chromium on Linux, Firefox): the server makes it
@@ -577,6 +587,7 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
     };
 
     if (audible.length) {
+      trace("sound encoder", { codec: isWebm ? "opus" : "mp4a.40.2", parts: audible.length });
       const audioEncoder = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: fail });
       audioEncoder.configure({ codec: isWebm ? "opus" : "mp4a.40.2", numberOfChannels: 2, sampleRate: SAMPLE_RATE, bitrate: audioKbpsOf(format) * 1000 });
       // a reversed clip plays its part of the file backwards
@@ -616,6 +627,7 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
           node.start(from - c0, (reversed ? 0 : p.clip.in) + (from - p.start), to - from);
         }
         const rendered = await mix.startRendering();
+        trace("sound mixed", { from: c0, seconds: Math.round(cLen) });
         const left = rendered.getChannelData(0);
         const right = rendered.numberOfChannels > 1 ? rendered.getChannelData(1) : left;
         const base = Math.round(c0 * SAMPLE_RATE);
@@ -631,6 +643,7 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
         if (failure) throw failure;
       }
       await flushed(audioEncoder, "sound");
+      trace("sound encoded");
       audioEncoder.close();
       if (failure) throw failure;
     }
@@ -659,15 +672,18 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
       videoConfig.hardwareAcceleration = "no-preference";
     }
     let lastOutput = Date.now();
+    let outputs = 0;
     const videoEncoder = new VideoEncoder({
       output: (chunk, meta) => {
         lastOutput = Date.now();
+        if (++outputs === 1) trace("first frame back from the encoder", { type: chunk.type, bytes: chunk.byteLength, description: !!meta?.decoderConfig?.description });
         muxer.addVideoChunk(chunk, meta);
       },
       error: fail,
     });
     try {
       videoEncoder.configure(videoConfig);
+      trace("video encoder", { codec: videoConfig.codec, hardware: videoConfig.hardwareAcceleration, bitrate: videoConfig.bitrate });
     } catch (e) {
       throw new EncoderFailure(`The video encoder couldn't start: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -688,15 +704,21 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
         // keep the encoder's queue short (memory stays flat on long videos), but never wait on an encoder
         // that is waiting for more frames itself (Safari's)
         for (;;) {
-          const room = encoderRoom(videoEncoder.encodeQueueSize, Date.now() - lastOutput);
+          const room = encoderRoom(videoEncoder.encodeQueueSize, Date.now() - lastOutput, outputs > 0);
           if (room === "go") break;
-          if (room === "stalled") throw new EncoderFailure("The video encoder stopped giving frames back.");
+          if (room === "stalled") {
+            trace("encoder stalled", { frame: i, queue: videoEncoder.encodeQueueSize, outputs, codec: videoConfig.codec, hardware: videoConfig.hardwareAcceleration });
+            throw new EncoderFailure("The video encoder stopped giving frames back.");
+          }
           if (failure) throw failure;
           await new Promise((r) => setTimeout(r, 4));
         }
         if (i % 10 === 0 || i === totalFrames - 1) report(1, ((i + 1) / totalFrames) * 100);
+        if (i < 3 || i % 60 === 0) trace("frame", { frame: i, queue: videoEncoder.encodeQueueSize, back: outputs });
       }
+      trace("all frames sent: flushing", { queue: videoEncoder.encodeQueueSize, back: outputs });
       await flushed(videoEncoder, "video");
+      trace("video encoded", { back: outputs });
       if (failure) throw failure;
     } finally {
       if (videoEncoder.state !== "closed") videoEncoder.close();
@@ -729,6 +751,7 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
     opts.onProgress?.({ ...job, steps: [...steps] });
     return { ok: true, job, blob, blobUrl: url };
   } catch (err) {
+    trace("stopped", { error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), software });
     for (const u of urls) URL.revokeObjectURL(u);
     // (the hardware encoder failed: exportLocally makes it again in software, nothing failed yet)
     if (err instanceof EncoderFailure && !software) throw err;

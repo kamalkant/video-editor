@@ -194,6 +194,38 @@ export function partLevel(p: AudioPart, off: number, speech: Range[] = []): numb
   return soundLevel(p.clip, off, p.len, { t, trIn: p.trIn, trOut: p.trOut, duck });
 }
 
+/** Frames the encoder may hold before the export waits (memory stays flat on long videos). */
+const ENCODER_QUEUE = 4;
+/** …unless it gave nothing back for this long: it may be waiting for more frames first (Safari's does). */
+const ENCODER_LOOKAHEAD_MS = 100;
+/** The most frames it may hold all the same. */
+const ENCODER_MAX_QUEUE = 32;
+/** An encoder that gave nothing back for this long has stopped: made again in software, then on the server. */
+export const ENCODER_STALL_MS = 30_000;
+
+/**
+ * Whether the next frame can go to the encoder: "go", "wait" (a moment, for the queue to drain) or "stalled".
+ * `queue`: its encodeQueueSize; `sinceOutput`: ms since it last gave a frame back (or was set up). Safari's
+ * encoder keeps a few frames before the first comes back: waiting for its queue to drop to 4 stopped the
+ * export at 0% for good.
+ */
+export function encoderRoom(queue: number, sinceOutput: number): "go" | "wait" | "stalled" {
+  if (queue <= ENCODER_QUEUE) return "go";
+  if (sinceOutput > ENCODER_STALL_MS) return "stalled";
+  return queue <= ENCODER_MAX_QUEUE && sinceOutput >= ENCODER_LOOKAHEAD_MS ? "go" : "wait";
+}
+
+/** An encoder's flush, given up (as a stopped encoder) when it doesn't end. */
+function flushed(encoder: { flush(): Promise<void> }, what: string): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    encoder.flush().finally(() => clearTimeout(timer)),
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new EncoderFailure(`The ${what} encoder didn't finish.`)), ENCODER_STALL_MS * 2);
+    }),
+  ]);
+}
+
 const SAMPLE_RATE = 48000;
 /** The mix is made this many seconds at a time (a long video doesn't need one huge buffer). */
 const MIX_CHUNK = 30;
@@ -598,7 +630,7 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
         }
         if (failure) throw failure;
       }
-      await audioEncoder.flush();
+      await flushed(audioEncoder, "sound");
       audioEncoder.close();
       if (failure) throw failure;
     }
@@ -626,7 +658,14 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
       if (software) throw new LocalExportUnavailable("This browser has no software encoder for this video.");
       videoConfig.hardwareAcceleration = "no-preference";
     }
-    const videoEncoder = new VideoEncoder({ output: (chunk, meta) => muxer.addVideoChunk(chunk, meta), error: fail });
+    let lastOutput = Date.now();
+    const videoEncoder = new VideoEncoder({
+      output: (chunk, meta) => {
+        lastOutput = Date.now();
+        muxer.addVideoChunk(chunk, meta);
+      },
+      error: fail,
+    });
     try {
       videoEncoder.configure(videoConfig);
     } catch (e) {
@@ -646,11 +685,18 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
         videoEncoder.encode(frame, { keyFrame: i % gop === 0 });
         frame.close();
         if (i === 0) poster = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-        // keep the encoder's queue short (memory stays flat on long videos)
-        while (videoEncoder.encodeQueueSize > 4) await new Promise((r) => setTimeout(r, 4));
+        // keep the encoder's queue short (memory stays flat on long videos), but never wait on an encoder
+        // that is waiting for more frames itself (Safari's)
+        for (;;) {
+          const room = encoderRoom(videoEncoder.encodeQueueSize, Date.now() - lastOutput);
+          if (room === "go") break;
+          if (room === "stalled") throw new EncoderFailure("The video encoder stopped giving frames back.");
+          if (failure) throw failure;
+          await new Promise((r) => setTimeout(r, 4));
+        }
         if (i % 10 === 0 || i === totalFrames - 1) report(1, ((i + 1) / totalFrames) * 100);
       }
-      await videoEncoder.flush();
+      await flushed(videoEncoder, "video");
       if (failure) throw failure;
     } finally {
       if (videoEncoder.state !== "closed") videoEncoder.close();

@@ -1,5 +1,6 @@
 "use client";
 
+import { previewDraws } from "@/lib/player/previewDraw";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { clipLength, docDuration, findClip, layersAt, LOGO_MAX_SIZE, mainStarts, mainTrack, type AnyClip, type AudioPlaced, type Layer, type MediaLite, type TimelineDoc, type Transform, type VideoClip, type Watermark, watermarkRect } from "@/lib/edit/doc";
 import { logoState } from "@/lib/player/logo";
@@ -215,6 +216,8 @@ export function ProgramPlayer(p: {
   doc: TimelineDoc;
   media: Record<string, MediaLite>;
   clock: Clock;
+  /** An export made in this browser is running (its dialog open): nothing is drawn meanwhile. */
+  suspended?: boolean;
   playerRef?: React.RefObject<PlayerApi | null>;
   /** Live key settings for a video clip, or null (no removal). */
   liveOf: (clip: VideoClip) => LiveKeyParams | null;
@@ -431,6 +434,12 @@ export function ProgramPlayer(p: {
    */
   const awakeUntil = useRef(0);
   const wake = useCallback((ms = IDLE_DRAW_MS) => keepAwake(awakeUntil, ms), []);
+  // (an export running: the preview draws nothing; drawn again as soon as it ends)
+  const suspendedRef = useRef(!!p.suspended);
+  useEffect(() => {
+    suspendedRef.current = !!p.suspended;
+    if (!p.suspended) keepAwake(awakeUntil);
+  }, [p.suspended]);
   useEffect(() => {
     drawRef.current = () => {
     const cv = canvasRef.current;
@@ -760,7 +769,7 @@ export function ProgramPlayer(p: {
       }
       // one bad frame must not stop the loop (it also pauses and silences what shouldn't play);
       // paused and nothing changed for a moment: nothing to draw
-      if (!playing.current && performance.now() > awakeUntil.current) {
+      if (!previewDraws({ playing: playing.current, now: performance.now(), awakeUntil: awakeUntil.current, suspended: suspendedRef.current })) {
         raf = requestAnimationFrame(tick);
         return;
       }

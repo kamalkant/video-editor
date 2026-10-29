@@ -8596,6 +8596,8 @@ function StudioInner(props: Props) {
   const programPane = (
     <ProgramPlayer
       doc={doc}
+      // (an export made in this browser, its dialog open: the preview draws nothing, the export gets the computer)
+      suspended={exportOpen && localJob?.state === "running"}
       proxyMode={proxyMode}
       localVersion={localVer}
       media={playerMedia}

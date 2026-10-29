@@ -4,6 +4,7 @@ import { lettersOf } from "./marks";
 import { typeSteps, TYPE_STEPS_MAX } from "../player/anim";
 import { applyH, boxQuad, hasCorners, homography, quadBounds, quadOk, rectQuad, type Quad } from "../player/quad";
 import { drawWarpMesh, GlWarp } from "../player/glWarp";
+import { canMakeCanvas, fontSet, makeCanvas } from "../render/surface";
 
 /**
  * Draws text clips with the browser's canvas. The program preview and the browser export draw them every
@@ -17,8 +18,8 @@ let scratch: CanvasRenderingContext2D | null = null;
 /** A 2D context only for measuring text. */
 function measurer(): CanvasRenderingContext2D | null {
   if (scratch) return scratch;
-  if (typeof document === "undefined") return null;
-  scratch = document.createElement("canvas").getContext("2d");
+  if (!canMakeCanvas()) return null;
+  scratch = makeCanvas(1, 1).getContext("2d");
   return scratch;
 }
 
@@ -37,9 +38,10 @@ export function invalidateTextLayouts() {
   layouts.clear();
 }
 function layoutOf(clip: TextLike, W: number, H: number, measure: Measure): TextLayout {
-  if (!watching && typeof document !== "undefined" && document.fonts) {
+  const fonts = watching ? null : fontSet();
+  if (fonts) {
     watching = true;
-    document.fonts.addEventListener("loadingdone", invalidateTextLayouts);
+    fonts.addEventListener("loadingdone", invalidateTextLayouts);
   }
   const t = clip.transform;
   const key = JSON.stringify([clip.text, clip.style, clip.marks ?? null, t.scale, t.x, t.y, W, H]);
@@ -110,7 +112,7 @@ function warpOf(clip: TextLike, lay: TextLayout, W: number, H: number): { src: {
 let warper: GlWarp | null | undefined;
 let flatCanvas: HTMLCanvasElement | null = null;
 function drawWarped(ctx: CanvasRenderingContext2D, clip: TextLike, lay: TextLayout, W: number, H: number, upTo: number, progress: number): boolean {
-  if (typeof document === "undefined") return false;
+  if (!canMakeCanvas()) return false;
   const plan = warpOf(clip, lay, W, H);
   if (!plan) return false;
   const { src, dst } = plan;
@@ -118,7 +120,7 @@ function drawWarped(ctx: CanvasRenderingContext2D, clip: TextLike, lay: TextLayo
   const m = ctx.getTransform();
   const f = Math.min(2, Math.max(0.25, Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) || 1), 4096 / Math.max(1, src.w), 4096 / Math.max(1, src.h));
   // (one work canvas, reused frame after frame)
-  flatCanvas ??= document.createElement("canvas");
+  flatCanvas ??= makeCanvas();
   const off = flatCanvas;
   off.width = Math.max(1, Math.ceil(src.w * f));
   off.height = Math.max(1, Math.ceil(src.h * f));

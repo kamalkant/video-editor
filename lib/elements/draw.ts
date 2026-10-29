@@ -1,6 +1,7 @@
 import type { ElementLook } from "../edit/doc";
 import { fontPx, type Measure } from "../text/layout";
 import { BADGE, TICKER, progressAt, tickerLayout, tickerShift, wordsFont, type TickerLayout } from "./geometry";
+import { canMakeCanvas, makeCanvas } from "../render/surface";
 
 /**
  * Draws elements with the browser's canvas: the preview (every frame), the
@@ -35,7 +36,7 @@ export const measureOn =
 let scratch: Ctx | null = null;
 /** Text widths in this browser (a badge's width, a ticker's layout), without a canvas of your own. */
 export function browserMeasure(): Measure {
-  scratch ??= typeof document !== "undefined" ? document.createElement("canvas").getContext("2d") : null;
+  scratch ??= canMakeCanvas() ? makeCanvas(1, 1).getContext("2d") : null;
   const ctx = scratch;
   return ctx ? measureOn(ctx) : (text, font) => text.length * fontPx(font) * 0.6;
 }

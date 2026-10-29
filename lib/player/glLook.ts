@@ -1,4 +1,5 @@
 import { IDENTITY, type Mat } from "./look";
+import { canMakeCanvas, makeCanvas } from "../render/surface";
 
 /**
  * The clip "look" for the program preview, on the GPU (WebGL works in every
@@ -143,8 +144,9 @@ export class GlLook {
   readonly canvas: HTMLCanvasElement;
 
   static create(): GlLook | null {
-    if (typeof document === "undefined") return null;
-    const canvas = document.createElement("canvas");
+    // (an OffscreenCanvas in a Worker: lib/render/surface)
+    if (!canMakeCanvas()) return null;
+    const canvas = makeCanvas();
     const gl = canvas.getContext("webgl", { premultipliedAlpha: true, alpha: true, preserveDrawingBuffer: true, antialias: false });
     if (!gl) return null;
     try {

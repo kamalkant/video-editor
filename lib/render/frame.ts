@@ -18,6 +18,7 @@ import { captionProgress, drawText, letterCount, textBox, textLayout } from "../
 import { evaluateAttachmentTransform, findTrackingAttachmentForClip } from "../tracking/attach";
 import { trackingAt, type BlurAttachment, type TrackingPoint } from "../tracking/types";
 import { compositeOp } from "./blend";
+import { makeCanvas, pictureSize, type Picture } from "./surface";
 
 /**
  * One frame of the timeline, drawn with the browser's canvas. The program
@@ -51,7 +52,7 @@ export type FrameSources = {
   /** A stand-in while a video clip has no frame yet, `into` seconds into it (the preview: the picture taken at import). */
   standIn?: (c: VideoClip, into: number) => HTMLImageElement | null;
   /** A loaded picture (picture clips, a picture backdrop, the logo, pictures that cover a watermark), or null. */
-  image: (mediaId: string) => HTMLImageElement | null;
+  image: (mediaId: string) => Picture | null;
   /** The backdrop video's element with a frame to show (Replace Background with a video), or null. */
   backdropVideo?: (mediaId: string) => HTMLVideoElement | null;
   /** Live key settings of a video clip (background removal), or null. */
@@ -133,7 +134,7 @@ function blurInto(ctx: CanvasRenderingContext2D, el: VideoPicture, w: number, h:
     return;
   }
   const f = Math.max(2, sigma / 1.5);
-  cache.small ??= document.createElement("canvas");
+  cache.small ??= makeCanvas();
   const small = cache.small;
   small.width = Math.max(1, Math.round(w / f));
   small.height = Math.max(1, Math.round(h / f));
@@ -200,7 +201,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
    * One picture (w × h of a texture texW × texH) at rect r: crop, flip, color and shape on the GPU
    * (lib/player/glLook), then turned around its middle — the same order and numbers as the server export.
    */
-  const drawPicture = (source: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | VideoFrame, w: number, h: number, texW: number, texH: number, c: VideoClip | ImageClip | ElementClip | BlankClip, r: Rect, mo?: { rot: number; into: number }) => {
+  const drawPicture = (source: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | ImageBitmap | VideoFrame, w: number, h: number, texW: number, texH: number, c: VideoClip | ImageClip | ElementClip | BlankClip, r: Rect, mo?: { rot: number; into: number }) => {
     if (c.type === "blank") {
       // a blank scene: its color over the frame (a transition may turn or move it)
       ctx.save();
@@ -220,9 +221,9 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
         if (quadOk(quad)) {
           if (cache.warp === null) cache.warp = GlWarp.create() ?? false;
           const warper = cache.warp || null;
-          let flat: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | VideoFrame = source;
+          let flat: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | ImageBitmap | VideoFrame = source;
           if (c.transform.flipX || c.transform.flipY) {
-            cache.scratch ??= document.createElement("canvas");
+            cache.scratch ??= makeCanvas();
             const fc = cache.scratch;
             fc.width = w;
             fc.height = h;
@@ -256,7 +257,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
     }
     // watermark / logo boxes: on the source picture first (lib/player/patches, like the export)
     if (c.patches?.length) {
-      cache.patch ??= document.createElement("canvas");
+      cache.patch ??= makeCanvas();
       const pc = cache.patch;
       if (pc.width !== w || pc.height !== h) {
         pc.width = w;
@@ -273,7 +274,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
           px.putImageData(img, pr.x - 1, pr.y - 1);
         } else if (patch.mode === "blur") {
           const f = Math.max(2, (patch.strength ?? 12) / 1.5);
-          cache.small ??= document.createElement("canvas");
+          cache.small ??= makeCanvas();
           const small = cache.small;
           small.width = Math.max(1, Math.round(pr.w / f));
           small.height = Math.max(1, Math.round(pr.h / f));
@@ -283,9 +284,10 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
         } else {
           const pic = patch.mediaId ? src.image(patch.mediaId) : null;
           if (pic) {
-            const k2 = Math.min(pr.w / pic.naturalWidth, pr.h / pic.naturalHeight);
-            const dw = pic.naturalWidth * k2;
-            const dh = pic.naturalHeight * k2;
+            const ps = pictureSize(pic);
+            const k2 = Math.min(pr.w / ps.w, pr.h / ps.h);
+            const dw = ps.w * k2;
+            const dh = ps.h * k2;
             px.drawImage(pic, pr.x + (pr.w - dw) / 2, pr.y + (pr.h - dh) / 2, dw, dh);
           } else {
             px.fillStyle = patch.color ?? "#000000";
@@ -349,7 +351,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
       if (quadOk(quad)) {
         if (cache.warp === null) cache.warp = GlWarp.create() ?? false;
         const warper = cache.warp || null;
-        let warpSrc: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | VideoFrame = source;
+        let warpSrc: HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | ImageBitmap | VideoFrame = source;
         let [wsx, wsy, wsw, wsh, wtw, wth] = [crop.sx, crop.sy, crop.sw, crop.sh, texW, texH];
         if (fancy) {
           const gl = lookPass();
@@ -381,7 +383,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
   const colorPic = (fill: string) => {
     let e = cache.colors.get(fill);
     if (!e) {
-      e = document.createElement("canvas");
+      e = makeCanvas();
       e.width = e.height = 4;
       const x = e.getContext("2d");
       if (x) {
@@ -400,7 +402,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
     const key = `${JSON.stringify(c.el)}|${pw}x${ph}|${cache.fontGen}${movesByItself(c.el) ? `|${into.toFixed(3)}|${len}` : ""}`;
     let e = cache.elements.get(c.id);
     if (!e) {
-      e = { key: "", canvas: document.createElement("canvas") };
+      e = { key: "", canvas: makeCanvas() };
       cache.elements.set(c.id, e);
     }
     if (e.key !== key) {
@@ -429,12 +431,12 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
   const bd = d.canvas.backdrop;
   if (bd?.kind === "media") {
     const m = src.media[bd.mediaId];
-    let pic: HTMLImageElement | HTMLVideoElement | null = null;
+    let pic: Picture | HTMLVideoElement | null = null;
     let sw = 0;
     let sh = 0;
     if (m?.kind === "image") {
       const img = src.image(bd.mediaId);
-      if (img) [pic, sw, sh] = [img, img.naturalWidth, img.naturalHeight];
+      if (img) [pic, sw, sh] = [img, pictureSize(img).w, pictureSize(img).h];
     } else if (m?.kind === "video") {
       const v = src.backdropVideo?.(bd.mediaId) ?? null;
       if (v) [pic, sw, sh] = [v, v.videoWidth, v.videoHeight];
@@ -446,7 +448,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
   } else if (bd) {
     const key = `${JSON.stringify(bd)}|${CW}x${CH}`;
     if (cache.backdrop?.key !== key) {
-      const c = document.createElement("canvas");
+      const c = makeCanvas();
       c.width = CW;
       c.height = CH;
       const x = c.getContext("2d");
@@ -578,8 +580,9 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
     } else if (clip.type === "image") {
       const img = src.image(clip.mediaId);
       if (!img) return;
-      const r = motionRect(img.naturalWidth, img.naturalHeight, CW, CH, clip, into);
-      draw(img, img.naturalWidth, img.naturalHeight, img.naturalWidth, img.naturalHeight, clip, { x: r.x + (an?.dx ?? 0) * CW + tx, y: r.y + (an?.dy ?? 0) * CH + ty, w: r.w, h: r.h }, { rot: r.rot, into });
+      const { w: iw, h: ih } = pictureSize(img);
+      const r = motionRect(iw, ih, CW, CH, clip, into);
+      draw(img, iw, ih, iw, ih, clip, { x: r.x + (an?.dx ?? 0) * CW + tx, y: r.y + (an?.dy ?? 0) * CH + ty, w: r.w, h: r.h }, { rot: r.rot, into });
     } else if (clip.type === "video") {
       const v = src.video(clip);
       if (!v) {
@@ -604,14 +607,14 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
         aiPending = true;
       }
       if (live || packed) {
-        cache.keyCanvas ??= document.createElement("canvas");
+        cache.keyCanvas ??= makeCanvas();
         cache.key ??= LiveKeyRenderer.create(cache.keyCanvas);
         if (cache.key && cache.key.render(el, packed ? { ...(live ?? ({} as LiveKeyParams)), method: "packed" } : live!, "result")) {
           let keyed: HTMLCanvasElement = cache.keyCanvas;
           // Blur background: the cut-out subject over a blurred copy of the picture (like the export's aiMatte)
           const blur = packed ? (src.blur?.(clip) ?? null) : null;
           if (blur) {
-            cache.mix ??= document.createElement("canvas");
+            cache.mix ??= makeCanvas();
             const mc = cache.mix;
             if (mc.width !== vw || mc.height !== vh) {
               mc.width = vw;
@@ -684,7 +687,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
           if (att.shape === "ellipse") ctx.ellipse(cx, cy, bw / 2, bh / 2, ((kf.rotation ?? 0) * Math.PI) / 180, 0, Math.PI * 2);
           else ctx.rect(bx, by, bw, bh);
           ctx.clip();
-          cache.mix ??= document.createElement("canvas");
+          cache.mix ??= makeCanvas();
           const mc = cache.mix;
           const sx = Math.max(0, Math.min(CW - 2, bx));
           const sy = Math.max(0, Math.min(CH - 2, by));
@@ -732,13 +735,14 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
   const logo = wm ? src.image(wm.mediaId) : null;
   if (wm && logo) {
     // (a part of the video, coming in / going out: lib/player/logo; a box and rounded corners: its badge)
-    const lr = watermarkRect(wm, CW, CH, logo.naturalWidth, logo.naturalHeight);
+    const ls = pictureSize(logo);
+    const lr = watermarkRect(wm, CW, CH, ls.w, ls.h);
     const st = logoState(wm, t, docDuration(d), CW, lr);
     if (st.show) {
       ctx.globalAlpha = wm.opacity * st.alpha;
       const bw = lr.w * st.scale;
       const bh = lr.h * st.scale;
-      drawLogoBadge(ctx, logo, logo.naturalWidth, logo.naturalHeight, wm, { x: lr.x + lr.w / 2 + st.dx - bw / 2, y: lr.y + lr.h / 2 - bh / 2, w: bw, h: bh }, watermarkPad(wm, CW) * st.scale);
+      drawLogoBadge(ctx, logo, ls.w, ls.h, wm, { x: lr.x + lr.w / 2 + st.dx - bw / 2, y: lr.y + lr.h / 2 - bh / 2, w: bw, h: bh }, watermarkPad(wm, CW) * st.scale);
     }
   }
   ctx.globalAlpha = 1;

@@ -1,4 +1,5 @@
 import { adjugate, applyH, homography, quadBounds, rectQuad, type Mat3, type Quad } from "./quad";
+import { canMakeCanvas, makeCanvas } from "../render/surface";
 
 /**
  * Perspective (corner pin) in the program preview: a picture drawn onto any four-cornered shape,
@@ -7,7 +8,7 @@ import { adjugate, applyH, homography, quadBounds, rectQuad, type Mat3, type Qua
  * rim, like the export's premultiplied warp). Without WebGL: a mesh of small affine triangles.
  */
 
-type Source = HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | VideoFrame;
+type Source = HTMLVideoElement | HTMLCanvasElement | HTMLImageElement | ImageBitmap | VideoFrame;
 
 const VERT = `
 attribute vec2 a_pos;
@@ -56,8 +57,9 @@ export class GlWarp {
 
   /** null when this browser has no WebGL (the caller uses drawWarpMesh). */
   static create(): GlWarp | null {
-    if (typeof document === "undefined") return null;
-    const canvas = document.createElement("canvas");
+    // (an OffscreenCanvas in a Worker: lib/render/surface)
+    if (!canMakeCanvas()) return null;
+    const canvas = makeCanvas();
     const gl = canvas.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false, preserveDrawingBuffer: true });
     if (!gl) return null;
     const derivatives = !!gl.getExtension("OES_standard_derivatives");

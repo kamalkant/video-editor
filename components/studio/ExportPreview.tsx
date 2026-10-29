@@ -11,6 +11,7 @@ import { needsAlpha, type ExportFormat } from "@/lib/export/presets";
 import { formatTime } from "@/lib/format";
 import { localSrc } from "@/lib/media/localMedia";
 import { setLevel, silence } from "@/lib/player/sound";
+import { playSync } from "@/lib/player/sync";
 import { createFrameCache, drawFrame, pruneFrameCache, type FrameSources } from "@/lib/render/frame";
 import { ensureDocFonts } from "@/lib/text/fonts";
 
@@ -214,13 +215,19 @@ export function ExportPreview({
     };
     /** Keep a media element at `want` seconds: playing (steered when it drifts) or still (seeked exactly). */
     const keep = (el: HTMLMediaElement, want: number, rate: number, play: boolean, f: number) => {
-      if (Math.abs(el.playbackRate - rate) > 1e-3) el.playbackRate = rate;
       if (play) {
         if (el.paused) {
+          if (Math.abs(el.playbackRate - rate) > 1e-3) el.playbackRate = rate;
           if (Math.abs(el.currentTime - want) > 0.25 * rate) el.currentTime = want;
           void el.play().catch(() => undefined);
-        } else if (Math.abs(el.currentTime - want) > 0.4 * rate) el.currentTime = want;
+        } else {
+          // (a small drift is steered, only a big one seeked: seeking at 0.4 s made Safari's preview stutter)
+          const sync = playSync(el.currentTime, want, rate);
+          if (sync.seek !== undefined) el.currentTime = sync.seek;
+          if (Math.abs(el.playbackRate - sync.rate) > 1e-3) el.playbackRate = sync.rate;
+        }
       } else {
+        if (Math.abs(el.playbackRate - rate) > 1e-3) el.playbackRate = rate;
         if (!el.paused) el.pause();
         if (Math.abs(el.currentTime - want) > 0.5 / f && !el.seeking) el.currentTime = want;
       }
@@ -251,7 +258,14 @@ export function ExportPreview({
     let lastUi = 0;
     const tick = (now: number) => {
       const { doc: d, D: len, parts: snd, media: m, sources: s, playing: on, muted: mute, fps: f, thumbDocs: tds, onPictures: pictures } = live.current;
-      if (on) {
+      // (a video on screen still loading its next frames: the time waits for it, rather than run ahead and seek)
+      const buffering =
+        on &&
+        layersAt(d, tRef.current).some((l) => {
+          const el = l.clip.type === "video" ? els.get(l.clip.id) : undefined;
+          return !!el && !el.paused && (el.seeking || el.readyState < 3) && !el.ended;
+        });
+      if (on && !buffering) {
         let nt = tRef.current + Math.min(0.25, (now - last) / 1000);
         // (it plays round and round)
         if (nt >= len) nt = 0;
@@ -454,7 +468,8 @@ export function ExportPreview({
         </button>
       </div>
       {/* the preview's video and sound elements (out of sight) */}
-      <div ref={boxRef} aria-hidden="true" className="pointer-events-none fixed left-0 top-0 h-px w-px overflow-hidden opacity-0" />
+      {/* (tiny but "visible", as the editor's preview has them: Safari pauses videos it thinks can't be seen) */}
+      <div ref={boxRef} aria-hidden="true" className="pointer-events-none fixed -left-[9999px] -top-[9999px] h-[180px] w-[320px] overflow-hidden opacity-[0.01]" />
     </div>
   );
 }

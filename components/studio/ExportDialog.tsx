@@ -18,6 +18,7 @@ import {
 } from "@/lib/export/presets";
 import { formatBytes } from "@/lib/format";
 import { useEta } from "@/lib/export/useEta";
+import { jobProgress } from "@/lib/export/progress";
 import { contentCapBpp, estimateBytes, EXPORT_MAX_SIDE, EXPORT_MIN_SIDE, exportSide, type SizeBasis } from "@/lib/export/size";
 import { useExportSize } from "@/lib/editor/useExportSize";
 import { useServerCaps } from "@/lib/editor/useServerCaps";
@@ -246,21 +247,9 @@ export function ExportDialog(p: {
   const packOfVideo = !!p.video && p.format === "pack";
   const blocked = pr ? p.blockedOf(p.format) : "Add a video or picture first.";
 
-  const getProgress = (): number => {
-    if (p.job?.state === "done") return 100;
-    if (!p.job || !p.job.steps || p.job.steps.length === 0) {
-      return 0;
-    }
-    // Check if an encoding/running step is active
-    const runningStep = p.job.steps.find((s) => s.state === "running");
-    if (runningStep && typeof runningStep.percent === "number") {
-      return Math.min(100, Math.max(0, runningStep.percent));
-    }
-    // Fallback: average of all steps
-    const total = p.job.steps.reduce((acc, s) => acc + (s.state === "done" ? 100 : (s.percent ?? 0)), 0);
-    const avg = Math.round(total / p.job.steps.length);
-    return Math.min(100, Math.max(0, avg));
-  };
+  // (the whole export's progress: the running step's own started again at 0 at each step)
+  const getProgress = (): number => jobProgress(p.job);
+
   // (before any early return: hooks run in the same order every time)
   const eta = useEta(running, getProgress(), p.job?.id ?? null);
 
@@ -418,7 +407,8 @@ export function ExportDialog(p: {
       ? "Queued in background..."
       : p.starting && !p.job
         ? (p.startStatus || "Preparing media assets…")
-        : `Rendering (${progressPct}%)...`
+        : // (the step it's on: "Making the video again, with the browser's own encoder" says why it started over)
+          `${p.job?.steps.find((x) => x.state === "running")?.label ?? "Rendering"} · ${progressPct}%`
     : p.format === "mp4"
       ? "Make video (MP4)"
       : p.format === "pack"

@@ -429,7 +429,15 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
 
   const steps: JobStep[] = [
     { kind: "derive", label: "Getting the files and fonts ready", state: "running", percent: 0 },
-    { kind: out.kind, label: still ? `Drawing the picture (${format.toUpperCase()})` : format === "webm" || format === "webm-alpha" ? "Making the video (WebM)" : format === "hevc" ? "Making the video (MP4, HEVC)" : "Making the video (MP4)", state: "pending", percent: 0 },
+    {
+      kind: out.kind,
+      label:
+        (still ? `Drawing the picture (${format.toUpperCase()})` : format === "webm" || format === "webm-alpha" ? "Making the video (WebM)" : format === "hevc" ? "Making the video (MP4, HEVC)" : "Making the video (MP4)") +
+        // (made again from the start: this browser's graphics encoder stopped)
+        (software ? " again, with the browser's own encoder" : ""),
+      state: "pending",
+      percent: 0,
+    },
     ...(still ? [] : [{ kind: "poster" as const, label: "Poster image", state: "pending" as const, percent: 0 }]),
   ];
   const job: Job = {

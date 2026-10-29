@@ -134,6 +134,7 @@ const PROBE_TIMEOUT_MS = 6_000;
 import { historyReducer, initHistory } from "@/lib/editor/history";
 import { keepsOwnUndo } from "@/lib/editor/keys";
 import { useExportTab } from "@/lib/export/useExportTab";
+import { jobProgress } from "@/lib/export/progress";
 import {
   LAST_SETTINGS_KEY,
   readLocal,
@@ -1182,7 +1183,7 @@ function StudioInner(props: Props) {
   useExportTab({
     projectName,
     running,
-    pct: job?.steps.find((s) => s.state === "running")?.percent ?? null,
+    pct: jobProgress(job),
     done: job?.state === "done",
     jobId: job?.id ?? null,
   });

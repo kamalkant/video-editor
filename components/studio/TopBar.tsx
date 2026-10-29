@@ -1,5 +1,6 @@
 "use client";
 
+import { jobProgress } from "@/lib/export/progress";
 import Link from "next/link";
 import { useState, type ComponentProps, type ReactElement, type RefObject } from "react";
 import { Icon } from "@/components/ui/Icon";
@@ -320,7 +321,7 @@ export function TopBar(p: {
         <ExportMenu
           label={
             running
-              ? `Exporting${typeof step?.percent === "number" ? `\u00A0${step.percent}%` : "…"}`
+              ? `Exporting${step ? `\u00A0${jobProgress(p.job)}%` : "…"}`
               : p.job?.state === "done"
                 ? "Export ✓"
                 : "Export"

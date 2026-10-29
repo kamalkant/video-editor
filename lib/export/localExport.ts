@@ -229,6 +229,11 @@ function flushed(encoder: { flush(): Promise<void> }, what: string): Promise<voi
   ]);
 }
 
+/** How often the export says how far it is (each update re-renders the editor). */
+export const PROGRESS_EVERY_MS = 250;
+/** Whether to report the progress now: `last` the time of the last report; the last frame always is. */
+export const progressDue = (now: number, last: number, final: boolean) => final || now - last >= PROGRESS_EVERY_MS;
+
 const SAMPLE_RATE = 48000;
 /** The mix is made this many seconds at a time (a long video doesn't need one huge buffer). */
 const MIX_CHUNK = 30;
@@ -681,6 +686,7 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
     }
     let lastOutput = Date.now();
     let outputs = 0;
+    let lastReport = -Infinity;
     const videoEncoder = new VideoEncoder({
       output: (chunk, meta) => {
         lastOutput = Date.now();
@@ -721,7 +727,11 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
           if (failure) throw failure;
           await new Promise((r) => setTimeout(r, 4));
         }
-        if (i % 10 === 0 || i === totalFrames - 1) report(1, ((i + 1) / totalFrames) * 100);
+        const now = performance.now();
+        if (progressDue(now, lastReport, i === totalFrames - 1)) {
+          lastReport = now;
+          report(1, ((i + 1) / totalFrames) * 100);
+        }
         if (i < 3 || i % 60 === 0) trace("frame", { frame: i, queue: videoEncoder.encodeQueueSize, back: outputs });
       }
       trace("all frames sent: flushing", { queue: videoEncoder.encodeQueueSize, back: outputs });

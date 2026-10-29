@@ -8,7 +8,7 @@ import {
   ArrayBufferTarget as WebmArrayBufferTarget,
   FileSystemWritableFileStreamTarget as WebmFileSystemWritableFileStreamTarget,
 } from "webm-muxer";
-import { clipLength, docDuration, layersAt, mainStarts, mainTrack, type AudioPlaced, type MediaLite, type TimelineDoc, type VideoClip } from "../edit/doc";
+import { clipLength, docDuration, mainStarts, mainTrack, type AudioPlaced, type MediaLite, type TimelineDoc, type VideoClip } from "../edit/doc";
 import type { Range } from "../edit/timeline";
 import type { LiveKeyParams } from "../editor/liveKey";
 import { DUCK_LEVEL, inSpeech } from "../audio/ducking";
@@ -19,10 +19,16 @@ import type { FileKind, Job, JobFile, JobStep } from "../jobs/queue";
 import { localFileOf, localInfo, localSrc } from "../media/localMedia";
 import { soundLevel } from "../player/sound";
 import { docTransitions, type TransitionType } from "../player/transitions";
-import { createFrameCache, drawFrame, type FrameSources, type VideoPicture } from "../render/frame";
 import { ClipDecoders } from "./clipDecoder";
 import { ensureDocFonts } from "../text/fonts";
 import { avcCodecs, hevcCodec } from "./codecs";
+import { EncoderFailure, flushed, LocalExportUnavailable, NeedsPage, trace } from "./encoding";
+import { canvasBlob, frameDrawer, renderVideo } from "./videoPass";
+import { partCount, splitFrames } from "./parts";
+import { PartsDiffer, renderInParts, usesWorker, workerUse, type WorkerUse } from "./worker/client";
+import type { ChunkMeta } from "./worker/protocol";
+
+export { EncoderFailure, ENCODER_STALL_MS, encoderRoom, LocalExportUnavailable, NeedsPage, PROGRESS_EVERY_MS, progressDue } from "./encoding";
 
 /**
  * The export made in this browser (WebCodecs): every frame is drawn by the
@@ -58,11 +64,6 @@ export interface LocalExportResult {
   blob?: Blob;
   blobUrl?: string;
 }
-
-/** The browser couldn't read a file or a frame: the server export makes it instead. */
-export class LocalExportUnavailable extends Error {}
-/** An encoder stopped (a graphics driver's encoder often does): made again in software, then on the server. */
-export class EncoderFailure extends LocalExportUnavailable {}
 
 /** Check if WebCodecs and OfflineAudioContext are supported in the current browser */
 export function isWebCodecsSupported(): boolean {
@@ -193,46 +194,6 @@ export function partLevel(p: AudioPart, off: number, speech: Range[] = []): numb
   const duck = p.duck && inSpeech(speech, t) ? DUCK_LEVEL : 1;
   return soundLevel(p.clip, off, p.len, { t, trIn: p.trIn, trOut: p.trOut, duck });
 }
-
-/** Frames the encoder may hold before the export waits (memory stays flat on long videos). */
-const ENCODER_QUEUE = 4;
-/** …unless it gave nothing back for this long: it may be waiting for more frames first (Safari's does). */
-const ENCODER_LOOKAHEAD_MS = 100;
-/** The most frames it may hold all the same. */
-const ENCODER_MAX_QUEUE = 32;
-/** An encoder that gave nothing back for this long has stopped: made again in software, then on the server. */
-export const ENCODER_STALL_MS = 30_000;
-/** One that never gave anything back, with its queue full, has stopped after this long. */
-const ENCODER_FIRST_OUTPUT_MS = 3_000;
-
-/**
- * Whether the next frame can go to the encoder: "go", "wait" (a moment, for the queue to drain) or "stalled".
- * `queue`: its encodeQueueSize; `sinceOutput`: ms since it last gave a frame back (or was set up). Safari's
- * encoder keeps a few frames before the first comes back: waiting for its queue to drop to 4 stopped the
- * export at 0% for good.
- */
-export function encoderRoom(queue: number, sinceOutput: number, anyOutput = true): "go" | "wait" | "stalled" {
-  if (queue <= ENCODER_QUEUE) return "go";
-  if (sinceOutput > ENCODER_STALL_MS) return "stalled";
-  if (!anyOutput && queue >= ENCODER_MAX_QUEUE && sinceOutput > ENCODER_FIRST_OUTPUT_MS) return "stalled";
-  return queue <= ENCODER_MAX_QUEUE && sinceOutput >= ENCODER_LOOKAHEAD_MS ? "go" : "wait";
-}
-
-/** An encoder's flush, given up (as a stopped encoder) when it doesn't end. */
-function flushed(encoder: { flush(): Promise<void> }, what: string): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  return Promise.race([
-    encoder.flush().finally(() => clearTimeout(timer)),
-    new Promise<never>((_, reject) => {
-      timer = setTimeout(() => reject(new EncoderFailure(`The ${what} encoder didn't finish.`)), ENCODER_STALL_MS * 2);
-    }),
-  ]);
-}
-
-/** How often the export says how far it is (each update re-renders the editor). */
-export const PROGRESS_EVERY_MS = 250;
-/** Whether to report the progress now: `last` the time of the last report; the last frame always is. */
-export const progressDue = (now: number, last: number, final: boolean) => final || now - last >= PROGRESS_EVERY_MS;
 
 const SAMPLE_RATE = 48000;
 /** The mix is made this many seconds at a time (a long video doesn't need one huge buffer). */
@@ -402,25 +363,60 @@ function outputOf(format: ExportFormat): { kind: FileKind; name: string; mime: s
 
 const aborted = () => new Error("Export canceled.");
 
-/** Where the export is, in the browser's console ("[export] …"): a stop that only happens in one browser shows its place. */
-const trace = (what: string, data?: Record<string, unknown>) => console.info(`[export] ${what}`, data ?? "");
-
 /**
  * Make the export in this browser: each frame drawn like the preview (lib/render/frame) and encoded with
  * WebCodecs; pictures (PNG / JPG) are the frame at the playhead. Nothing is uploaded.
  */
 export async function exportLocally(opts: LocalExportOptions): Promise<LocalExportResult> {
-  try {
-    return await exportOnce(opts, false);
-  } catch (e) {
-    // the hardware encoder failed: once more with the browser's software encoder (still no upload)
-    if (!(e instanceof EncoderFailure) || opts.signal?.aborted) throw e;
-    return await exportOnce(opts, true);
+  const use = workerUse();
+  const mode: ExportMode = { software: false, worker: use !== "off", use, parts: true, inParts: false };
+  for (;;) {
+    try {
+      return await exportOnce(opts, mode);
+    } catch (e) {
+      if (opts.signal?.aborted) throw e;
+      // parts that can't be one file, or hardware encoders that can't run several at once: one Worker
+      if ((e instanceof PartsDiffer || e instanceof EncoderFailure) && mode.inParts) {
+        trace("made in one go instead", { why: e.message });
+        mode.parts = false;
+        mode.inParts = false;
+        continue;
+      }
+      // what the Worker couldn't make: the whole export again on the page (as before the Worker)
+      if (e instanceof NeedsPage && mode.worker) {
+        trace("made on the page instead", { why: e.message });
+        mode.worker = false;
+        continue;
+      }
+      // the hardware encoder failed: once more with the browser's software encoder (still no upload)
+      if (e instanceof EncoderFailure && !mode.software) {
+        mode.software = true;
+        continue;
+      }
+      throw e;
+    }
   }
 }
 
-/** One go at the export; `software`: the encoders the browser has in software (after a hardware one failed). */
-async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<LocalExportResult> {
+/**
+ * Whether the pictures need the page: a reversed clip or a backdrop video is read by seeking a <video>, which a
+ * Worker has none of. (Other files the Worker's decoders can't read stop it on the way: NeedsPage.)
+ */
+export function pageOnly(doc: TimelineDoc, media: Record<string, MediaLite>): boolean {
+  const bd = doc.canvas.backdrop;
+  if (bd?.kind === "media" && media[bd.mediaId]?.kind === "video") return true;
+  return doc.tracks.some((t) => !(t.kind === "overlay" && t.hidden) && t.clips.some((c) => c.type === "video" && !!c.reversed));
+}
+
+/**
+ * How an export is made. `software`: the encoders the browser has in software (after a hardware one failed);
+ * `worker`: the pictures in a Worker; `parts`: a long one in parts at once, one Worker each.
+ */
+type ExportMode = { software: boolean; worker: boolean; use: WorkerUse; parts: boolean; /** this go was made in parts */ inParts: boolean };
+
+/** One go at the export. */
+async function exportOnce(opts: LocalExportOptions, mode: ExportMode): Promise<LocalExportResult> {
+  const { software, worker } = mode;
   const { doc, format, signal } = opts;
   const media = opts.media ?? {};
   const W = opts.size?.width ?? doc.canvas.width;
@@ -467,15 +463,9 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
   };
   opts.onProgress?.(job);
 
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d", { alpha: true });
-  if (!ctx) throw new Error("This browser can't draw the video.");
-  const cache = createFrameCache();
   const videos = new FrameVideos(F);
   // (MP4 / MOV clips read in order with WebCodecs; the rest, and reversed clips, seek a <video>)
-  const decoders = new ClipDecoders();
+  const decoders = new ClipDecoders(localFileOf);
   const urls: string[] = [];
 
   try {
@@ -496,41 +486,20 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
     if (signal?.aborted) throw aborted();
     report(0, 60);
     trace("pictures ready", { pictures: pics.size });
-    const bd = doc.canvas.backdrop;
-    const bdVideoId = bd?.kind === "media" && media[bd.mediaId]?.kind === "video" ? bd.mediaId : null;
-    const bdDuration = bdVideoId ? media[bdVideoId]?.duration || 0 : 0;
-
-    /** Seek every video on screen at time t to its frame, then draw the frame. */
-    const drawAt = async (t: number) => {
-      const shown = new Map<string, VideoPicture>();
-      const visible = layersAt(doc, t).filter((l) => l.clip.type === "video");
-      await Promise.all(
-        visible.map(async (l) => {
-          const c = l.clip as VideoClip;
-          const off = Math.max(0, t - l.start) + 0.5 / F;
-          const sp = c.speed ?? 1;
-          // (the middle of the frame, so a seek never lands on the frame before)
-          const srcT = c.reversed ? Math.max(c.in, c.out - off * sp) : Math.min(c.out - 1e-3, c.in + off * sp);
-          const decoded = c.reversed ? null : await decoders.frame(c.id, c.mediaId, srcT);
-          shown.set(c.id, decoded ?? (await videos.frame(c.id, fileUrl(c.mediaId), srcT)));
-        }),
-      );
-      let backdrop: HTMLVideoElement | null = null;
-      if (bdVideoId) backdrop = await videos.frame("backdrop", fileUrl(bdVideoId), bdDuration > 0 ? (t + 0.5 / F) % bdDuration : 0);
-      videos.keepOnly(new Set([...shown.keys(), "backdrop"]));
-      decoders.keepOnly(new Set(shown.keys()));
-      const src: FrameSources = {
+    /** The frames drawn on the page: a clip the decoders can't read seeks a <video>. */
+    const pageDrawer = () =>
+      frameDrawer({
+        doc,
         media,
-        video: (c) => {
-          const el = shown.get(c.id);
-          return el ? { el, packed: false } : null;
-        },
-        image: (id) => pics.get(id) ?? null,
-        backdropVideo: () => backdrop,
+        width: W,
+        height: H,
+        fps: F,
+        pictures: pics,
         live: (c) => opts.liveOf?.(c) ?? null,
-      };
-      drawFrame(ctx, doc, t, src, cache);
-    };
+        decoders,
+        seek: (key, mediaId, time) => videos.frame(key, fileUrl(mediaId), time),
+        keepOnly: (keys) => videos.keepOnly(keys),
+      });
 
     report(0, 100, "done");
     steps[1].state = "running";
@@ -538,8 +507,9 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
     // 2. a picture: the frame at the playhead
     if (still) {
       const at = Math.min(Math.max(0, opts.at ?? 0), Math.max(0, D - 1 / F));
-      await drawAt(at);
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, out.mime, 0.92));
+      const draw = pageDrawer();
+      await draw.drawAt(at);
+      const blob = await canvasBlob(draw.canvas, out.mime, 0.92);
       if (!blob) throw new Error("Couldn't make the picture.");
       const url = URL.createObjectURL(blob);
       job.files = [{ kind: out.kind, name: out.name, size: blob.size, mime: out.mime, blobUrl: url } as JobFile];
@@ -692,71 +662,51 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
       if (software) throw new LocalExportUnavailable("This browser has no software encoder for this video.");
       videoConfig.hardwareAcceleration = "no-preference";
     }
-    let lastOutput = Date.now();
-    let outputs = 0;
-    let lastReport = -Infinity;
-    const videoEncoder = new VideoEncoder({
-      output: (chunk, meta) => {
-        lastOutput = Date.now();
-        if (++outputs === 1) trace("first frame back from the encoder", { type: chunk.type, bytes: chunk.byteLength, description: !!meta?.decoderConfig?.description });
-        muxer.addVideoChunk(chunk, meta);
-      },
-      error: fail,
-    });
-    try {
-      videoEncoder.configure(videoConfig);
-      trace("video encoder", { codec: videoConfig.codec, hardware: videoConfig.hardwareAcceleration, bitrate: videoConfig.bitrate });
-    } catch (e) {
-      throw new EncoderFailure(`The video encoder couldn't start: ${e instanceof Error ? e.message : String(e)}`);
-    }
-
-    // 5. every frame, drawn like the preview
-    const gop = Math.max(1, Math.round(F * 2));
-    let poster: Blob | null = null;
+    // 5. every frame, drawn like the preview: in a Worker (the editor stays free), else on the page
     const sound = encodeSound().catch((e: unknown) => {
-      // (the picture loop stops at its next frame; awaited before the file is finished)
+      // (the pictures stop at their next frame; awaited before the file is finished)
       failure ??= e instanceof Error ? e : new Error(String(e));
       throw failure;
     });
     sound.catch(() => undefined);
+    const stop = () => (signal?.aborted ? aborted() : failure);
+    const onProgress = (done: number) => report(1, (done / totalFrames) * 100);
+    const frameParts = splitFrames(totalFrames, Math.max(1, Math.round(F * 2)), mode.parts ? partCount(totalFrames, F, navigator.hardwareConcurrency, ((videoConfig.bitrate ?? 0) * D) / 8) : 1);
+    const inWorker = worker && !pageOnly(doc, media) && usesWorker(mode.use, frameParts.length);
+    mode.inParts = inWorker && frameParts.length > 1;
+    let poster: Blob | null = null;
     try {
-      for (let i = 0; i < totalFrames; i++) {
-        if (signal?.aborted) throw aborted();
-        if (failure) throw failure;
-        const t = i / F;
-        await drawAt(t);
-        const frame = new VideoFrame(canvas, { timestamp: Math.round(t * 1_000_000), duration: Math.round(1_000_000 / F) });
-        videoEncoder.encode(frame, { keyFrame: i % gop === 0 });
-        frame.close();
-        if (i === 0) poster = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-        // keep the encoder's queue short (memory stays flat on long videos), but never wait on an encoder
-        // that is waiting for more frames itself (Safari's)
-        for (;;) {
-          const room = encoderRoom(videoEncoder.encodeQueueSize, Date.now() - lastOutput, outputs > 0);
-          if (room === "go") break;
-          if (room === "stalled") {
-            trace("encoder stalled", { frame: i, queue: videoEncoder.encodeQueueSize, outputs, codec: videoConfig.codec, hardware: videoConfig.hardwareAcceleration });
-            throw new EncoderFailure("The video encoder stopped giving frames back.");
+      if (inWorker) {
+        // (decoded here: an <img> reads every kind of picture, a Worker can't decode an SVG)
+        const picturesFor = async () => {
+          const out: Record<string, ImageBitmap> = {};
+          for (const [id, img] of pics) out[id] = await createImageBitmap(img);
+          return out;
+        };
+        const files: Record<string, Blob> = {};
+        const live: Record<string, LiveKeyParams | null> = {};
+        for (const t of doc.tracks)
+          for (const c of t.clips) {
+            if (c.type !== "video") continue;
+            live[c.id] = opts.liveOf?.(c) ?? null;
+            if (!(c.mediaId in files)) {
+              const f = await localFileOf(c.mediaId);
+              if (f) files[c.mediaId] = f;
+            }
           }
-          if (failure) throw failure;
-          await new Promise((r) => setTimeout(r, 4));
-        }
-        const now = performance.now();
-        if (progressDue(now, lastReport, i === totalFrames - 1)) {
-          lastReport = now;
-          report(1, ((i + 1) / totalFrames) * 100);
-        }
-        if (i < 3 || i % 60 === 0) trace("frame", { frame: i, queue: videoEncoder.encodeQueueSize, back: outputs });
+        const addRaw = (data: Uint8Array, key: boolean, ts: number, dur: number, meta?: ChunkMeta) => {
+          const m = meta as EncodedVideoChunkMetadata | undefined;
+          if (isWebm) (muxer as WebmMuxer<WebmArrayBufferTarget>).addVideoChunkRaw(data, key ? "key" : "delta", ts, m);
+          else (muxer as Mp4Muxer<Mp4ArrayBufferTarget>).addVideoChunkRaw(data, key ? "key" : "delta", ts, dur, m);
+        };
+        trace("pictures made in a worker", { parts: frameParts.length });
+        ({ poster } = await renderInParts({ doc, media, width: W, height: H, fps: F, config: videoConfig, files, live }, frameParts, picturesFor, { onChunk: addRaw, onProgress, onTrace: trace, stop, signal }));
+      } else {
+        ({ poster } = await renderVideo({ draw: pageDrawer(), fps: F, from: 0, to: totalFrames, config: videoConfig, onChunk: (chunk, meta) => muxer.addVideoChunk(chunk, meta), onProgress, poster: true, stop }));
       }
-      trace("all frames sent: flushing", { queue: videoEncoder.encodeQueueSize, back: outputs });
-      await flushed(videoEncoder, "video");
-      trace("video encoded", { back: outputs });
-      if (failure) throw failure;
     } catch (e) {
       stopped = true;
       throw e;
-    } finally {
-      if (videoEncoder.state !== "closed") videoEncoder.close();
     }
     await sound;
     report(1, 100, "done");
@@ -789,8 +739,9 @@ async function exportOnce(opts: LocalExportOptions, software: boolean): Promise<
   } catch (err) {
     trace("stopped", { error: err instanceof Error ? `${err.name}: ${err.message}` : String(err), software });
     for (const u of urls) URL.revokeObjectURL(u);
-    // (the hardware encoder failed: exportLocally makes it again in software, nothing failed yet)
-    if (err instanceof EncoderFailure && !software) throw err;
+    // (the hardware encoder failed: exportLocally makes it again in software; what the Worker couldn't make:
+    // again on the page; nothing failed yet)
+    if ((err instanceof EncoderFailure && !software) || err instanceof NeedsPage) throw err;
     job.state = "failed";
     job.error = err instanceof Error ? err.message : "Export failed";
     opts.onProgress?.({ ...job, steps: [...steps] });

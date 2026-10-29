@@ -1,5 +1,4 @@
 import { createFile, DataStream, Endianness, MP4BoxBuffer, type ISOFile, type Movie, type Track } from "mp4box";
-import { localFileOf } from "../media/localMedia";
 
 /**
  * The browser export's frames read with WebCodecs (VideoDecoder): an MP4 / MOV file's video samples are
@@ -156,9 +155,12 @@ const isTurned = (m: ArrayLike<number>) => m[0] !== 65536 || m[1] !== 0 || m[3] 
 /** A file the decoder can read: where to read it, its samples, and the decoder setup. */
 type Source = { bytes: ByteSource; index: SampleIndex; config: VideoDecoderConfig };
 
-async function openSource(mediaId: string): Promise<Source | null> {
+/** A file kept on this computer, by its upload id (null: read the server's copy). */
+export type FileOf = (mediaId: string) => Promise<Blob | null>;
+
+async function openSource(mediaId: string, fileOf: FileOf): Promise<Source | null> {
   if (typeof VideoDecoder === "undefined") return null;
-  const local = await localFileOf(mediaId);
+  const local = await fileOf(mediaId);
   const bytes = local ? await blobSource(local) : await urlSource(`/api/videos/${mediaId}/source`);
   if (!bytes) return null;
   const parsed = await parseMovie(bytes);
@@ -329,10 +331,16 @@ export class ClipDecoders {
   private mediaOf = new Map<ClipDecoder, string>();
   private failed = new Set<string>();
 
+  /**
+   * `fileOf`: where this computer's copies are (the page's own, lib/media/localMedia; in a Worker, the files
+   * the page sent: that module is the page's, the Worker doesn't load it).
+   */
+  constructor(private fileOf: FileOf) {}
+
   private source(mediaId: string): Promise<Source | null> {
     let s = this.sources.get(mediaId);
     if (!s) {
-      s = openSource(mediaId).catch(() => null);
+      s = openSource(mediaId, this.fileOf).catch(() => null);
       this.sources.set(mediaId, s);
     }
     return s;

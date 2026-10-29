@@ -1,3 +1,5 @@
+import { fontSet } from "../render/surface";
+
 /**
  * Fonts of text and elements: the five built-in looks (the computer's own fonts), the whole Google Fonts
  * library ("gf:<Family>", loaded from Google when a project uses it) and your own fonts (Brand Kit,
@@ -140,15 +142,52 @@ function addSheet(family: string): Promise<void> {
   return p;
 }
 
+/** One @font-face of a Google Fonts stylesheet: its file and descriptors. */
+export type FaceRule = { family: string; url: string; style: string; weight: string; unicodeRange?: string };
+
+/** The @font-face rules of a stylesheet (Google's: one per style and script, each with its letters' range). */
+export function parseFontFaces(css: string): FaceRule[] {
+  const out: FaceRule[] = [];
+  for (const m of css.matchAll(/@font-face\s*{([^}]*)}/g)) {
+    const body = m[1];
+    const prop = (name: string) => new RegExp(`${name}\\s*:\\s*([^;]+);`).exec(body)?.[1].trim();
+    const family = prop("font-family")?.replace(/^['"]|['"]$/g, "");
+    const url = /src\s*:[^;]*?url\(\s*['"]?([^'")]+)['"]?\s*\)/.exec(body)?.[1];
+    if (!family || !url) continue;
+    const range = prop("unicode-range");
+    out.push({ family, url, style: prop("font-style") ?? "normal", weight: prop("font-weight") ?? "400", ...(range ? { unicodeRange: range } : {}) });
+  }
+  return out;
+}
+
+const workerSheets = new Map<string, Promise<void>>();
+/**
+ * A Google family in a Worker (the export draws there, lib/export/worker): no <link> can be added, so its
+ * stylesheet is read and each face added to the Worker's fonts. Only the faces a text needs are downloaded,
+ * by their letters, as on the page.
+ */
+function addFaces(family: string, set: FontFaceSet): Promise<void> {
+  let p = workerSheets.get(family);
+  if (!p) {
+    p = (async () => {
+      const css = await fetch(cssUrlFor(family, await catalogEntry(family))).then((r) => (r.ok ? r.text() : ""), () => "");
+      for (const f of parseFontFaces(css)) set.add(new FontFace(f.family, `url(${f.url})`, { style: f.style, weight: f.weight, ...(f.unicodeRange ? { unicodeRange: f.unicodeRange } : {}) }));
+    })();
+    workerSheets.set(family, p);
+  }
+  return p;
+}
+
 const brandFaces = new Set<string>();
 /** Load a Brand Kit font into the page (FontFace from /api/brand/fonts/<id>). */
 export async function ensureBrandFont(id: string): Promise<boolean> {
   if (brandFaces.has(id)) return true;
-  if (typeof FontFace === "undefined" || typeof document === "undefined") return false;
+  const set = fontSet();
+  if (typeof FontFace === "undefined" || !set) return false;
   try {
     const face = new FontFace(brandFamily(id), `url(/api/brand/fonts/${id})`);
     await face.load();
-    document.fonts.add(face);
+    set.add(face);
     brandFaces.add(id);
     return true;
   } catch {
@@ -163,11 +202,13 @@ const withTimeout = <T,>(p: Promise<T>, ms: number) => Promise.race([p, new Prom
  * of a Google font). Never waits more than a few seconds: without the network the text uses Sans.
  */
 export async function ensureFont(font: string, o: { bold?: boolean; italic?: boolean } = {}, text = ""): Promise<void> {
-  if (typeof document === "undefined" || !document.fonts) return;
+  const set = fontSet();
+  if (!set) return;
   if (font.startsWith("brand:")) await ensureBrandFont(font.slice(6));
-  else if (isGoogleFont(font)) await withTimeout(addSheet(font.slice(3)), 8000);
+  // (a Worker has no document: the stylesheet's faces are added one by one)
+  else if (isGoogleFont(font)) await withTimeout(typeof document !== "undefined" ? addSheet(font.slice(3)) : addFaces(font.slice(3), set), 8000);
   else return;
-  await withTimeout(document.fonts.load(fontCssOf(font, 32, !!o.bold, !!o.italic), text || "AaBb").catch(() => undefined), 8000);
+  await withTimeout(set.load(fontCssOf(font, 32, !!o.bold, !!o.italic), text || "AaBb").catch(() => undefined), 8000);
 }
 
 /** One font a timeline uses: which face, and the letters drawn with it. */
@@ -202,9 +243,12 @@ export function fontNeeds(doc: { tracks: { clips: unknown[] }[] }): FontNeed[] {
 
 /** Load every font a timeline uses (before drawing it for an export; the preview redraws when fonts arrive). */
 export async function ensureDocFonts(doc: { tracks: { clips: unknown[] }[] }): Promise<void> {
-  if (typeof document === "undefined" || !document.fonts) return;
-  await Promise.all(fontNeeds(doc).map((n) => ensureFont(n.font, n, n.text)));
-  await withTimeout(document.fonts.ready.then(() => undefined), 8000);
+  const set = fontSet();
+  const needs = fontNeeds(doc);
+  if (!set || !needs.length) return;
+  await Promise.all(needs.map((n) => ensureFont(n.font, n, n.text)));
+  // (a Worker's set may never say it's ready; each face's load above already waited for it)
+  if (typeof document !== "undefined") await withTimeout(set.ready.then(() => undefined), 8000);
 }
 
 // ---------- the font list's previews ----------

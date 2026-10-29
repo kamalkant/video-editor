@@ -10,6 +10,8 @@
 // --format         mp4 | webm
 // --save out.mp4   keep the result
 // --profile        sample the CPU for 15 s from 8 s in
+// --worker on|off  the export's Worker switch (lib/export/worker/client): off, the pictures on the page; on, in
+//                  a Worker whenever it can; default: the editor's own choice
 //
 // Measure a production build (next build && next start): a dev build spends much of the time in React.
 
@@ -30,6 +32,7 @@ const { values: o } = parseArgs({
     format: { type: "string", default: "mp4" },
     save: { type: "string" },
     profile: { type: "boolean", default: false },
+    worker: { type: "string", default: "auto" },
   },
 });
 if (!o.session) throw new Error("Give a signed-in session: --session <viplay_session cookie> (or VIPLAY_SESSION).");
@@ -53,6 +56,10 @@ if (!existsSync(file)) throw new Error(`No file ${file}`);
 const ctx = await chromium.launchPersistentContext(join(work, "profile"), { viewport: { width: 1600, height: 1000 } });
 const origin = new URL(o.url);
 await ctx.addCookies([{ name: "viplay_session", value: o.session, domain: origin.hostname, path: "/" }]);
+await ctx.addInitScript((use) => {
+  if (use === "on" || use === "off") localStorage.setItem("viplay.exportWorker", use);
+  else localStorage.removeItem("viplay.exportWorker");
+}, o.worker);
 const page = await ctx.newPage();
 let t0 = 0;
 const stages = [];
@@ -90,6 +97,17 @@ try {
   await page.getByRole("menuitem", { name: /All formats/ }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByTestId("export-formats").getByRole("radio", { name: o.format === "webm" ? "WebM (VP9)" : "MP4 (H.264)" }).check();
+  // (how long the editor couldn't answer a click during the export: its tasks over 50 ms, summed)
+  await page.evaluate(() => {
+    const w = window;
+    w.__busy = { ms: 0, count: 0 };
+    new PerformanceObserver((l) => {
+      for (const e of l.getEntries()) {
+        w.__busy.ms += e.duration;
+        w.__busy.count++;
+      }
+    }).observe({ type: "longtask", buffered: false });
+  });
   t0 = Date.now();
   const cdp = await ctx.newCDPSession(page);
   await dialog.getByRole("button", { name: /^Make / }).click();
@@ -109,7 +127,8 @@ try {
   }
   const seconds = await finished;
   const href = await link.getAttribute("href");
-  console.log(JSON.stringify({ file: file.split("/").pop(), format: o.format, seconds, via: href?.startsWith("blob:") ? "browser" : "server", net }));
+  const busy = await page.evaluate(() => window.__busy);
+  console.log(JSON.stringify({ file: file.split("/").pop(), format: o.format, worker: o.worker, seconds, via: href?.startsWith("blob:") ? "browser" : "server", editorBusyMs: Math.round(busy.ms), longTasks: busy.count, net }));
   console.log(stages.join("\n"));
   if (profile) console.log(`cpu: ${cpuSplit(profile)}`);
   if (o.save && href) {

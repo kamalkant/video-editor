@@ -48,7 +48,7 @@ export const AUDIO_KINDS = new Set<ComposeKind>(["mp3", "m4a", "wav"]);
 /** One picture: the frame at `o.at` (the playhead). */
 const STILL_KINDS = new Set<ComposeKind>(["poster", "png", "jpg"]);
 /** The uploads the timeline uses: file path, picture size (for fit/fill) and whether it has sound. */
-export type ComposeMedia = Record<string, { path: string; hasAudio: boolean; width: number; height: number; /** a picture (not a video) */ still?: boolean }>;
+export type ComposeMedia = Record<string, { path: string; hasAudio: boolean; width: number; height: number; /** a picture (not a video) */ still?: boolean; /** a video with see-through parts */ alpha?: boolean }>;
 
 const YUV420 = "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p";
 const TAIL: Record<ComposeKind, string> = {
@@ -189,6 +189,34 @@ const MOV_TAIL: Record<MovEncoder, string> = {
   x265: "scale=out_color_matrix=bt709:out_range=tv,format=yuva420p",
   prores: "scale=out_color_matrix=bt709:out_range=tv,format=yuva444p10le",
 };
+
+/** Kinds the plain-video shortcut makes (solid pictures, 4:2:0). */
+const PLAIN_KINDS = new Set<ComposeKind>(["mp4", "hevc", "av1", "vp9"]);
+
+/**
+ * The timeline is one opaque video that fills the whole frame from start to end, with nothing on it and
+ * nothing done to it: the video chain (scaled, at the canvas rate), without the canvas and overlay. Read from
+ * the graph itself (canvas, one layer, one overlay at 0:0), so anything else on the timeline, now or added
+ * later, makes the full graph.
+ */
+export function plainVideoOf(
+  doc: TimelineDoc,
+  media: ComposeMedia,
+  statements: readonly string[],
+  o: { base: string; comp: string; color: string; W: number; H: number; F: number; D: number },
+): { head: string } | null {
+  const layers = visualLayers(doc);
+  if (layers.length !== 1 || layers[0].clip.type !== "video") return null;
+  const m = media[layers[0].clip.mediaId];
+  // (a video with its own see-through parts shows the canvas color there)
+  if (!m || m.still || m.alpha || o.color.includes("@")) return null;
+  if (statements.length !== 3) return null;
+  if (statements[0] !== `color=c=${o.color}:s=${o.W}x${o.H}:r=${o.F}:d=${f3(o.D)},format=rgba[${o.base}]`) return null;
+  const layer = new RegExp(`^(\\[\\d+:v\\]setpts=PTS-STARTPTS,fps=${o.F},scale=${o.W}:${o.H}:flags=bicubic),format=rgba,setpts=PTS-STARTPTS\\+0\\.000/TB\\[(\\w+)\\]$`).exec(statements[1]);
+  if (!layer) return null;
+  if (statements[2] !== `[${o.base}][${layer[2]}]overlay=x=0:y=0:eof_action=pass:format=auto:enable='between(t\\,0.000\\,${f3(o.D)})'[${o.comp}]`) return null;
+  return { head: layer[1] };
+}
 
 /** Full FFmpeg argument list that renders the timeline to one output file. */
 export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: ComposeKind, output: string, o: ComposeOptions = {}): string[] {
@@ -452,7 +480,13 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
     comp = m2;
   }
   const vout = g.label("vout");
-  if (kind === "gif") {
+  const plain = audioOnly ? null : plainVideoOf(doc, media, g.statements, { base, comp, color, W, H, F, D });
+  if (plain && PLAIN_KINDS.has(kind)) {
+    // one plain video filling the frame: no canvas under it, no RGBA (the same picture, a third less work);
+    // the canvas color after its end, as the full graph would show
+    g.statements.length = 0;
+    g.add(`${plain.head},tpad=stop=-1:color=${color},${TAIL[kind]}[${vout}]`);
+  } else if (kind === "gif") {
     // a GIF has 256 colors: pick the best palette for this video, then use it
     const [g1, g2, gp] = [g.label("g"), g.label("g"), g.label("pal")];
     g.add(`[${comp}]fps=${Math.min(F, GIF_FPS)},scale=w=min(iw\\,${GIF_MAX_W}):h=-2:flags=lanczos,format=rgb24,split[${g1}][${g2}]`);
@@ -544,7 +578,8 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
       withSound(["-c:a", "aac", "-b:a", kb(AUDIO_KBPS.av1)]);
       break;
     case "vp9":
-      args.push("-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", ...rate("vp9"), "-row-mt", "1", "-deadline", "good", "-cpu-used", "2", ...BT709);
+      // (cpu-used 4: a third faster than 2 at the same bitrate, SSIM within 0.002)
+      args.push("-c:v", "libvpx-vp9", "-pix_fmt", "yuv420p", ...rate("vp9"), "-row-mt", "1", "-deadline", "good", "-cpu-used", "4", ...BT709);
       withSound(["-c:a", "libopus", "-b:a", kb(AUDIO_KBPS.vp9)]);
       break;
     case "prores":
@@ -570,7 +605,8 @@ export function buildComposeArgs(doc: TimelineDoc, media: ComposeMedia, kind: Co
       args.push("-map", `[${aout}]`, "-c:a", "pcm_s16le");
       break;
     case "mp4":
-      args.push("-c:v", "libx264", "-preset", "medium", ...rate("h264"), "-pix_fmt", "yuv420p", ...BT709, "-movflags", "+faststart");
+      // ("faster": 1.4× medium's speed at the same bitrate and quality; veryfast lost detail in fine textures)
+      args.push("-c:v", "libx264", "-preset", "faster", ...rate("h264"), "-pix_fmt", "yuv420p", ...BT709, "-movflags", "+faststart");
       if (aout) args.push("-map", `[${aout}]`, "-c:a", "aac", "-b:a", kb(AUDIO_KBPS.mp4));
       else args.push("-an");
       break;

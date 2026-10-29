@@ -563,6 +563,7 @@ function composeMediaOf(
         width: m.info.width,
         height: m.info.height,
         still: m.kind === "image",
+        alpha: !!m.info.alpha,
       },
     ]),
   );

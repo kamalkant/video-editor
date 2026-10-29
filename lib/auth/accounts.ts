@@ -1,4 +1,4 @@
-import { accountsUrlFor, STUDIO_URL } from "@/lib/apps";
+import { ACCOUNTS_URL, STUDIO_URL } from "@/lib/apps";
 import { safeNextPath } from "@/lib/auth/redirect";
 import { ssoUrl } from "@/lib/auth/sso";
 
@@ -18,7 +18,7 @@ export function accountsRedirect(page: "login" | "signup", request: Request): Re
   const params = new URLSearchParams(incoming);
   const host = requestHost(request);
   params.set("next", `${appOrigin(host)}${safeNextPath(incoming.get("next"), "/editor")}`);
-  return Response.redirect(`${accountsUrlFor(host)}/${page}?${params}`, 307);
+  return Response.redirect(`${ACCOUNTS_URL}/${page}?${params}`, 307);
 }
 
 /** The host the browser asked for (behind the hosting's proxy: X-Forwarded-Host). */

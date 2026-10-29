@@ -113,18 +113,3 @@ describe("/api/auth/me for the other apps", () => {
     }
   });
 });
-
-describe("test copies keep their own sign-in", () => {
-  it("SESSION_COOKIE_NAME renames the cookie (dev.viplay.in must not replace the real sign-in)", async () => {
-    vi.resetModules();
-    process.env.SESSION_COOKIE_NAME = "viplay_dev_session";
-    try {
-      const mod = await import("@/lib/auth/sessionCookie");
-      expect(mod.SESSION_COOKIE_NAME).toBe("viplay_dev_session");
-      expect(mod.sessionTokenFrom({ get: (n: string) => (n === "viplay_dev_session" ? { value: "dev" } : n === "viplay_session" ? { value: "real" } : undefined) })).toBe("dev");
-    } finally {
-      delete process.env.SESSION_COOKIE_NAME;
-      vi.resetModules();
-    }
-  });
-});

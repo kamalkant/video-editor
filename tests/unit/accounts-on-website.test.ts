@@ -15,28 +15,20 @@ describe("accounts are on the website (one sign-in for every ViPlay app)", () =>
     const res = login(new Request("https://video.viplay.in/login?next=%2Feditor%3Ftemplate%3Dworld-news-globe"));
     expect(res.status).toBe(307);
     const to = new URL(res.headers.get("location")!);
-    expect(to.origin + to.pathname).toBe("https://stage.viplay.in/login");
+    expect(to.origin + to.pathname).toBe("https://viplay.in/login");
     expect(to.searchParams.get("next")).toBe("https://video.viplay.in/editor?template=world-news-globe");
   });
 
-  it("comes back to the address it was opened at, whatever NEXT_PUBLIC_APP_URL says (dev-video sent people to localhost)", () => {
+  it("comes back to the address it was opened at, whatever NEXT_PUBLIC_APP_URL says (it sent people to localhost)", () => {
     process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
-    const to = new URL(login(new Request("http://localhost:3000/login?next=%2Feditor", { headers: { "x-forwarded-host": "dev-video.viplay.in", "x-forwarded-proto": "https" } })).headers.get("location")!);
-    expect(to.searchParams.get("next")).toBe("https://dev-video.viplay.in/editor");
+    const to = new URL(login(new Request("http://localhost:3000/login?next=%2Feditor", { headers: { "x-forwarded-host": "video.viplay.in", "x-forwarded-proto": "https" } })).headers.get("location")!);
+    expect(to.searchParams.get("next")).toBe("https://video.viplay.in/editor");
     // (the Host header, when there's no proxy header)
     const direct = new URL(login(new Request("http://x/login", { headers: { host: "video.viplay.in" } })).headers.get("location")!);
     expect(direct.searchParams.get("next")).toBe("https://video.viplay.in/editor");
     // (a host off the ViPlay domain is never trusted: the configured address)
     const odd = new URL(login(new Request("http://x/login", { headers: { host: "evil.example" } })).headers.get("location")!);
     expect(odd.searchParams.get("next")).toBe("http://localhost:3000/editor");
-  });
-
-  it("a test copy (dev-video.viplay.in) signs in on the website's test copy, which shares its database", () => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://dev-video.viplay.in";
-    const to = new URL(login(new Request("https://dev-video.viplay.in/login", { headers: { host: "dev-video.viplay.in" } })).headers.get("location")!);
-    expect(to.origin + to.pathname).toBe("https://dev.viplay.in/login");
-    const live = new URL(login(new Request("https://video.viplay.in/login", { headers: { host: "video.viplay.in" } })).headers.get("location")!);
-    expect(live.origin).toBe("https://stage.viplay.in");
   });
 
   it("sign-up keeps ?ref=; a ?next= off the studio falls back to the editor", () => {
@@ -51,10 +43,10 @@ describe("accounts are on the website (one sign-in for every ViPlay app)", () =>
     const redirects = await nextConfig.redirects!();
     const to = (source: string) => redirects.find((r) => r.source === source)?.destination;
     expect(to("/")).toBe("/editor");
-    expect(to("/account/:path*")).toBe("https://stage.viplay.in/account/:path*");
-    expect(to("/admin")).toBe("https://stage.viplay.in/admin");
-    expect(to("/reset-password")).toBe("https://stage.viplay.in/reset-password");
-    expect(to("/api/auth/verify-email")).toBe("https://stage.viplay.in/api/auth/verify-email");
+    expect(to("/account/:path*")).toBe("https://viplay.in/account/:path*");
+    expect(to("/admin")).toBe("https://viplay.in/admin");
+    expect(to("/reset-password")).toBe("https://viplay.in/reset-password");
+    expect(to("/api/auth/verify-email")).toBe("https://viplay.in/api/auth/verify-email");
   });
 
   it("search engines skip the studio (the website is the page to find)", () => {

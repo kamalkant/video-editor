@@ -84,10 +84,17 @@ export async function opfsWriteBlob(
           resolved.fileName,
           { create: true },
         );
-        const writable = await fileHandle.createWritable();
-        await writable.write(blob);
-        await writable.close();
-        return subpath;
+        try {
+          // (Safari before 26 has no createWritable: the copy goes to IndexedDB below)
+          const writable = await fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          return subpath;
+        } catch (e) {
+          // the empty (or half-written) file mustn't stay: reading the copy back would find it, not IndexedDB's
+          await resolved.dirHandle.removeEntry(resolved.fileName).catch(() => undefined);
+          throw e;
+        }
       }
     } catch {
       // Fall through to IndexedDB fallback
@@ -124,7 +131,11 @@ export async function opfsReadBlob(
         const fileHandle = await resolved.dirHandle.getFileHandle(
           resolved.fileName,
         );
-        return await fileHandle.getFile();
+        const file = await fileHandle.getFile();
+        // (an empty file next to a copy in IndexedDB: left by a write that failed, before that was cleaned up)
+        if (file.size > 0) return file;
+        const fb = await dbGetFallbackBlob(`${accountCode}:${subpath}`, accountCode).catch(() => null);
+        return fb ?? file;
       }
     } catch {
       // Fall through to check fallback

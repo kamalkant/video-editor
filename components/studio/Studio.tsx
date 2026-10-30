@@ -115,6 +115,7 @@ import {
   persistLocal,
   probeLocal,
   provisionalMeta,
+  findLocalKey,
   releaseLocal,
   releaseLocalExcept,
   restoreLocal,
@@ -2049,7 +2050,10 @@ function StudioInner(props: Props) {
           const id = newUuid();
           // kept on this computer: sent to the server only when a server feature needs it (ensureOnServer)
           addLocal(id, f, probe.kind, probe.poster, "local");
-          onUploaded.current(provisionalMeta(id, f, probe));
+          const meta = provisionalMeta(id, f, probe);
+          onUploaded.current(meta);
+          // (its green screen, found here: the file isn't on the server, which would look for it)
+          findLocalKey(id, meta, probe.poster);
           void persistLocal(id, f, { ...probe, name: f.name });
         },
       );

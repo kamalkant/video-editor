@@ -25,6 +25,8 @@ export type VideoMeta = {
   keyKind: "green" | "blue" | "black" | null;
   /** "frame": the green was found only inside the frame (smoke/powder over the borders): likely an effects clip. */
   keyVia?: "border" | "frame";
+  /** The background is still being looked for (a browser upload doesn't wait for it): ask again for the result. */
+  keyPending?: boolean;
   /** A copy the browser can play, for the preview (the source isn't playable in a browser); see lib/ffmpeg/playable. */
   playable?: "playable.mp4" | "playable.webm";
   /** That copy is being made in the background (a browser upload doesn't wait for it): see whenPlayable. */
@@ -238,23 +240,24 @@ async function describe(id: string, fileName: string | null, userId?: string | n
     keyVia: key?.via,
     ...(playable ? { playable } : {}),
     ...(later ? { playablePending: true } : {}),
+    ...(copyLater && kind === "video" ? { keyPending: true } : {}),
     ...(userId ? { userId } : {}),
   };
   await writeJson(storagePath("videos", id, "meta.json"), meta);
   if (later) void whenPlayable(meta);
   if (copyLater && kind === "video") {
-    void detectKeyColor(sourcePath(id), info).then(async (detected) => {
-      if (!detected) return;
+    // (found or not, the result is written: the editor asks until keyPending is gone)
+    const settle = async (detected: Awaited<ReturnType<typeof detectKeyColor>>) => {
       const now = await getVideo(id);
       if (!now) return;
-      const updated: VideoMeta = {
-        ...now,
-        suggestedKey: detected.kind !== "black" ? detected.hex : null,
-        keyKind: detected.kind,
-        keyVia: detected.via,
-      };
+      const rest: VideoMeta = { ...now };
+      delete rest.keyPending;
+      const updated: VideoMeta = detected
+        ? { ...rest, suggestedKey: detected.kind !== "black" ? detected.hex : null, keyKind: detected.kind, keyVia: detected.via }
+        : rest;
       await writeJson(storagePath("videos", id, "meta.json"), updated).catch(() => undefined);
-    }).catch(() => undefined);
+    };
+    void detectKeyColor(sourcePath(id), info).then(settle, () => settle(null)).catch(() => undefined);
   }
   return meta;
 }

@@ -24,6 +24,7 @@ import { CHUNKED_ABOVE_BYTES, uploadInChunks } from "../api/chunkedUpload";
 import { filmSlots, FILM_H, parseFilmOps } from "../editor/film";
 import { LiveKeyRenderer, type LiveKeyParams } from "../editor/liveKey";
 import { LIMITS } from "../settings";
+import { detectFromFrames, type DetectedKey } from "./keyDetect";
 import { opfsDelete, opfsReadBlob, opfsWriteBlob } from "../storage/opfs";
 
 export type MediaKind = "video" | "image" | "audio";
@@ -768,6 +769,63 @@ function pump() {
   }
 }
 
+/** Backgrounds found in this browser (files kept here aren't on the server, which would look for them). */
+const localKeys = new Map<string, DetectedKey>();
+
+/** The green / blue screen (or black background) in a frame of the file: the same rules as the server's. */
+export async function detectLocalKey(frame: Blob): Promise<DetectedKey | null> {
+  try {
+    const bmp = await createImageBitmap(frame);
+    const W = 160;
+    const H = Math.max(2, Math.round((bmp.height * W) / bmp.width));
+    const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : Object.assign(document.createElement("canvas"), { width: W, height: H });
+    const ctx = canvas.getContext("2d") as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
+    if (!ctx) return null;
+    ctx.drawImage(bmp, 0, 0, W, H);
+    bmp.close();
+    const rgba = ctx.getImageData(0, 0, W, H).data;
+    const buf = new Uint8Array(W * H * 3);
+    for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) {
+      buf[j] = rgba[i];
+      buf[j + 1] = rgba[i + 1];
+      buf[j + 2] = rgba[i + 2];
+    }
+    return detectFromFrames([{ buf, W, H }]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A file just added here: look for its background in its first frame (the poster), and pass the details on
+ * (as an upload does) when one is found, so "Use detected green" and the Cutout tab know it at once.
+ */
+export function findLocalKey(id: string, meta: VideoMeta, poster: Blob | null) {
+  if (meta.kind !== "video" || !poster) return;
+  void detectLocalKey(poster).then((k) => {
+    if (!k || !items.has(id)) return;
+    localKeys.set(id, k);
+    const withKey: VideoMeta = { ...meta, suggestedKey: k.kind !== "black" ? k.hex : null, keyKind: k.kind, keyVia: k.via };
+    uploadedListeners.forEach((l) => l(withKey));
+  });
+}
+
+/** The server's details once its background search is done (a few seconds), or null if it takes too long. */
+export async function whenKeyKnown(id: string, { tries = 30, everyMs = 1000, get = (u: string) => fetch(u, { cache: "no-store" }) } = {}): Promise<VideoMeta | null> {
+  for (let i = 0; i < tries; i++) {
+    await new Promise((r) => setTimeout(r, everyMs));
+    try {
+      const r = await get(`/api/videos/${id}`);
+      if (!r.ok) return null;
+      const m = (await r.json()) as VideoMeta;
+      if (!m.keyPending) return m;
+    } catch {
+      /* the network: try again */
+    }
+  }
+  return null;
+}
+
 /** Progress redraws the editor: at most every 5 percent, or a whole percent after a quarter second. */
 export function progressWorthShowing(prev: number, next: number, sinceMs: number): boolean {
   const a = Math.floor(prev * 100);
@@ -790,7 +848,12 @@ async function send(id: string, attempt: number): Promise<void> {
     });
     update(id, { state: "uploaded", progress: 1, error: null });
     void markUploaded(id);
-    uploadedListeners.forEach((l) => l(meta));
+    // (while the server still looks for the background, keep what this browser found)
+    const k = meta.keyPending ? localKeys.get(id) : undefined;
+    const shown: VideoMeta = k ? { ...meta, suggestedKey: k.kind !== "black" ? k.hex : null, keyKind: k.kind, keyVia: k.via } : meta;
+    uploadedListeners.forEach((l) => l(shown));
+    // the green/blue screen is found after the upload answers: its details again once it's known
+    if (meta.keyPending) void whenKeyKnown(id).then((m) => m && uploadedListeners.forEach((l) => l(m)));
     doneSignal(id).resolve(true);
     whenDone.delete(id);
   } catch (err) {
@@ -1081,6 +1144,7 @@ export function resetLocalMedia() {
   active = 0;
   whenDone.clear();
   uploadedListeners.clear();
+  localKeys.clear();
   failedListeners.clear();
   transport = xhrTransport;
   account = null;

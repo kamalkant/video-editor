@@ -1,6 +1,6 @@
 # ViPlay Studio
 
-The video editor at video.viplay.in. Sign-in, sign-up, account, billing and the admin panel are on the website (`kamalkant/viplay`, stage.viplay.in for now): one sign-in for every *.viplay.in app, and both apps use the same database (`VIPLAY_DATA_DIR`). `/login` and `/signup` send people there and back; `/account`, `/admin` and the other account addresses redirect there. The addresses are in `lib/apps.ts`.
+The video editor at video.viplay.in. Sign-in, sign-up, account, billing and the admin panel are on the website (`kamalkant/viplay`, viplay.in): one sign-in for every *.viplay.in app, and both apps use the same database (`VIPLAY_DATA_DIR`). `/login` and `/signup` send people there and back; `/account`, `/admin` and the other account addresses redirect there. The addresses are in `lib/apps.ts`.
 
 A browser-based video editor for creators: a multi-track timeline, word-by-word captions (21 languages including Hindi and Hinglish), editing by transcript, dubbing, smart audio, social-size exports and transparent web avatars (WebM VP9 alpha + MOV HEVC alpha + embed code). Includes accounts, ₹ plans with Razorpay, a referral program and an admin panel.
 

@@ -8,6 +8,22 @@ async function upload(page: Page, file = "veo.mp4") {
   await page.getByTestId("file-input").setInputFiles(join(FIX, file));
 }
 
+/** The bytes of an export's download link: a browser export is a blob: URL (only the page can read it), a server one an /api URL. */
+async function downloadBytes(page: Page, href: string): Promise<Buffer> {
+  if (!href.startsWith("blob:")) {
+    const res = await page.request.get(href);
+    expect(res.status()).toBe(200);
+    return res.body();
+  }
+  const b64 = await page.evaluate(async (u) => {
+    const bytes = new Uint8Array(await (await fetch(u)).arrayBuffer());
+    let s = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(s);
+  }, href);
+  return Buffer.from(b64, "base64");
+}
+
 /** New clips keep their background: open the color picker (clip view), then use the detected green. */
 async function startPick(page: Page) {
   // (a new clip opens on its Basic tab: the key color is on Cutout)
@@ -1188,12 +1204,11 @@ test("two clips on a colored canvas export as one MP4", async ({ page }) => {
   const href = (await dialog
     .getByRole("link", { name: /Download video \(MP4\)/ })
     .getAttribute("href"))!;
-  const res = await page.request.get(href);
-  expect(res.status()).toBe(200);
+  const body = await downloadBytes(page, href);
   const { writeFileSync } = await import("node:fs");
   const { execFileSync } = await import("node:child_process");
   const file = join(FIX, "export-test.mp4");
-  writeFileSync(file, await res.body());
+  writeFileSync(file, body);
   const d = Number(
     execFileSync("ffprobe", [
       "-v",
@@ -1276,11 +1291,11 @@ test("text: a lower third shows on the preview, moves by dragging, and is in the
   const href = (await dialog
     .getByRole("link", { name: /Download video \(MP4\)/ })
     .getAttribute("href"))!;
-  const res = await page.request.get(href);
+  const body = await downloadBytes(page, href);
   const { writeFileSync } = await import("node:fs");
   const { execFileSync } = await import("node:child_process");
   const file = join(FIX, "export-text.mp4");
-  writeFileSync(file, await res.body());
+  writeFileSync(file, body);
   const px = [
     ...execFileSync("ffmpeg", [
       "-hide_banner",
@@ -1801,11 +1816,11 @@ test("Easy: Replace background with a studio set, and an MP4 at Shorts size", as
   const href = (await dialog
     .getByRole("link", { name: /Download video \(MP4\)/ })
     .getAttribute("href"))!;
-  const res = await page.request.get(href);
+  const body = await downloadBytes(page, href);
   const { writeFileSync } = await import("node:fs");
   const { execFileSync } = await import("node:child_process");
   const file = join(FIX, "export-shorts.mp4");
-  writeFileSync(file, await res.body());
+  writeFileSync(file, body);
   expect(
     execFileSync("ffprobe", [
       "-v",
@@ -2384,7 +2399,7 @@ test("export formats: MP4 is recommended; GIF, MP3 and a PNG picture are real fi
 }) => {
   await page.goto("/");
   await upload(page);
-  await expect(page.getByTestId("remove-found")).toBeVisible({
+  await expect(page.getByTestId("timeline-clip")).toHaveCount(1, {
     timeout: 30_000,
   });
   await page.getByTestId("export-button").click();
@@ -2420,12 +2435,12 @@ test("export formats: MP4 is recommended; GIF, MP3 and a PNG picture are real fi
     await pickFormat(dialog, format);
     await dialog.getByRole("button", { name: button }).click();
     await expect(dialog.getByText(ready)).toBeVisible({ timeout: 120_000 });
-    const res = await page.request.get(
-      (await dialog.getByRole("link", { name: link }).getAttribute("href"))!,
-    );
-    expect(res.headers()["content-type"]).toContain(type);
+    const href = (await dialog.getByRole("link", { name: link }).getAttribute("href"))!;
+    // (a browser export's blob: link carries no content type; the server's does)
+    if (!href.startsWith("blob:"))
+      expect((await page.request.get(href)).headers()["content-type"]).toContain(type);
     expect(
-      (await res.body()).subarray(0, magic.length).toString("latin1"),
+      (await downloadBytes(page, href)).subarray(0, magic.length).toString("latin1"),
     ).toBe(magic);
     await dialog
       .getByRole("button", { name: "Change export settings" })
@@ -2481,13 +2496,15 @@ test("a single see-through file (WebM VP9 + alpha, no MOV) exports without break
   await expect(dialog.getByText("Your video is ready")).toBeVisible({
     timeout: 120_000,
   });
-  const res = await page.request.get(
+  const webm = await downloadBytes(
+    page,
     (await dialog
       .getByRole("link", { name: /Download/ })
       .first()
       .getAttribute("href"))!,
   );
-  expect(res.headers()["content-type"]).toContain("video/webm");
+  // (a WebM starts with the EBML header)
+  expect(webm.subarray(0, 4).toString("hex")).toBe("1a45dfa3");
   // the editor is still there (it used to crash looking for the Safari MOV)
   await dialog.getByRole("button", { name: "Close" }).first().click();
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
@@ -4296,7 +4313,7 @@ test("Elements export: a timeline of only elements makes an MP4 with them in it 
   const { writeFileSync } = await import("node:fs");
   const { execFileSync } = await import("node:child_process");
   const file = join(FIX, "export-elements.mp4");
-  writeFileSync(file, await (await page.request.get(href)).body());
+  writeFileSync(file, await downloadBytes(page, href));
   const px = (t: number, x: number, y: number) => [
     ...execFileSync("ffmpeg", [
       "-hide_banner",
@@ -4500,7 +4517,7 @@ test("Start with a blank on an empty project; its MP4 shows it; New project with
   const { writeFileSync } = await import("node:fs");
   const { execFileSync } = await import("node:child_process");
   const file = join(FIX, "export-blank.mp4");
-  writeFileSync(file, await (await page.request.get(href)).body());
+  writeFileSync(file, await downloadBytes(page, href));
   const px = [
     ...execFileSync("ffmpeg", [
       "-hide_banner",

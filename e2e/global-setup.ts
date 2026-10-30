@@ -24,7 +24,7 @@ export default function globalSetup() {
   // background music for the audio track
   if (!existsSync(join(FIX, "music.m4a"))) execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=f=220:d=6", "-c:a", "aac", join(FIX, "music.m4a")]);
   // solid colors, for checking which clip the program preview shows
-  for (const [name, color, d] of [["red.mp4", "0xE01010", 4], ["yellow.mp4", "0xE0D010", 2]] as const)
+  for (const [name, color, d] of [["red.mp4", "0xE01010", 4], ["yellow.mp4", "0xE0D010", 2], ["blue.mp4", "0x1030E0", 2]] as const)
     if (!existsSync(join(FIX, name)))
       execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", `color=c=${color}:s=640x360:r=24:d=${d}`, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", join(FIX, name)]);
   writeFileSync(join(FIX, "fake.mp4"), "this is not a video\n");

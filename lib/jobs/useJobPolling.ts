@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { jobShape, publishJob } from "../export/liveJob";
 import type { Job } from "./queue";
 
 const TERMINAL = ["done", "failed", "canceled"];
@@ -9,13 +10,23 @@ const TERMINAL = ["done", "failed", "canceled"];
 /** onDone gets `fresh` = true when the job finished while this page watched it (not an old result). */
 export function useJobPolling(jobId: string | null, onDone?: (job: Job, fresh: boolean) => void) {
   const [job, setJob] = useState<Job | null>(null);
-  const [connection, setConnection] = useState<"ok" | "retrying" | "gone">("ok");
+  const [connection, setConnectionState] = useState<"ok" | "retrying" | "gone">("ok");
+  // (only when it changes: the same value set again still re-rendered the editor once on every poll)
+  const conn = useRef<"ok" | "retrying" | "gone">("ok");
+  const setConnection = (c: "ok" | "retrying" | "gone") => {
+    if (conn.current === c) return;
+    conn.current = c;
+    setConnectionState(c);
+  };
   const done = useRef(onDone);
+  /** The job's shape last put in the state (its percent is in lib/export/liveJob). */
+  const shape = useRef("");
   useEffect(() => {
     done.current = onDone;
   });
 
   useEffect(() => {
+    shape.current = "";
     if (!jobId) {
       setJob(null);
       return;
@@ -41,7 +52,13 @@ export function useJobPolling(jobId: string | null, onDone?: (job: Job, fresh: b
         if (!alive) return;
         failures = 0;
         setConnection("ok");
-        setJob(j);
+        // (each poll goes to what shows the percent; the editor re-renders only when the job's shape changes)
+        publishJob(j);
+        const s = jobShape(j);
+        if (s !== shape.current) {
+          shape.current = s;
+          setJob(j);
+        }
         if (TERMINAL.includes(j.state)) {
           if (j.state === "done") done.current?.(j, seenActive);
           return;

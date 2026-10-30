@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ACCOUNTS_URL } from "@/lib/apps";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { featureById } from "@/lib/roadmap";
@@ -195,7 +196,7 @@ export function AiToolsPanel({ onClose, target, onTool, whyNot, onSettings }: { 
               {credits !== null && (
                 <>
                   {" "}
-                  <a href="/account/billing" className={`font-semibold ${credits > 0 ? "text-primary" : "text-red-500"} hover:underline`} title="AI tools use credits unless you add your own key in Settings">
+                  <a href={`${ACCOUNTS_URL}/account/billing`} className={`font-semibold ${credits > 0 ? "text-primary" : "text-red-500"} hover:underline`} title="AI tools use credits unless you add your own key in Settings">
                     {credits} AI credits left
                   </a>
                 </>
@@ -280,7 +281,7 @@ export function AiToolsPanel({ onClose, target, onTool, whyNot, onSettings }: { 
         ))}
         <p className="pb-2 text-xs text-muted">
           Ready tools run on this Mac (free, private), except the ones marked Gemini: they send what you ask for to Google, on your Gemini key. “Soon” tools are planned; “Later” ones need a cloud AI service.{" "}
-          <a href="/roadmap" target="_blank" rel="noreferrer" className="text-link underline">
+          <a href={`${ACCOUNTS_URL}/roadmap`} target="_blank" rel="noreferrer" className="text-link underline">
             See everything that&apos;s coming
           </a>
         </p>

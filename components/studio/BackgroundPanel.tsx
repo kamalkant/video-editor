@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ACCOUNTS_URL } from "@/lib/apps";
 import { Icon } from "@/components/ui/Icon";
 import { uploadVideo } from "@/lib/api/upload";
 import type { VideoMeta } from "@/lib/api/types";
@@ -197,7 +198,7 @@ export function BackgroundPanel(p: {
       )}
       <p className="text-[0.6875rem] text-muted">
         <span className="soon mr-1">Later</span> Generate a background from a description (needs a cloud AI service).{" "}
-        <a href="/roadmap" target="_blank" rel="noreferrer" className="text-link underline">
+        <a href={`${ACCOUNTS_URL}/roadmap`} target="_blank" rel="noreferrer" className="text-link underline">
           See the plan
         </a>
       </p>

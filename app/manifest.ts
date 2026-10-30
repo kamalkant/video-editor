@@ -10,11 +10,9 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#0a0a0c",
     theme_color: "#18181b",
     icons: [
-      {
-        src: "/icon.png",
-        sizes: "192x192 512x512",
-        type: "image/png",
-      },
+      // (each at its real size: Chrome checks)
+      { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/apple-icon.png", sizes: "180x180", type: "image/png" },
     ],
     // PWA File Association for .VDO project files
     file_handlers: [

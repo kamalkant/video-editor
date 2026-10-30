@@ -1,6 +1,7 @@
 "use client";
 
 import { jobProgress } from "@/lib/export/progress";
+import { ACCOUNTS_URL } from "@/lib/apps";
 import Link from "next/link";
 import { useState, type ComponentProps, type ReactElement, type RefObject } from "react";
 import { Icon } from "@/components/ui/Icon";
@@ -162,13 +163,13 @@ export function TopBar(p: {
           Website
         </Link>
         {isAdmin && (
-          <Link
-            href="/admin"
+          <a
+            href={`${ACCOUNTS_URL}/admin`}
             className="px-2 py-0.5 rounded-md text-purple-600 dark:text-purple-400 hover:bg-raised font-semibold text-[11px] transition"
             title="ViPlay Admin Suite"
           >
             Admin
-          </Link>
+          </a>
         )}
       </nav>
       <span aria-hidden="true" className="h-7 w-px bg-line max-sm:hidden" />

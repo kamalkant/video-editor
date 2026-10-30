@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ACCOUNTS_URL } from "@/lib/apps";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Icon } from "@/components/ui/Icon";
@@ -120,53 +121,53 @@ export function UserMenu(p?: { onOpenStorage?: () => void }) {
               </button>
             )}
 
-            <Link
-              href="/account/referrals"
+            <a
+              href={`${ACCOUNTS_URL}/account/referrals`}
               onClick={() => setOpen(false)}
               className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-raised transition-colors"
             >
               <Icon name="star" className="size-3.5 text-amber-500" />
               <span>Referral & Wallet</span>
-            </Link>
+            </a>
 
-            <Link
-              href="/account/billing"
+            <a
+              href={`${ACCOUNTS_URL}/account/billing`}
               onClick={() => setOpen(false)}
               className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-raised transition-colors"
             >
               <Icon name="elements" className="size-3.5 text-purple-400" />
               <span>Billing & Plans</span>
-            </Link>
+            </a>
 
-            <Link
-              href="/manage-devices"
+            <a
+              href={`${ACCOUNTS_URL}/manage-devices`}
               onClick={() => setOpen(false)}
               className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-raised transition-colors"
             >
               <Icon name="monitor" className="size-3.5 text-cyan-500" />
               <span>Connected Devices</span>
-            </Link>
+            </a>
 
             {isAdmin && (
-              <Link
-                href="/admin"
+              <a
+                href={`${ACCOUNTS_URL}/admin`}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-raised transition-colors"
               >
                 <Icon name="brand" className="size-3.5 text-purple-500" />
                 <span>Admin Panel</span>
-              </Link>
+              </a>
             )}
 
             {isAdmin && (
-              <Link
-                href="/admin/features"
+              <a
+                href={`${ACCOUNTS_URL}/admin/features`}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted hover:bg-raised hover:text-ink transition-colors"
               >
                 <Icon name="elements" className="size-3.5 text-emerald-500" />
                 <span>Tools Customization</span>
-              </Link>
+              </a>
             )}
           </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { AREAS, featuresIn, STATUS_LABEL, type Area, type Status } from "@/lib/roadmap";
+import { ACCOUNTS_URL } from "@/lib/apps";
 
 const BADGE: Record<Status, string> = {
   ready: "rounded bg-emerald-500/90 px-1.5 py-px text-[0.625rem] font-semibold text-white",
@@ -52,7 +53,7 @@ export function SoonPanel({ area, actions = {}, hideReady = false }: { area: Are
           </ul>
         </section>
       ))}
-      <a href="/roadmap" target="_blank" rel="noreferrer" className="text-xs text-link underline">
+      <a href={`${ACCOUNTS_URL}/roadmap`} target="_blank" rel="noreferrer" className="text-xs text-link underline">
         See everything that&apos;s coming (a page you can share)
       </a>
     </div>

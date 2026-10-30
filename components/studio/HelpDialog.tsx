@@ -1,6 +1,7 @@
 "use client";
 
 import { Dialog } from "@/components/ui/Dialog";
+import { ACCOUNTS_URL } from "@/lib/apps";
 import { isMac } from "@/lib/editor/platform";
 
 /** Help: how ViPlay Studio works and every keyboard shortcut. */
@@ -101,7 +102,7 @@ export function HelpDialog({ open, onClose }: { open: boolean; onClose: () => vo
           </h3>
           <p className="text-sm">
             Tools marked <span className="soon">Soon</span> are planned.{" "}
-            <a href="/roadmap" target="_blank" rel="noreferrer" className="text-link underline">
+            <a href={`${ACCOUNTS_URL}/roadmap`} target="_blank" rel="noreferrer" className="text-link underline">
               See the whole plan
             </a>{" "}
             (a page you can share).

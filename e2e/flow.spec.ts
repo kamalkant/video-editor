@@ -3005,7 +3005,7 @@ test("Export & Share: the file size shows before exporting, for every format, an
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   const formats = dialog.getByTestId("export-formats");
   // each format card shows its estimated size ("Est. 1.2 MB")
-  const mp4 = formats.locator("label").filter({ has: page.getByRole("radio", { name: /^MP4 \(H\.264\)/ }) });
+  const mp4 = formats.locator("label").filter({ hasText: "MP4 (H.264)" });
   await expect(mp4).toContainText(/Est\. [\d.]+ (KB|MB)/, { timeout: 30_000 });
   await expect(mp4.getByRole("radio")).toBeChecked();
   const bytes = async () => {

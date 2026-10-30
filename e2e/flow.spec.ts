@@ -4830,10 +4830,12 @@ test("polish: more templates (News, YouTube, Social, Business) with elements and
   page,
 }) => {
   await page.goto("/");
+  // (Templates is a panel; Browse all opens the full gallery)
   await page
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Templates", exact: true })
     .click();
+  await page.getByRole("button", { name: "Browse all templates" }).click();
   const g = page.getByTestId("template-hub");
   // the starter templates are in the library's groups
   await g.getByRole("button", { name: "Business", exact: true }).click();

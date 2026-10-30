@@ -143,7 +143,19 @@ export function TransformPanel({
   const flipBtn = "btn btn-secondary min-h-7 flex-1 px-2 text-xs aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:font-medium aria-pressed:text-primary";
 
   return (
-    // (exact numbers are for the few who need them: folded until opened, and remembered; progressive disclosure)
+    <>
+    {/* (flipping is an everyday tool: it stays out of the fold) */}
+    {box && (
+      <div role="group" aria-label="Flip" className="flex gap-1.5">
+        <button type="button" className={flipBtn} aria-pressed={!!t.flipX} onClick={() => onTransform({ flipX: t.flipX ? undefined : true }, g("flip"))}>
+          Flip ↔
+        </button>
+        <button type="button" className={flipBtn} aria-pressed={!!t.flipY} onClick={() => onTransform({ flipY: t.flipY ? undefined : true }, g("flip"))}>
+          Flip ↕
+        </button>
+      </div>
+    )}
+    {/* (exact numbers are for the few who need them: folded until opened, and remembered; progressive disclosure) */}
     <details
       aria-label="Transform"
       data-testid="transform-panel"
@@ -182,14 +194,6 @@ export function TransformPanel({
           <div className={pair}>
             <LabeledSlider label="Skew X" bipolar value={Math.round(t.skewX ?? 0)} min={-60} max={60} step={1} unit={{ short: "°", spoken: "degrees" }} valueText={(v) => (v ? `${v} degrees` : "None")} onChange={(v) => onTransform({ skewX: v || undefined }, g("skewX"))} />
             <LabeledSlider label="Skew Y" bipolar value={Math.round(t.skewY ?? 0)} min={-60} max={60} step={1} unit={{ short: "°", spoken: "degrees" }} valueText={(v) => (v ? `${v} degrees` : "None")} onChange={(v) => onTransform({ skewY: v || undefined }, g("skewY"))} />
-          </div>
-          <div role="group" aria-label="Flip" className="flex gap-1.5">
-            <button type="button" className={flipBtn} aria-pressed={!!t.flipX} onClick={() => onTransform({ flipX: t.flipX ? undefined : true }, g("flip"))}>
-              Flip ↔
-            </button>
-            <button type="button" className={flipBtn} aria-pressed={!!t.flipY} onClick={() => onTransform({ flipY: t.flipY ? undefined : true }, g("flip"))}>
-              Flip ↕
-            </button>
           </div>
         </>
       )}
@@ -233,6 +237,7 @@ export function TransformPanel({
         </label>
       )}
     </details>
+    </>
   );
 }
 

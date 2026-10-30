@@ -2,7 +2,7 @@
 
 import { Icon, type IconName } from "@/components/ui/Icon";
 
-type Action = { label: string; icon: IconName; run: (() => void) | null; tone?: "danger" };
+type Action = { label: string; icon: IconName; run: (() => void) | null; tone?: "danger"; tip?: string };
 
 /**
  * The selected clip's quick actions, floating over the preview (as Clipchamp does): shown only while a clip
@@ -21,17 +21,17 @@ export function FloatingToolbar(p: {
 }) {
   const picture = p.kind === "video" || p.kind === "image";
   const actions: Action[] = [
-    { label: "Split at the playhead (S)", icon: "split", run: p.onSplit },
+    { label: "Split clip", tip: "Split at the playhead (S)", icon: "split", run: p.onSplit },
     ...(picture
       ? ([
-          { label: "Crop", icon: "crop", run: p.onCrop },
+          { label: "Crop clip", tip: "Crop", icon: "crop", run: p.onCrop },
           { label: "Remove background", icon: "background", run: p.onBackground },
-          { label: "Color", icon: "palette", run: p.onColor },
+          { label: "Clip color", tip: "Color", icon: "palette", run: p.onColor },
         ] satisfies Action[])
       : []),
-    ...(p.kind === "video" || p.kind === "audio" ? ([{ label: "Speed", icon: "speed", run: p.onSpeed }] satisfies Action[]) : []),
-    { label: "Duplicate", icon: "copy", run: p.onDuplicate },
-    { label: "Delete", icon: "trash", run: p.onDelete, tone: "danger" },
+    ...(p.kind === "video" || p.kind === "audio" ? ([{ label: "Clip speed", tip: "Speed", icon: "speed", run: p.onSpeed }] satisfies Action[]) : []),
+    { label: "Duplicate clip", tip: "Duplicate", icon: "copy", run: p.onDuplicate },
+    { label: "Delete clip", tip: "Delete", icon: "trash", run: p.onDelete, tone: "danger" },
   ];
   return (
     <div
@@ -48,7 +48,7 @@ export function FloatingToolbar(p: {
           disabled={!a.run}
           onClick={a.run ?? undefined}
           aria-label={a.label}
-          title={a.label}
+          title={a.tip ?? a.label}
           className={`flex size-8 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
             a.tone === "danger" ? "text-muted hover:bg-danger-soft hover:text-danger" : "text-ink hover:bg-hover"
           }`}
@@ -61,6 +61,7 @@ export function FloatingToolbar(p: {
         type="button"
         onClick={p.onSettings}
         className="flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-ink transition-colors hover:bg-hover"
+        aria-label="Clip settings"
         title="All settings for this clip"
       >
         <Icon name="settings" className="size-4" />

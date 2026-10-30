@@ -24,6 +24,16 @@ async function downloadBytes(page: Page, href: string): Promise<Buffer> {
   return Buffer.from(b64, "base64");
 }
 
+/** Open a left panel: from the rail, or (panels that left the rail: Projects, Library, Background, Edit) from Search tools. */
+async function openPanel(page: Page, name: string) {
+  const rail = page.getByRole("navigation", { name: "Panels" }).getByRole("button", { name, exact: true });
+  if (await rail.count()) return rail.click();
+  await page.keyboard.press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Search tools" });
+  await palette.getByRole("combobox", { name: "Search tools" }).fill(`${name} panel`);
+  await palette.getByRole("option", { name: new RegExp(`^${name} panel`) }).first().click();
+}
+
 /** New clips keep their background: open the color picker (clip view), then use the detected green. */
 async function startPick(page: Page) {
   // (a new clip opens on its Basic tab: the key color is on Cutout)
@@ -129,7 +139,7 @@ test.describe.serial("one-screen studio", () => {
     ).toHaveCount(0);
     // nothing selected yet: the inspector shows the project
     await expect(page.getByRole("region", { name: "Project" })).toBeVisible();
-    await page.getByRole("button", { name: "Projects", exact: true }).click();
+    await openPanel(page, "Projects");
     await expect(page.getByTestId("projects-empty")).toContainText(
       "No projects yet",
     );
@@ -835,13 +845,13 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
   ).toHaveValue("0.21");
 
   // New project → empty editor; the old one is in Projects and opens again
-  await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await openPanel(page, "Projects");
   await page.getByRole("button", { name: "New project" }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(
     page.getByRole("heading", { name: "No video loaded" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await openPanel(page, "Projects");
   await page.getByRole("button", { name: "Open News anchor intro" }).click();
   await expect(page).toHaveURL(url);
   await selectFirstVideo(page);
@@ -862,7 +872,7 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
   ).toBeVisible();
 
   // delete the project (the editor empties because it was open)
-  await page.getByRole("button", { name: "Projects", exact: true }).click();
+  await openPanel(page, "Projects");
   page.once("dialog", (d) => void d.accept());
   await page.getByRole("button", { name: "Delete News anchor intro" }).click();
   await expect(
@@ -1649,10 +1659,7 @@ test("AI Tools: every tool is shown; ready ones work on the clip; Text to Speech
 
 test("coming-soon panels and the shareable plan page", async ({ page }) => {
   await page.goto("/");
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Background", exact: true })
-    .click();
+  await openPanel(page, "Background");
   await expect(page.getByTestId("background-panel")).toBeVisible();
   for (const name of ["Audio", "Subtitles", "Brand Kit", "Templates"]) {
     await page
@@ -1776,10 +1783,7 @@ test("Easy: Replace background with a studio set, and an MP4 at Shorts size", as
   await page.goto("/");
   await upload(page);
   await useDetectedGreen(page);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Background", exact: true })
-    .click();
+  await openPanel(page, "Background");
   await page.getByRole("button", { name: "Studio set: Newsroom blue" }).click();
   await page.getByRole("radio", { name: "Program" }).check({ force: true });
   // the corner is the dark-blue studio, not the green screen
@@ -2539,7 +2543,7 @@ test("theme: one top-bar icon steps through Dark, Light and Match my computer; t
     .poll(() =>
       page.evaluate(() => getComputedStyle(document.body).backgroundColor),
     )
-    .toBe("rgb(233, 237, 244)");
+    .toBe("rgb(236, 238, 243)");
   // the preview area follows the theme too (not dark on light)
   await expect
     .poll(() =>
@@ -2549,7 +2553,7 @@ test("theme: one top-bar icon steps through Dark, Light and Match my computer; t
           .trim(),
       ),
     )
-    .toBe("#d5dbe5");
+    .toBe("#d9dce3");
   await page.reload();
   await expect(html).toHaveAttribute("data-theme", "light");
   await expect(btn).toHaveAttribute("aria-label", /^Theme: Light/);
@@ -2561,13 +2565,13 @@ test("theme: one top-bar icon steps through Dark, Light and Match my computer; t
     .poll(() =>
       page.evaluate(() => getComputedStyle(document.body).backgroundColor),
     )
-    .toBe("rgb(7, 11, 23)");
+    .toBe("rgb(8, 9, 11)");
   await page.emulateMedia({ colorScheme: "light" });
   await expect
     .poll(() =>
       page.evaluate(() => getComputedStyle(document.body).backgroundColor),
     )
-    .toBe("rgb(233, 237, 244)");
+    .toBe("rgb(236, 238, 243)");
   // and back to dark (the default)
   await btn.click();
   await expect(html).not.toHaveAttribute("data-theme");
@@ -2593,10 +2597,7 @@ test("Gemini subtitles (pretend Gemini): captions on their own track at the righ
   await expect(
     page.getByTestId("lane-main").getByTestId("timeline-clip"),
   ).toHaveCount(1);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Subtitles", exact: true })
-    .click();
+  await openPanel(page, "Captions");
   const panel = page.getByTestId("subtitles-panel");
   await expect(panel.getByTestId("gemini-note")).toContainText(
     "Sends the sound of this clip",
@@ -2655,10 +2656,7 @@ test("Gemini pictures (pretend Gemini): a background behind everything, a pictur
     page.getByTestId("lane-main").getByTestId("timeline-clip"),
   ).toHaveCount(1);
   // Background panel → Describe a background
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Background", exact: true })
-    .click();
+  await openPanel(page, "Background");
   await page.getByTestId("describe-background").click();
   const dlg = page.getByRole("dialog", { name: /Generate background/ });
   await dlg
@@ -3504,10 +3502,7 @@ test("Edit panel: the editing tools for the selected clip, and its settings", as
   await page.goto("/");
   await upload(page);
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Edit", exact: true })
-    .click();
+  await openPanel(page, "Edit");
   const panel = page.getByTestId("edit-panel");
   await expect(panel).toContainText("Video:");
   await panel.getByRole("button", { name: "Duplicate" }).click();

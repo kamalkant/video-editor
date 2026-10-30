@@ -1603,14 +1603,15 @@ export function Timeline(p: TimelineProps) {
       (f.clip.type === "video" || f.clip.type === "audio") &&
       !!media[f.clip.mediaId]?.hasAudio;
     const picture = f.clip.type === "video" || f.clip.type === "image";
+    // (the clip's settings come last, after its actions, as in other editors)
+    const settings: MenuItem[] = p.onClipSettings
+      ? [
+          "separator",
+          ...(picture ? [{ label: "Remove background…", onSelect: () => p.onClipSettings!(m.id, "background") }] : []),
+          { label: "Clip settings…", onSelect: () => p.onClipSettings!(m.id) },
+        ]
+      : [];
     return [
-      ...(p.onClipSettings
-        ? ([
-            { label: "Clip settings…", onSelect: () => p.onClipSettings!(m.id) },
-            ...(picture ? [{ label: "Remove background…", onSelect: () => p.onClipSettings!(m.id, "background") }] : []),
-            "separator",
-          ] as MenuItem[])
-        : []),
       {
         label: "Split here",
         shortcut: "S",
@@ -1712,6 +1713,7 @@ export function Timeline(p: TimelineProps) {
             },
           ] as MenuItem[])
         : []),
+      ...settings,
     ];
   };
 

@@ -43,7 +43,7 @@
   --color-checker-b: #c3c8d1;
   --color-semi: #ff2bd6;
   --color-track: #2e313d; /* slider track */
-  --color-hover: #2a2d38; /* secondary button hover */
+  --color-hover: #30333f; /* hover on surfaces and menus */
   --color-disabled: #30333f; /* disabled primary button */
   --color-disabled-ink: #cbd5e1;
   --color-soon: #2a2d38; /* "Soon" badge */
@@ -511,6 +511,32 @@
     font-family: var(--font-sans);
     font-size: 0.85rem;
     text-align: center;
+  }
+}
+
+/* quiet motion: menus and the floating clip toolbar rise in, side panels slide in (none when the computer asks for less) */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+.anim-rise {
+  animation: rise-in 120ms ease-out;
+}
+.anim-slide {
+  animation: slide-in-left 140ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise,
+  .anim-slide {
+    animation: none;
   }
 }
 

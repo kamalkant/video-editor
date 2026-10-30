@@ -52,7 +52,7 @@ export function ContextMenu({ x, y, items, onClose, label, width = 216 }: { x: n
     }
   };
   return (
-    <div ref={ref} role="menu" aria-label={label} className="fixed z-50 max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-lg border border-control bg-surface p-1 text-[13px] shadow-2xl" style={{ left, top, width }} onKeyDown={onKey}>
+    <div ref={ref} role="menu" aria-label={label} className="anim-rise fixed z-50 max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-lg border border-line bg-overlay p-1 text-[13px] shadow-[var(--shadow-float)]" style={{ left, top, width }} onKeyDown={onKey}>
       {items.map((it, i) =>
         it === "separator" ? (
           <div key={i} role="separator" className="my-1 h-px bg-line/60" />
@@ -67,7 +67,7 @@ export function ContextMenu({ x, y, items, onClose, label, width = 216 }: { x: n
             role={it.checked === undefined ? "menuitem" : "menuitemradio"}
             aria-checked={it.checked}
             aria-disabled={it.disabled || undefined}
-            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] leading-tight hover:bg-raised focus:bg-raised aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
+            className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] leading-tight hover:bg-hover focus:bg-hover aria-disabled:cursor-not-allowed aria-disabled:opacity-40"
             onClick={() => {
               if (it.disabled) return;
               onClose();

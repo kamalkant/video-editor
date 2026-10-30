@@ -132,7 +132,7 @@ function KeyframeBar({ clip, mv, mp }: { clip: MotionClip; mv: ReturnType<typeof
   const hasNext = i >= 0 && i < keysOf(clip).length - 1;
   const small = "flex size-7 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-ink disabled:opacity-35 disabled:hover:bg-transparent";
   return (
-    <div role="group" aria-label="Keyframes" className="flex flex-col gap-1.5 rounded-lg border border-line bg-canvas px-2 py-1.5 overflow-hidden" data-testid="keyframe-bar">
+    <div role="group" aria-label="Keyframes" className="flex flex-col gap-1.5 rounded-lg bg-canvas px-2 py-1.5 overflow-hidden" data-testid="keyframe-bar">
       <div className="flex items-center gap-1.5 min-w-0 justify-between">
         <button type="button" className={`${small} shrink-0`} disabled={!prev} onClick={() => prev && mp.onSeek?.(start + prev.t)} aria-label="Previous keyframe" title="Previous keyframe">
           <Icon name="chevronRight" className="size-4 rotate-180" />
@@ -856,7 +856,7 @@ function TextCard({
         valueText={(v) => `${v.toFixed(1)} seconds`}
         onChange={(v) => onPatch({ duration: v }, "clip:duration")}
       />
-      <details className="rounded-md border border-line px-2 py-1">
+      <details className="rounded-md bg-canvas/60 px-2 py-1">
         <summary className="cursor-pointer py-1 text-xs font-medium text-muted">
           Transform & Align (Position, size, turn & skew)
         </summary>
@@ -1211,7 +1211,7 @@ function ElementCard({
         valueText={(v) => `${v.toFixed(1)} seconds`}
         onChange={(v) => onPatch({ duration: v }, "clip:duration")}
       />
-      <details className="rounded-md border border-line px-2 py-1">
+      <details className="rounded-md bg-canvas/60 px-2 py-1">
         <summary className="cursor-pointer py-1 text-xs font-medium text-muted">Transform & Align (Position, size, turn & skew)</summary>
         <div className="flex flex-col gap-2 pb-1">
           <KeyframeBar clip={clip} mv={mv} mp={motion} />
@@ -1306,13 +1306,6 @@ export function ClipPropsCard({
   name,
   onPatch,
   onDelete,
-  size = null,
-  onCropMode,
-  onAutoColor,
-  stabilize,
-  reverse,
-  watermark,
-  onLookAll,
   motion,
   onBlankTitle,
   onBlankElement,
@@ -1367,77 +1360,7 @@ export function ClipPropsCard({
       Delete
     </button>
   );
-  if (clip.type === "image")
-    return (
-      <Card title="Picture" id="clip-card-title" action={del}>
-        <p className="truncate text-xs text-muted" title={name}>
-          {name}
-        </p>
-        <LabeledSlider
-          label="Length"
-          value={clip.duration}
-          min={0.5}
-          max={60}
-          step={0.5}
-          decimals={1}
-          unit={{ short: "s", spoken: "seconds" }}
-          valueText={(v) => `${v.toFixed(1)} seconds`}
-          onChange={(v) => onPatch({ duration: v }, "clip:duration")}
-        />
-        <TransformFields
-          t={clip.transform}
-          showRotation={false}
-          showSkew={false}
-          showFlip={false}
-          onChange={(t) => onPatch({ transform: t }, "clip:transform")}
-        />
-        <CropRotateSection
-          t={clip.transform}
-          size={size}
-          onChange={(t, g) => onPatch({ transform: t }, g)}
-          onCropMode={onCropMode}
-        />
-        <ColorSection
-          color={clip.color}
-          onChange={(c, g) => onPatch({ color: c }, g)}
-          onAuto={onAutoColor}
-        />
-        <Fold title="Looks" testId="looks-section">
-          <LooksStrip
-            color={clip.color}
-            thumb={localThumb(clip.mediaId) ?? `/api/videos/${clip.mediaId}/thumb`}
-            onChange={(c, g) => onPatch({ color: c }, g)}
-            onAll={onLookAll ? () => onLookAll(clip.color) : undefined}
-          />
-        </Fold>
-        <MaskSection
-          mask={clip.mask}
-          onChange={(mk, g) => onPatch({ mask: mk }, g)}
-          onBubble={() =>
-            onPatch({
-              mask: BUBBLE_MASK,
-              transform: {
-                ...clip.transform,
-                crop: size
-                  ? cropForAspect(size.width, size.height, 1)
-                  : clip.transform.crop,
-              },
-            })
-          }
-        />
-        {watermark && (
-          <WatermarkSection
-            patches={clip.patches}
-            onChange={(ps, g) => onPatch({ patches: ps }, g)}
-            onEdit={watermark.onEdit}
-            pictures={watermark.pictures}
-            editing={watermark.editing}
-          />
-        )}
-        <AnimFields anim={clip.anim} onChange={(a) => onPatch({ anim: a })} />
-        <Fades c={clip} onChange={(p) => onPatch(p, "clip:fade")} />
-      </Card>
-    );
+  // (videos and pictures have the tabbed ClipInspector: Studio never sends them here)
   if (clip.type === "text")
     return <TextCard clip={clip} onPatch={onPatch} action={del} motion={motion} />;
   if (clip.type === "element") return <ElementCard clip={clip} onPatch={onPatch} action={del} motion={motion} />;
@@ -1516,140 +1439,6 @@ export function ClipPropsCard({
         </div>
       </Card>
     );
-  if (clip.type === "video")
-    return (
-      <Card title="Clip" id="clip-card-title" action={del}>
-        <p className="truncate text-xs text-muted" title={name}>
-          {name}
-        </p>
-        <Switch
-          label="Clip sound"
-          checked={!clip.muted}
-          onCheckedChange={(v) => onPatch({ muted: !v })}
-        />
-        <LabeledSlider
-          label="Volume"
-          value={Math.round(clip.volume * 100)}
-          min={0}
-          max={200}
-          step={5}
-          unit={{ short: "%", spoken: "percent" }}
-          valueText={(v) => `${v} percent`}
-          onChange={(v) => onPatch({ volume: v / 100 }, "clip:volume")}
-          disabled={clip.muted}
-        />
-        <DenoiseField
-          value={clip.denoise}
-          onChange={(v) => onPatch({ denoise: v })}
-          disabled={clip.muted}
-        />
-        {onBeatMarkers && <BeatMarkersField onAdd={onBeatMarkers} disabled={clip.muted} />}
-        <Switch
-          label="Loudness levelling"
-          checked={!!clip.loudness}
-          onCheckedChange={(v) => onPatch({ loudness: v ? true : undefined })}
-          disabled={clip.muted}
-          describedBy="video-loudness-help"
-        />
-        <p id="video-loudness-help" className="-mt-1.5 text-xs text-muted">
-          EBU R128 (-16 LUFS): evens out volume across clips.
-        </p>
-        <SpeedField
-          speed={clip.speed ?? 1}
-          onChange={(v, g) => onPatch({ speed: v === 1 ? undefined : v }, g)}
-        />
-        <Switch
-          label="Play backwards (reverse)"
-          checked={!!clip.reversed}
-          onCheckedChange={(v) => onPatch({ reversed: v || undefined })}
-          disabled={!!reverse?.blocked && !clip.reversed}
-          describedBy="rev-help"
-        />
-        <p
-          id="rev-help"
-          className="-mt-1.5 text-xs text-muted"
-          data-testid="reverse-status"
-        >
-          {reverse?.error ??
-            reverse?.blocked ??
-            (clip.reversed
-              ? reverse?.ready
-                ? "Reversed ✓"
-                : `Making the reversed copy… ${reverse?.percent ?? 0}%`
-              : "The clip plays from its end to its start.")}
-        </p>
-        <Switch
-          label="Stabilize (remove camera shake)"
-          checked={!!clip.stabilize}
-          onCheckedChange={(v) => onPatch({ stabilize: v || undefined })}
-          disabled={!!stabilize?.blocked && !clip.stabilize}
-          describedBy="stab-help"
-        />
-        <p
-          id="stab-help"
-          className="-mt-1.5 text-xs text-muted"
-          data-testid="stabilize-status"
-        >
-          {stabilize?.blocked ??
-            (clip.stabilize
-              ? stabilize?.ready
-                ? "Stabilized ✓ (the preview shows it)"
-                : `Making the stabilized copy… ${stabilize?.percent ?? 0}%`
-              : "Smooths out shaky handheld video.")}
-        </p>
-        <TransformFields
-          t={clip.transform}
-          showRotation={false}
-          showSkew={false}
-          showFlip={false}
-          onChange={(t) => onPatch({ transform: t }, "clip:transform")}
-        />
-        <CropRotateSection
-          t={clip.transform}
-          size={size}
-          onChange={(t, g) => onPatch({ transform: t }, g)}
-          onCropMode={onCropMode}
-        />
-        <ColorSection
-          color={clip.color}
-          onChange={(c, g) => onPatch({ color: c }, g)}
-          onAuto={onAutoColor}
-        />
-        <Fold title="Looks" testId="looks-section">
-          <LooksStrip
-            color={clip.color}
-            thumb={localThumb(clip.mediaId) ?? `/api/videos/${clip.mediaId}/thumb`}
-            onChange={(c, g) => onPatch({ color: c }, g)}
-            onAll={onLookAll ? () => onLookAll(clip.color) : undefined}
-          />
-        </Fold>
-        <MaskSection
-          mask={clip.mask}
-          onChange={(mk, g) => onPatch({ mask: mk }, g)}
-          onBubble={() =>
-            onPatch({
-              mask: BUBBLE_MASK,
-              transform: {
-                ...clip.transform,
-                crop: size
-                  ? cropForAspect(size.width, size.height, 1)
-                  : clip.transform.crop,
-              },
-            })
-          }
-        />
-        {watermark && (
-          <WatermarkSection
-            patches={clip.patches}
-            onChange={(ps, g) => onPatch({ patches: ps }, g)}
-            onEdit={watermark.onEdit}
-            pictures={watermark.pictures}
-            editing={watermark.editing}
-          />
-        )}
-        <Fades c={clip} onChange={(p) => onPatch(p, "clip:fade")} />
-      </Card>
-    );
   return null;
 }
 
@@ -1669,12 +1458,12 @@ export const TAB_INFO: Record<
   { label: string; icon: IconName; hint: string }
 > = {
   basic: {
-    label: "Basic",
+    label: "Adjust",
     icon: "resize",
     hint: "Size, crop, rotate and shape",
   },
   background: {
-    label: "Cutout",
+    label: "Background",
     icon: "background",
     hint: "Remove the background (green screen, black, AI)",
   },
@@ -1694,7 +1483,7 @@ export const TAB_INFO: Record<
     hint: "Speed, reverse and stabilize",
   },
   tracking: {
-    label: "Track",
+    label: "Motion",
     icon: "motionTrack",
     hint: "Motion Tracking & Attach",
   },

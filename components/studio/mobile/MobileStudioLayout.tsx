@@ -169,7 +169,7 @@ export function MobileStudioLayout({
 
   return (
     <div 
-      className="flex h-dvh w-full flex-col overflow-hidden bg-[#0f0f0f] text-ink select-none font-sans"
+      className="flex h-dvh w-full flex-col overflow-hidden bg-app text-ink select-none font-sans"
       onPointerDown={handleContainerPointerDown}
     >
       {/* 1. Mobile Top Bar with Project Switcher */}
@@ -187,14 +187,14 @@ export function MobileStudioLayout({
       />
 
       {/* 2. Video Preview Area (YouTube Create rounded canvas stage) */}
-      <div className="relative shrink-0 w-full h-[38vh] min-h-[185px] max-h-[320px] bg-[#0f0f0f] flex flex-col overflow-hidden border-b border-line/40 px-2 py-1.5">
+      <div className="relative shrink-0 w-full h-[38vh] min-h-[185px] max-h-[320px] bg-app flex flex-col overflow-hidden border-b border-line px-2 py-1.5">
         <div className="w-full h-full flex flex-col rounded-2xl overflow-hidden shadow-md">
           {previewArea}
         </div>
       </div>
 
       {/* 3. Multi-track Timeline Area (Middle flex-1) */}
-      <div className="relative flex-1 min-h-0 w-full overflow-hidden bg-[#0a0a0a]">
+      <div className="relative flex-1 min-h-0 w-full overflow-hidden bg-app">
         {timeline}
       </div>
 

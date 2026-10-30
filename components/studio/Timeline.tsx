@@ -2282,7 +2282,7 @@ export function Timeline(p: TimelineProps) {
           </div>
         </div>
       ) : (
-        <div className="flex items-center border-b border-line px-1.5 py-1">
+        <div className="flex items-center px-1.5 py-1">
           <div
             role="toolbar"
             aria-label="Editing tools"
@@ -3327,7 +3327,7 @@ export function Timeline(p: TimelineProps) {
                 })}
                 {empty && (
                   <div
-                    className={`absolute inset-x-4 inset-y-2 flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-solid text-center transition-colors ${over ? "border-primary bg-primary-soft" : "border-control bg-surface/90 shadow-xs"}`}
+                    className={`absolute inset-x-4 inset-y-2 flex flex-col items-center justify-center gap-1 rounded-lg border-2 text-center transition-colors ${over ? "border-solid border-primary bg-primary-soft" : "border-dashed border-line bg-surface/90"}`}
                     onDragOver={(e) => onDragOver(e, null)}
                     onDragLeave={() => setOver(null)}
                     onDrop={(e) => onDrop(e, null)}

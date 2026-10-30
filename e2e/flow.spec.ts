@@ -24,6 +24,13 @@ async function downloadBytes(page: Page, href: string): Promise<Buffer> {
   return Buffer.from(b64, "base64");
 }
 
+/** The clip's Transform numbers (folded under "Advanced position & size" until opened). */
+async function transformPanel(page: Page): Promise<Locator> {
+  const panel = page.getByTestId("transform-panel");
+  if (!(await panel.evaluate((el) => (el as HTMLDetailsElement).open))) await panel.locator("summary").click();
+  return panel;
+}
+
 /** Open a left panel: from the rail, or (panels that left the rail: Projects, Library, Background, Edit) from Search tools. */
 async function openPanel(page: Page, name: string) {
   const rail = page.getByRole("navigation", { name: "Panels" }).getByRole("button", { name, exact: true });
@@ -36,16 +43,16 @@ async function openPanel(page: Page, name: string) {
 
 /** New clips keep their background: open the color picker (clip view), then use the detected green. */
 async function startPick(page: Page) {
-  // (a new clip opens on its Basic tab: the key color is on Cutout)
+  // (a new clip opens on its Adjust tab: the key color is on Background)
   const pick = page.getByRole("button", { name: "Pick key color from video" });
   if (!(await pick.isVisible()))
-    await page.getByRole("tab", { name: "Cutout", exact: true }).click();
+    await page.getByRole("tab", { name: "Background", exact: true }).click();
   await pick.click();
 }
-/** The clip inspector's tab (Basic · Cutout · Color · Audio · Speed · More). */
+/** The clip inspector's tab (Adjust · Background · Color · Audio · Speed · More). */
 async function inspTab(
   page: Page,
-  name: "Basic" | "Cutout" | "Color" | "Audio" | "Speed" | "More",
+  name: "Adjust" | "Background" | "Color" | "Audio" | "Speed" | "More",
 ) {
   await page.getByRole("tab", { name, exact: true }).click();
 }
@@ -62,7 +69,7 @@ async function selectFirstVideo(page: Page) {
     });
   }).toPass({ timeout: 20_000 });
 }
-/** Unfold the Cutout tab's "Fine-tune" (presets, edges, spill). */
+/** Unfold the Background tab's "Fine-tune" (presets, edges, spill). */
 async function fineTune(page: Page) {
   const d = page.getByTestId("fine-tune");
   if (!(await d.evaluate((el) => (el as HTMLDetailsElement).open)))
@@ -739,8 +746,8 @@ test("Reset: the ↺ menu in the Clip header resets a tab or everything, and not
   const col = await page.getByTestId("inspector-scroll").boundingBox();
   const card = await insp.boundingBox();
   expect(card!.y + card!.height).toBeGreaterThan(col!.y + col!.height - 3);
-  // green removal on → the Cutout tab has a dot; the settings don't move
-  await inspTab(page, "Cutout");
+  // green removal on → the Background tab has a dot; the settings don't move
+  await inspTab(page, "Background");
   const sw = page.getByRole("switch", { name: "Background removal" });
   const y0 = (await sw.boundingBox())!.y;
   await page
@@ -749,14 +756,14 @@ test("Reset: the ↺ menu in the Clip header resets a tab or everything, and not
   await expect(sw).toHaveAttribute("aria-checked", "true");
   await expect(
     page
-      .getByRole("tab", { name: "Cutout", exact: true })
+      .getByRole("tab", { name: "Background", exact: true })
       .getByTestId("tab-changed"),
   ).toBeVisible();
   expect(Math.abs((await sw.boundingBox())!.y - y0)).toBeLessThan(1);
   await expect(resetBtn).not.toHaveAttribute("aria-disabled", "true");
   await resetBtn.click();
   const menu = page.getByRole("menu", { name: "Reset" });
-  await menu.getByRole("menuitem", { name: "Reset Cutout" }).click();
+  await menu.getByRole("menuitem", { name: "Reset Background" }).click();
   await expect(sw).toHaveAttribute("aria-checked", "false");
   await expect(page.getByTestId("tab-changed")).toHaveCount(0);
   await expect(resetBtn).toHaveAttribute("aria-disabled", "true");
@@ -777,7 +784,7 @@ test("Reset: the ↺ menu in the Clip header resets a tab or everything, and not
   await menu.getByRole("menuitem", { name: "Reset all" }).click();
   await expect(page.getByTestId("tab-changed")).toHaveCount(0);
   await expect(vol).toHaveValue("100");
-  await inspTab(page, "Cutout");
+  await inspTab(page, "Background");
   await expect(sw).toHaveAttribute("aria-checked", "false");
   // the clip is still on the timeline
   await expect(
@@ -1707,7 +1714,7 @@ test("Easy: crop & rotate (inspector and on the preview) and color", async ({
   const card = page.getByRole("region", { name: "Picture" });
   // (a picture opens on its Basic tab, with Crop & rotate unfolded)
   await expect(
-    card.getByRole("tab", { name: "Basic", exact: true }),
+    card.getByRole("tab", { name: "Adjust", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   // a ratio button crops and shows it on the preview as an outline (crop mode)
   await card.getByRole("button", { name: "1:1" }).click();
@@ -2479,7 +2486,7 @@ test("a single see-through file (WebM VP9 + alpha, no MOV) exports without break
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await upload(page);
-  await inspTab(page, "Cutout");
+  await inspTab(page, "Background");
   await page
     .getByRole("button", { name: "Green / blue screen", exact: true })
     .click();
@@ -2971,7 +2978,7 @@ test("fixes: clip volume reaches the preview (0 is silent, 150% is louder), stic
   // nothing else plays
   await expect.poll(levels).toEqual([]);
   // the Clip header and tabs stay in sight when the settings scroll
-  await inspTab(page, "Basic");
+  await inspTab(page, "Adjust");
   const scroller = page.getByTestId("inspector-scroll");
   await scroller.evaluate((el) => el.scrollTo(0, el.scrollHeight));
   const head = (await page.getByTestId("clip-inspector-head").boundingBox())!;
@@ -3037,7 +3044,7 @@ test("compact right panel: narrow number boxes without %, icon view switch, a sm
   expect((await label.boundingBox())!.width).toBeLessThan(40);
   await expect(label.locator("svg")).toHaveCount(1);
   // the key color's pipette is a small icon button
-  await inspTab(page, "Cutout");
+  await inspTab(page, "Background");
   await page
     .getByRole("button", { name: "Green / blue screen", exact: true })
     .click();
@@ -3490,7 +3497,7 @@ test("keyframes: ◆ at the playhead; a change later adds one and the clip glide
   await card.getByTestId("reset-menu-button").click();
   await page
     .getByRole("menu", { name: "Reset" })
-    .getByRole("menuitem", { name: "Reset Basic" })
+    .getByRole("menuitem", { name: "Reset Adjust" })
     .click();
   await expect(count).toHaveText("0");
   await expect(diamonds).toHaveCount(0);
@@ -3514,7 +3521,7 @@ test("Edit panel: the editing tools for the selected clip, and its settings", as
     page.getByRole("tab", { name: "Color", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await panel.getByRole("button", { name: "Keyframe" }).click();
-  await panel.getByRole("button", { name: /Basic ·/ }).click();
+  await panel.getByRole("button", { name: /Adjust ·/ }).click();
   await expect(page.getByTestId("keyframe-count")).toHaveText("1");
 });
 
@@ -4661,7 +4668,7 @@ test("polish: Cutout sliders stay put when their Reset appears; Custom preset is
   await page.goto("/");
   await upload(page);
   await useDetectedGreen(page);
-  await inspTab(page, "Cutout");
+  await inspTab(page, "Background");
   await fineTune(page);
   const custom = page.getByRole("radio", { name: "Custom" });
   await expect(custom).toBeDisabled();
@@ -5085,7 +5092,7 @@ test("transform tools: corners keep the shape (Shift frees it), sides stretch on
   await dragBy(page, await centre(corner("tl")), 60, -30, true);
   expect(Math.abs((await shape()) - s0)).toBeGreaterThan(0.1);
   // Skew mode: the bottom bar slants it
-  const panel = page.getByTestId("transform-panel");
+  const panel = await transformPanel(page);
   await page
     .getByTestId("transform-toolbar")
     .getByRole("button", { name: "Skew" })
@@ -5148,7 +5155,7 @@ test("pivot and corners: turning keeps the pivot (moved to a corner) in place; t
   const tl = await centre(box.locator('[data-corner="tl"]'));
   const pv = await centre(box.getByTestId("pivot-handle"));
   await dragBy(page, pv, tl.x - pv.x + 2, tl.y - pv.y + 2);
-  const panel = page.getByTestId("transform-panel");
+  const panel = await transformPanel(page);
   await expect(panel.getByRole("textbox", { name: "Pivot X" })).toHaveValue(
     "0",
   );
@@ -5190,7 +5197,7 @@ test("Transform panel: W with the lock changes H too, without it only W; X in px
     .getByTestId("timeline-clip")
     .first()
     .click();
-  const panel = page.getByTestId("transform-panel");
+  const panel = await transformPanel(page);
   const W = panel.getByLabel("W (pixels)");
   const H = panel.getByLabel("H (pixels)");
   const w0 = Number(await W.inputValue());
@@ -5365,7 +5372,7 @@ test("perspective on text: a corner moves on its own, the letters bend with it, 
   );
   // (the panel's row: in the text card's Transform section)
   await expect(
-    page.getByTestId("transform-panel").getByTestId("perspective-row"),
+    (await transformPanel(page)).getByTestId("perspective-row"),
   ).toBeAttached();
   // the drawn letters changed (bent), and there's still text on the preview
   await expect

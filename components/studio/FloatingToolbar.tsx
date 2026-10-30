@@ -38,7 +38,7 @@ export function FloatingToolbar(p: {
       role="toolbar"
       aria-label="Clip actions"
       data-testid="floating-toolbar"
-      className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-overlay p-1 shadow-[var(--shadow-float)]"
+      className="anim-rise pointer-events-auto flex items-center gap-0.5 rounded-full bg-overlay p-1 shadow-[var(--shadow-float)]"
       onPointerDown={(e) => e.stopPropagation()}
     >
       {actions.map((a) => (

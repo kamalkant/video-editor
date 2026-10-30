@@ -55,14 +55,14 @@ export function MobileBottomToolbar({
     return (
       <nav
         aria-label="Clip Editing Tools"
-        className={`sticky bottom-0 z-40 flex w-full shrink-0 items-center gap-1 border-t border-line/60 bg-[#0f0f0f]/98 backdrop-blur-xl px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-2xl select-none overflow-x-auto no-scrollbar ${className}`}
+        className={`sticky bottom-0 z-40 flex w-full shrink-0 items-center gap-1 border-t border-line bg-surface px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-2xl select-none overflow-x-auto no-scrollbar ${className}`}
       >
         {/* Deselect / Done Button */}
         {onDeselectClip && (
           <button
             type="button"
             onClick={onDeselectClip}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl border border-line/60 bg-surface px-2.5 py-1 text-ink active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
+            className="flex flex-col items-center justify-center gap-0.5 rounded-xl border border-line bg-surface px-2.5 py-1 text-ink active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
             title="Done editing clip"
             aria-label="Done editing clip"
           >
@@ -156,10 +156,10 @@ export function MobileBottomToolbar({
             onClick={onBgRemoval}
             className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-muted hover:text-ink hover:bg-raised/40 active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
             title="Remove background / Cutout"
-            aria-label="Cutout"
+            aria-label="Background"
           >
             <Icon name="wand" className="size-4 text-ink" />
-            <span className="text-2xs leading-tight">Cutout</span>
+            <span className="text-2xs leading-tight">Background</span>
           </button>
         )}
 
@@ -198,7 +198,7 @@ export function MobileBottomToolbar({
   return (
     <nav
       aria-label="Mobile Editing Tools"
-      className={`sticky bottom-0 z-40 flex w-full shrink-0 items-center justify-around border-t border-line/60 bg-[#0f0f0f]/98 backdrop-blur-xl px-1 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-2xl select-none ${className}`}
+      className={`sticky bottom-0 z-40 flex w-full shrink-0 items-center justify-around border-t border-line bg-surface px-1 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-2xl select-none ${className}`}
     >
       {/* Optional Quick Add Media button */}
       {onAddMedia && (

@@ -11,6 +11,9 @@ import { placeClip } from "@/lib/player/look";
 import { hasCorners, pivotCenter, type BoxLook } from "@/lib/player/quad";
 import { BLEND_LABEL, BLEND_MODES, type BlendMode } from "@/lib/render/blend";
 
+/** The Transform numbers folded open or not, remembered in this browser. */
+const OPEN_KEY = "VDO:v1:transformOpen";
+
 /**
  * The Transform panel (like the reference): exact numbers for what the preview's handles do.
  * Position and size in project pixels (the box before turning), rotation, scale X / Y, skew,
@@ -120,11 +123,38 @@ export function TransformPanel({
     const p = next.x === 0.5 && next.y === 0.5 ? undefined : next;
     place({ x: box.cx, y: box.cy }, box.w, box.h, { pivot: p }, g("pivot"));
   };
+  // (shown only for a selected clip, never in the server's first render: the browser's setting can be read at once)
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(OPEN_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const rememberOpen = (o: boolean) => {
+    setOpen(o);
+    try {
+      if (o) localStorage.setItem(OPEN_KEY, "1");
+      else localStorage.removeItem(OPEN_KEY);
+    } catch {
+      /* private window */
+    }
+  };
   const flipBtn = "btn btn-secondary min-h-7 flex-1 px-2 text-xs aria-pressed:border-primary aria-pressed:bg-primary-soft aria-pressed:font-medium aria-pressed:text-primary";
 
   return (
-    <section aria-label="Transform" data-testid="transform-panel" className="flex flex-col gap-2 rounded-lg border border-line bg-canvas/50 p-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-muted">Transform</h3>
+    // (exact numbers are for the few who need them: folded until opened, and remembered; progressive disclosure)
+    <details
+      aria-label="Transform"
+      data-testid="transform-panel"
+      className="group/tf flex flex-col gap-2 rounded-lg bg-canvas/50 p-2 open:[&>*:not(summary)]:mt-2"
+      open={open}
+      onToggle={(e) => rememberOpen(e.currentTarget.open)}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-semibold text-muted hover:text-ink">
+        Advanced position &amp; size
+        <Icon name="chevronDown" className="size-3.5 transition-transform group-open/tf:rotate-180" />
+      </summary>
       {box && (
         <>
           <div className="grid grid-cols-2 gap-1.5">
@@ -202,7 +232,7 @@ export function TransformPanel({
           </select>
         </label>
       )}
-    </section>
+    </details>
   );
 }
 

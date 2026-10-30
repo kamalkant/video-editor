@@ -142,7 +142,7 @@ export function EmptyPreview({
 
   return (
     <div data-testid="empty-preview" className="flex h-full min-h-[18rem] p-2" aria-live="polite">
-      <div className={`flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden rounded-lg border-2 border-solid p-6 text-center ${dragging ? "border-primary bg-primary-soft" : "border-line bg-stage"}`}>
+      <div className={`flex flex-1 flex-col items-center justify-center gap-3 overflow-hidden rounded-lg border-2 p-6 text-center ${dragging ? "border-solid border-primary bg-primary-soft" : "border-dashed border-line bg-stage"}`}>
         {state.kind === "uploading" ? (
           <div className="w-full max-w-xs">
             <p className="mb-2 truncate text-sm font-medium">Uploading {state.name}…</p>
@@ -161,7 +161,7 @@ export function EmptyPreview({
           </div>
         ) : (
           <>
-            <span className="flex size-14 items-center justify-center rounded-xl border-2 border-control text-muted">
+            <span className="flex size-14 items-center justify-center rounded-xl bg-raised text-muted">
               <Icon name="film" className="size-7" />
             </span>
             <h1 className="text-lg font-semibold">No video loaded</h1>

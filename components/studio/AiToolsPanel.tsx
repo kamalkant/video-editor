@@ -8,67 +8,67 @@ import { featureById } from "@/lib/roadmap";
 import { GeminiBadge } from "./GeminiBits";
 
 /** A card on the AI Tools panel. `id` is the feature in lib/roadmap (its status decides Ready / Soon). */
-type Tool = { id: string; name: string; detail: string; icon: IconName; art: string; words: string };
+type Tool = { id: string; name: string; detail: string; icon: IconName; words: string };
 
 const SECTIONS: { title: string; icon: IconName; tools: Tool[] }[] = [
   {
     title: "Create with AI",
     icon: "magic",
     tools: [
-      { id: "gen-video", name: "Generate Video", detail: "Create video from text or image", icon: "film", art: "from-sky-700 via-indigo-800 to-slate-900", words: "generate make create video clip" },
-      { id: "grok", name: "Grok Imagine", detail: "Pictures & video with xAI Grok", icon: "magic", art: "from-zinc-700 via-neutral-800 to-black", words: "grok xai imagine picture image video prompt generate" },
-      { id: "gen-image", name: "Generate Image", detail: "Create images for your video", icon: "image", art: "from-fuchsia-700 via-purple-800 to-slate-900", words: "generate image picture photo" },
-      { id: "gen-bg", name: "Generate Background", detail: "AI background for your scene", icon: "gradient", art: "from-cyan-600 via-blue-800 to-slate-900", words: "generate background scene studio" },
-      { id: "text-to-video", name: "Text to Video", detail: "Turn a script into a video", icon: "text", art: "from-amber-600 via-orange-800 to-slate-900", words: "text script to video story" },
-      { id: "avatar", name: "AI Avatar", detail: "Create or use an AI presenter", icon: "person", art: "from-rose-600 via-pink-800 to-slate-900", words: "avatar presenter anchor person" },
+      { id: "gen-video", name: "Generate Video", detail: "Create video from text or image", icon: "film", words: "generate make create video clip" },
+      { id: "grok", name: "Grok Imagine", detail: "Pictures & video with xAI Grok", icon: "magic", words: "grok xai imagine picture image video prompt generate" },
+      { id: "gen-image", name: "Generate Image", detail: "Create images for your video", icon: "image", words: "generate image picture photo" },
+      { id: "gen-bg", name: "Generate Background", detail: "AI background for your scene", icon: "gradient", words: "generate background scene studio" },
+      { id: "text-to-video", name: "Text to Video", detail: "Turn a script into a video", icon: "text", words: "text script to video story" },
+      { id: "avatar", name: "AI Avatar", detail: "Create or use an AI presenter", icon: "person", words: "avatar presenter anchor person" },
     ],
   },
   {
     title: "Modify & Edit with AI",
     icon: "wand",
     tools: [
-      { id: "ai-remove", name: "Remove Background", detail: "Remove any background", icon: "eraser", art: "from-emerald-600 via-teal-800 to-slate-900", words: "remove background cut out transparent person no green screen" },
-      { id: "watermark", name: "Remove Watermark", detail: "Remove, blur or cover a logo", icon: "eraser", art: "from-amber-600 via-orange-800 to-slate-900", words: "watermark logo remove blur cover hide face number plate" },
-      { id: "replace-bg", name: "Replace Background", detail: "Change or generate a new background", icon: "background", art: "from-lime-600 via-green-800 to-slate-900", words: "replace change background studio" },
-      { id: "remove-object", name: "Remove Object", detail: "Erase unwanted objects", icon: "target", art: "from-red-600 via-rose-800 to-slate-900", words: "remove object erase delete thing" },
-      { id: "extend", name: "Extend Video", detail: "Add frames to extend a clip", icon: "resize", art: "from-blue-600 via-sky-800 to-slate-900", words: "extend longer frames" },
-      { id: "highlights", name: "Auto Highlights & Recap", detail: "Extract top moments & transcript clips", icon: "magic", art: "from-amber-600 via-rose-800 to-slate-900", words: "highlights recap clips transcript extract moments viral shorts" },
-      { id: "smart-crop", name: "Smart Crop", detail: "Auto reframe for any platform", icon: "crop", art: "from-orange-600 via-amber-800 to-slate-900", words: "smart crop reframe vertical 9:16 shorts reels" },
+      { id: "ai-remove", name: "Remove Background", detail: "Remove any background", icon: "eraser", words: "remove background cut out transparent person no green screen" },
+      { id: "watermark", name: "Remove Watermark", detail: "Remove, blur or cover a logo", icon: "eraser", words: "watermark logo remove blur cover hide face number plate" },
+      { id: "replace-bg", name: "Replace Background", detail: "Change or generate a new background", icon: "background", words: "replace change background studio" },
+      { id: "remove-object", name: "Remove Object", detail: "Erase unwanted objects", icon: "target", words: "remove object erase delete thing" },
+      { id: "extend", name: "Extend Video", detail: "Add frames to extend a clip", icon: "resize", words: "extend longer frames" },
+      { id: "highlights", name: "Auto Highlights & Recap", detail: "Extract top moments & transcript clips", icon: "magic", words: "highlights recap clips transcript extract moments viral shorts" },
+      { id: "smart-crop", name: "Smart Crop", detail: "Auto reframe for any platform", icon: "crop", words: "smart crop reframe vertical 9:16 shorts reels" },
     ],
   },
   {
     title: "Enhance with AI",
     icon: "star",
     tools: [
-      { id: "upscale", name: "Upscale Video", detail: "Increase resolution (HD / 4K)", icon: "fullscreen", art: "from-indigo-600 via-violet-800 to-slate-900", words: "upscale 4k hd resolution sharper" },
-      { id: "stabilize", name: "Stabilize Video", detail: "Remove shakiness", icon: "hand", art: "from-slate-500 via-slate-700 to-slate-900", words: "stabilize shake shaky steady" },
-      { id: "enhance", name: "Enhance Quality", detail: "Improve color, clarity, lighting", icon: "magic", art: "from-violet-600 via-purple-800 to-slate-900", words: "enhance quality better clarity light" },
-      { id: "video-denoise", name: "Remove Noise", detail: "Reduce grain and noise", icon: "blur", art: "from-teal-600 via-cyan-800 to-slate-900", words: "grain noise video dark denoise" },
-      { id: "auto-color", name: "Auto Color", detail: "Auto adjust color & lighting", icon: "palette", art: "from-yellow-600 via-orange-800 to-slate-900", words: "color colour grade light auto" },
+      { id: "upscale", name: "Upscale Video", detail: "Increase resolution (HD / 4K)", icon: "fullscreen", words: "upscale 4k hd resolution sharper" },
+      { id: "stabilize", name: "Stabilize Video", detail: "Remove shakiness", icon: "hand", words: "stabilize shake shaky steady" },
+      { id: "enhance", name: "Enhance Quality", detail: "Improve color, clarity, lighting", icon: "magic", words: "enhance quality better clarity light" },
+      { id: "video-denoise", name: "Remove Noise", detail: "Reduce grain and noise", icon: "blur", words: "grain noise video dark denoise" },
+      { id: "auto-color", name: "Auto Color", detail: "Auto adjust color & lighting", icon: "palette", words: "color colour grade light auto" },
     ],
   },
   {
     title: "Audio & Voice with AI",
     icon: "waveform",
     tools: [
-      { id: "tts", name: "Text to Speech", detail: "Convert text to voice", icon: "voice", art: "from-rose-600 via-red-800 to-slate-900", words: "text to speech voice read aloud narration voiceover tts" },
-      { id: "voice-clone", name: "Voice Clone", detail: "Use your own voice", icon: "mic", art: "from-blue-600 via-indigo-800 to-slate-900", words: "voice clone my voice" },
-      { id: "denoise", name: "Remove Background Noise", detail: "Clean and enhance audio", icon: "waveform", art: "from-sky-600 via-blue-800 to-slate-900", words: "noise hum hiss clean audio sound background noise" },
-      { id: "silences", name: "Remove Silences", detail: "Cut the pauses in speech", icon: "cut", art: "from-emerald-600 via-green-800 to-slate-900", words: "silence pause gaps um cut speech" },
-      { id: "smart-mix", name: "Smart Audio Mix", detail: "Dialogue ducking & audio balance", icon: "volume", art: "from-blue-600 via-sky-800 to-slate-900", words: "ducking duck audio mix voiceover speech dialogue volume balance" },
-      { id: "auto-subs", name: "Auto Subtitles", detail: "Generate subtitles", icon: "subtitles", art: "from-cyan-600 via-sky-800 to-slate-900", words: "subtitles captions transcript" },
-      { id: "translate", name: "Translate Audio", detail: "Translate to other languages", icon: "audio", art: "from-purple-600 via-fuchsia-800 to-slate-900", words: "translate dub language hindi english" },
+      { id: "tts", name: "Text to Speech", detail: "Convert text to voice", icon: "voice", words: "text to speech voice read aloud narration voiceover tts" },
+      { id: "voice-clone", name: "Voice Clone", detail: "Use your own voice", icon: "mic", words: "voice clone my voice" },
+      { id: "denoise", name: "Remove Background Noise", detail: "Clean and enhance audio", icon: "waveform", words: "noise hum hiss clean audio sound background noise" },
+      { id: "silences", name: "Remove Silences", detail: "Cut the pauses in speech", icon: "cut", words: "silence pause gaps um cut speech" },
+      { id: "smart-mix", name: "Smart Audio Mix", detail: "Dialogue ducking & audio balance", icon: "volume", words: "ducking duck audio mix voiceover speech dialogue volume balance" },
+      { id: "auto-subs", name: "Auto Subtitles", detail: "Generate subtitles", icon: "subtitles", words: "subtitles captions transcript" },
+      { id: "translate", name: "Translate Audio", detail: "Translate to other languages", icon: "audio", words: "translate dub language hindi english" },
     ],
   },
   {
     title: "Creative Tools",
     icon: "brush",
     tools: [
-      { id: "gen-effects", name: "Generate Effects", detail: "Create AI visual effects", icon: "effects", art: "from-fuchsia-600 via-violet-800 to-slate-900", words: "effects vfx generate" },
-      { id: "green-screen", name: "Green Screen", detail: "Color key background", icon: "pipette", art: "from-green-500 via-green-700 to-slate-900", words: "green screen blue screen chroma key" },
-      { id: "blur-bg", name: "Blur Background", detail: "Blur what's behind you", icon: "blur", art: "from-stone-500 via-stone-700 to-slate-900", words: "blur background bokeh portrait" },
-      { id: "replace-sky", name: "Replace Sky", detail: "Change the sky with AI", icon: "image", art: "from-sky-500 via-blue-700 to-slate-900", words: "sky replace clouds" },
-      { id: "b-roll", name: "Generate B-Roll", detail: "Relevant cutaway clips", icon: "film", art: "from-orange-600 via-red-800 to-slate-900", words: "b-roll broll cutaway stock footage" },
+      { id: "gen-effects", name: "Generate Effects", detail: "Create AI visual effects", icon: "effects", words: "effects vfx generate" },
+      { id: "green-screen", name: "Green Screen", detail: "Color key background", icon: "pipette", words: "green screen blue screen chroma key" },
+      { id: "blur-bg", name: "Blur Background", detail: "Blur what's behind you", icon: "blur", words: "blur background bokeh portrait" },
+      { id: "replace-sky", name: "Replace Sky", detail: "Change the sky with AI", icon: "image", words: "sky replace clouds" },
+      { id: "b-roll", name: "Generate B-Roll", detail: "Relevant cutaway clips", icon: "film", words: "b-roll broll cutaway stock footage" },
     ],
   },
 ];
@@ -240,7 +240,7 @@ export function AiToolsPanel({ onClose, target, onTool, whyNot, onSettings }: { 
               </span>
               {s.title}
             </h3>
-            <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.9rem,1fr))] gap-2">
+            <ul className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-1.5">
               {s.tools.map((t) => {
                 const feat = featureById(t.id);
                 const ready = feat?.status === "ready";
@@ -260,16 +260,19 @@ export function AiToolsPanel({ onClose, target, onTool, whyNot, onSettings }: { 
                         setNote(feat?.beta ? `${t.name} (Beta): ${feat.beta}` : null);
                         onTool(t.id as AiToolId);
                       }}
-                      className={`group flex w-full flex-col overflow-hidden rounded-lg border text-left transition-colors ${hit ? "border-fuchsia-400 ring-2 ring-fuchsia-400/50" : "border-line hover:border-control"} ${ready ? "" : "opacity-80"}`}
+                      className={`group flex w-full items-start gap-2.5 rounded-lg bg-raised p-2 text-left transition-colors hover:bg-hover ${hit ? "ring-2 ring-primary" : ""} ${ready ? "" : "opacity-70"}`}
                     >
-                      <span className={`relative flex aspect-[16/9] items-center justify-center bg-gradient-to-br ${t.art}`}>
-                        <Icon name={t.icon} className="size-7 text-white/90 drop-shadow" strokeWidth={1.5} />
-                        {ready && feat?.beta && <span className="absolute left-1.5 top-1.5 rounded bg-amber-500/95 px-1.5 py-px text-2xs font-semibold text-black">Beta</span>}
-                        {!ready && <span className="soon absolute right-1.5 top-1.5">{feat?.status === "later" ? "Later" : "Soon"}</span>}
-                        {ready && (t.id === "grok" ? <span className="absolute right-1.5 top-1.5 rounded bg-black/90 px-1.5 py-px text-2xs font-semibold text-white border border-line">xAI Grok</span> : GEMINI_TOOLS.has(t.id) ? <GeminiBadge className="absolute right-1.5 top-1.5 !bg-white/90 !text-link" /> : <span className="absolute right-1.5 top-1.5 rounded bg-emerald-500/90 px-1.5 py-px text-2xs font-semibold text-white">Ready</span>)}
+                      {/* (a quiet tile: the icon in an AI-tinted chip, the badges as small pills; ready needs no badge) */}
+                      <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-ai-soft text-ai">
+                        <Icon name={t.icon} className="size-4" />
                       </span>
-                      <span className="flex flex-col gap-0.5 px-1.5 py-1.5">
-                        <span className="text-xs font-medium leading-tight group-hover:text-ink">{t.name}</span>
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="flex flex-wrap items-center gap-1 text-xs font-medium leading-tight">
+                          {t.name}
+                          {ready && feat?.beta && <span className="rounded bg-warn-soft px-1 py-px text-2xs font-semibold text-warn-ink">Beta</span>}
+                          {!ready && <span className="soon">{feat?.status === "later" ? "Later" : "Soon"}</span>}
+                          {ready && (t.id === "grok" ? <span className="rounded bg-canvas px-1 py-px text-2xs font-semibold text-muted">xAI</span> : GEMINI_TOOLS.has(t.id) ? <GeminiBadge /> : null)}
+                        </span>
                         <span className="text-2xs leading-snug text-muted">{t.detail}</span>
                       </span>
                     </button>

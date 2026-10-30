@@ -984,7 +984,7 @@ function StudioInner(props: Props) {
   // something was copied (enables Paste in the timeline menu)
   const [hasCopy, setHasCopy] = useState(() => !!copied);
   const [hasCopiedStyle, setHasCopiedStyle] = useState(() => !!copiedStyle);
-  // the inspector's tab for video and picture clips (Basic · Remove BG · Color · Audio · Speed · More)
+  // the inspector's tab for video and picture clips (Adjust · Background · Color · Audio · Speed · Motion · More)
   const [inspTab, setInspTab] = useState<InspectorTab>("basic");
   // Import (Add media): this computer, Pexels, Pixabay
   const [importTab, setImportTab] = useState<ImportTab | null>(null);
@@ -5853,7 +5853,8 @@ function StudioInner(props: Props) {
       return !o;
     });
   const onRail = (id: PanelId) => {
-    if (id === "templates") {
+    // (phones: Templates is the full gallery; on a desktop it's a panel like the others, with "Browse all" for the full view)
+    if (id === "templates" && !wide) {
       setWorkspaceView((v) => (v === "templates" ? "studio" : "templates"));
       return;
     }
@@ -5869,7 +5870,14 @@ function StudioInner(props: Props) {
       return;
     }
     if (id === "ai") return toggleAi();
-    if (isSide(id)) setLeftPanel((l) => (l === id ? null : id));
+    if (isSide(id)) {
+      // (AI Tools share the left side: another panel takes their place)
+      if (aiOpen) {
+        setAiOpen(false);
+        return setLeftPanel(id);
+      }
+      setLeftPanel((l) => (l === id ? null : id));
+    }
   };
   const railActive: PanelId | null =
     workspaceView === "templates"
@@ -7995,7 +8003,7 @@ function StudioInner(props: Props) {
       id={`panel-${sidePanel}`}
       aria-labelledby="side-title"
       className={
-        wide ? "panel flex shrink-0 flex-col overflow-hidden" : "bg-surface"
+        wide ? "panel anim-slide flex shrink-0 flex-col overflow-hidden" : "bg-surface"
       }
       style={wide ? { width: leftW } : undefined}
     >
@@ -8341,6 +8349,11 @@ function StudioInner(props: Props) {
         ) : isSoonArea(sidePanel) ? (
           <SoonPanel area={sidePanel} actions={soonActions} />
         ) : sidePanel === "templates" ? (
+          <div className="flex flex-col gap-3">
+          <button type="button" className="btn btn-secondary min-h-8 justify-between px-3 text-xs" onClick={() => setWorkspaceView("templates")}>
+            Browse all templates
+            <Icon name="chevronRight" className="size-3.5 text-muted" />
+          </button>
           <TemplatesGallery
             onUse={(t) => void applyTemplate(t)}
             onSaveCurrentAsTemplate={() => {
@@ -8353,6 +8366,7 @@ function StudioInner(props: Props) {
               setNotice(`Saved template "${name.trim()}".`);
             }}
           />
+          </div>
         ) : sidePanel === "library" ? (
           <UnifiedLibraryPanel
             onInsertVideo={(m, add) => {
@@ -10327,7 +10341,7 @@ function StudioInner(props: Props) {
         {/* AI Tools open on the left like the other panels; the settings panel on the right stays for the selected clip */}
         {!focus && aiOpen && (
           <>
-            <aside aria-label="AI Tools panel" className="relative flex h-full min-h-0 shrink-0 flex-col" style={{ width: aiW }}>
+            <aside aria-label="AI Tools panel" className="anim-slide relative flex h-full min-h-0 shrink-0 flex-col" style={{ width: aiW }}>
               {aiPanel}
             </aside>
             <PanelSplitter

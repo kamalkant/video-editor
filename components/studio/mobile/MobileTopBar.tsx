@@ -31,7 +31,7 @@ export function MobileTopBar({
 }: MobileTopBarProps) {
   return (
     <header
-      className={`sticky top-0 z-40 flex h-12 w-full shrink-0 items-center justify-between border-b border-line/60 bg-[#0f0f0f]/98 backdrop-blur-xl px-2.5 pt-[env(safe-area-inset-top)] shadow-xs select-none ${className}`}
+      className={`sticky top-0 z-40 flex h-12 w-full shrink-0 items-center justify-between border-b border-line bg-surface px-2.5 pt-[env(safe-area-inset-top)] shadow-xs select-none ${className}`}
     >
       {/* Left: Back / Home and Project Name Dropdown */}
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -48,7 +48,7 @@ export function MobileTopBar({
         <button
           type="button"
           onClick={onOpenProjects}
-          className="flex items-center gap-1.5 min-w-0 rounded-xl px-2 py-1 hover:bg-raised/60 active:scale-98 transition-all text-left cursor-pointer border border-transparent hover:border-line/40"
+          className="flex items-center gap-1.5 min-w-0 rounded-xl px-2 py-1 hover:bg-raised/60 active:scale-98 transition-all text-left cursor-pointer border border-transparent hover:border-line"
           title="Switch project / Project menu"
           aria-label="Switch project"
         >

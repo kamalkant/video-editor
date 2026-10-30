@@ -240,7 +240,7 @@ import { fileUrl } from "./ExportResults";
 import { MediaPanel } from "./MediaPanel";
 import { OutputSettings } from "./OutputSettings";
 import { ProjectsPanel } from "./ProjectsPanel";
-import { DESKTOP as RAIL_ITEMS, Rail, type PanelId } from "./Rail";
+import { DESKTOP as RAIL_ITEMS, MORE_PANELS, Rail, type PanelId } from "./Rail";
 import type { Command } from "@/lib/editor/commands";
 import { useTask } from "@/lib/editor/tasks";
 import { setTheme, THEMES } from "@/lib/editor/theme";
@@ -294,7 +294,7 @@ import {
 import { BUBBLE_MASK } from "./LookSections";
 import { TransitionCard } from "./TransitionsPanel";
 import { docTransitions, type TransitionType } from "@/lib/player/transitions";
-import { PanelSplitter, usePanelWidth } from "./PanelSplitter";
+import { PanelSplitter, usePanelWidth, useRememberedFlag } from "./PanelSplitter";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { captionLookStyle, type CaptionLook } from "./SubtitlesPanel";
 import { mainFrameAt } from "@/lib/edit/frameAt";
@@ -826,6 +826,8 @@ function StudioInner(props: Props) {
   const [leftPanel, setLeftPanel] = useState<SidePanel | null>(() =>
     !hasClips || window.innerWidth >= 1280 ? "media" : null,
   );
+  /** The left panel last open (Ctrl+Alt+1 brings it back). */
+  const lastLeft = useRef<SidePanel | null>(null);
   const [phoneTab, setPhoneTab] = useState<PanelId>(
     hasClips ? "edit" : "media",
   );
@@ -917,6 +919,9 @@ function StudioInner(props: Props) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [startWithVoice, setStartWithVoice] = useState(false);
   const [focus, setFocus] = useState(false);
+  // Clipchamp-style: the settings panel and the timeline fold away (and come back) on their own
+  const [inspHidden, setInspHidden] = useRememberedFlag("VDO:v1:inspectorHidden");
+  const [tlHidden, setTlHidden] = useRememberedFlag("VDO:v1:timelineHidden");
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [storageModalOpen, setStorageModalOpen] = useState(false);
   const [aiTooltipState, setAiTooltipState] = useState<{
@@ -4713,6 +4718,18 @@ function StudioInner(props: Props) {
           return;
         }
       }
+      // Ctrl+Alt+1 / 2 / 3 fold or bring back the left panel, the settings panel and the timeline
+      if ((e.metaKey || e.ctrlKey) && e.altKey && !typing && wide && ["Digit1", "Digit2", "Digit3"].includes(e.code)) {
+        e.preventDefault();
+        if (e.code === "Digit1") {
+          if (leftPanel) {
+            lastLeft.current = leftPanel;
+            setLeftPanel(null);
+          } else setLeftPanel(lastLeft.current ?? "media");
+        } else if (e.code === "Digit2") setInspHidden(!inspHidden);
+        else setTlHidden(!tlHidden);
+        return;
+      }
       // ⌥⌘C copies clip visual style, ⌥⌘V pastes clip style onto selected clip
       if (
         (e.metaKey || e.ctrlKey) &&
@@ -7016,7 +7033,7 @@ function StudioInner(props: Props) {
         hint: "Automatic dialogue ducking between Video & Voiceover",
         run: () => setSmartMixOpen(true),
       },
-      ...RAIL_ITEMS.filter((r) => r.id).map((r) => ({
+      ...[...RAIL_ITEMS, ...MORE_PANELS].filter((r) => r.id).map((r) => ({
         id: `panel:${r.id}`,
         label: `${r.label} panel`,
         group: "Panels",
@@ -8158,7 +8175,6 @@ function StudioInner(props: Props) {
                 void assets.refresh();
               }}
             />
-            <SoonPanel area="brand" actions={soonActions} hideReady />
           </div>
         ) : sidePanel === "audio" ? (
           <div className="flex flex-col gap-4">
@@ -8167,7 +8183,6 @@ function StudioInner(props: Props) {
               onRecordVoice={() => setRecordMode("voice")}
               onTts={() => setTtsOpen(true)}
             />
-            <SoonPanel area="audio" actions={soonActions} hideReady />
           </div>
         ) : sidePanel === "effects" ? (
           <div className="flex flex-col gap-4">
@@ -8228,7 +8243,6 @@ function StudioInner(props: Props) {
                 />
               );
             })()}
-            <SoonPanel area="effects" actions={soonActions} hideReady />
           </div>
         ) : sidePanel === "subtitles" ? (
           <SubtitlesPanel
@@ -9228,6 +9242,7 @@ function StudioInner(props: Props) {
               }
               onSmartMix={() => setSmartMixOpen(true)}
               smartMixActive={!!doc.smartMix?.enabled}
+              onBackdrops={() => showPanel("background")}
             />
           )}
           {/* desktop: the output settings fold in under Project (phones have their own tab) */}
@@ -10284,6 +10299,11 @@ function StudioInner(props: Props) {
             min={200}
             max={560}
             reset={256}
+            onCollapse={() => {
+              lastLeft.current = leftPanel;
+              setLeftPanel(null);
+            }}
+            collapseLabel="Hide the panel (Ctrl+Alt+1)"
           />
         )}
         <main
@@ -10308,7 +10328,7 @@ function StudioInner(props: Props) {
                 max={1100}
                 reset={defaultAiW()}
               />
-            ) : (
+            ) : inspHidden ? null : (
               <PanelSplitter
                 label="Inspector width"
                 side="right"
@@ -10317,6 +10337,8 @@ function StudioInner(props: Props) {
                 min={260}
                 max={560}
                 reset={xwide ? 336 : 304}
+                onCollapse={() => setInspHidden(true)}
+                collapseLabel="Hide the settings panel (Ctrl+Alt+2)"
               />
             )}
             {focus ? null : aiOpen ? (
@@ -10327,6 +10349,18 @@ function StudioInner(props: Props) {
               >
                 {aiPanel}
               </aside>
+            ) : inspHidden ? (
+              <button
+                type="button"
+                onClick={() => setInspHidden(false)}
+                aria-label="Show the settings panel"
+                title="Show the settings panel (Ctrl+Alt+2)"
+                data-testid="show-inspector"
+                className="flex w-7 shrink-0 flex-col items-center gap-2 rounded-lg bg-surface pt-3 text-muted transition-colors hover:bg-hover hover:text-ink"
+              >
+                <Icon name="chevronLeft" className="size-3.5" />
+                <span className="text-2xs font-medium [writing-mode:vertical-rl]">Settings</span>
+              </button>
             ) : (
               <aside
                 aria-label="Inspector"
@@ -10343,14 +10377,31 @@ function StudioInner(props: Props) {
               </aside>
             )}
           </div>
-          <TimelineResizer
-            height={timelineH}
-            onChange={setTimelineH}
-            rightOffset={focus ? 0 : (aiOpen ? aiW : rightW) + 8}
-          />
-          <div className="shrink-0" style={{ height: timelineH }}>
-            {timeline}
-          </div>
+          {tlHidden ? (
+            <button
+              type="button"
+              onClick={() => setTlHidden(false)}
+              aria-label="Show the timeline"
+              title="Show the timeline (Ctrl+Alt+3)"
+              data-testid="show-timeline"
+              className="flex h-7 shrink-0 items-center justify-center gap-2 rounded-lg bg-surface text-2xs font-medium text-muted transition-colors hover:bg-hover hover:text-ink"
+            >
+              <Icon name="chevronUp" className="size-3.5" />
+              Timeline
+            </button>
+          ) : (
+            <>
+              <TimelineResizer
+                height={timelineH}
+                onChange={setTimelineH}
+                rightOffset={focus || inspHidden ? 0 : (aiOpen ? aiW : rightW) + 8}
+                onCollapse={() => setTlHidden(true)}
+              />
+              <div className="shrink-0" style={{ height: timelineH }}>
+                {timeline}
+              </div>
+            </>
+          )}
         </main>
       </div>
       {dialogs}

@@ -148,6 +148,15 @@ export function UserMenu(p?: { onOpenStorage?: () => void }) {
               <span>Connected Devices</span>
             </a>
 
+            <a
+              href={ACCOUNTS_URL}
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ink hover:bg-raised transition-colors"
+            >
+              <Icon name="monitor" className="size-3.5 text-muted" />
+              <span>ViPlay website</span>
+            </a>
+
             {isAdmin && (
               <a
                 href={`${ACCOUNTS_URL}/admin`}

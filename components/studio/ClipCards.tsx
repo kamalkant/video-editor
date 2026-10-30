@@ -2133,11 +2133,14 @@ export function ProjectCard({
   onCanvas,
   onSmartMix,
   smartMixActive,
+  onBackdrops,
 }: {
   canvas: Canvas;
   onCanvas: (c: Partial<Canvas> & { applyToAllTracks?: boolean }) => void;
   onSmartMix?: () => void;
   smartMixActive?: boolean;
+  /** Studio sets, gradients and pictures behind the video (the Background panel) */
+  onBackdrops?: () => void;
 }) {
   const [applyToAll, setApplyToAll] = useState(false);
   const preset =
@@ -2235,6 +2238,12 @@ export function ProjectCard({
           ? "Transparent: an MP4 puts it on black. To keep it see-through, pick WebM (VP9 + alpha), MOV (HEVC + alpha) or the website pack in Export."
           : "Exports as a normal video (MP4) on this color."}
       </p>
+      {onBackdrops && (
+        <button type="button" onClick={onBackdrops} className="btn btn-secondary min-h-8 justify-between px-3 text-xs">
+          Studio sets, gradients and pictures
+          <Icon name="chevronRight" className="size-3.5 text-muted" />
+        </button>
+      )}
       {onSmartMix && (
         <div className="pt-2 border-t border-line/70">
           <button

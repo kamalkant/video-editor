@@ -56,9 +56,9 @@ describe("Drag & Drop Containers (Media, Projects, Rail)", () => {
 
     it("cancels spring tab switch if drag leaves before 300ms", () => {
       const onSelect = vi.fn();
-      render(<Rail active="edit" onSelect={onSelect} wide={true} />);
+      render(<Rail active="media" onSelect={onSelect} wide={true} />);
 
-      const projectsTab = screen.getByRole("button", { name: /^Projects/i });
+      const projectsTab = screen.getByRole("button", { name: /^Text/i });
 
       fireEvent.dragEnter(projectsTab, {
         dataTransfer: { types: ["Files"] },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Icon } from "@/components/ui/Icon";
 
 /** A panel width that the user can drag, remembered in this browser. */
 export function usePanelWidth(key: string, fallback: () => number, min: number, max: number): [number, (w: number) => void] {
@@ -25,12 +26,33 @@ export function usePanelWidth(key: string, fallback: () => number, min: number, 
   return [w, set];
 }
 
+/** A panel folded away or not (Clipchamp-style collapse), remembered in this browser. */
+export function useRememberedFlag(key: string): [boolean, (v: boolean) => void] {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(key) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const set = (v: boolean) => {
+    setOn(v);
+    try {
+      if (v) localStorage.setItem(key, "1");
+      else localStorage.removeItem(key);
+    } catch {
+      /* private window */
+    }
+  };
+  return [on, set];
+}
+
 /**
  * A draggable line between two panels. `side`: which panel it sizes — the one
  * on its left (dragging right makes it wider) or the one on its right.
  * Arrow keys move it too; double-click puts it back.
  */
-export function PanelSplitter({ label, value, onChange, side, min, max, reset }: { label: string; value: number; onChange: (w: number) => void; side: "left" | "right"; min: number; max: number; reset: number }) {
+export function PanelSplitter({ label, value, onChange, side, min, max, reset, onCollapse, collapseLabel }: { label: string; value: number; onChange: (w: number) => void; side: "left" | "right"; min: number; max: number; reset: number; onCollapse?: () => void; collapseLabel?: string }) {
   const [dragging, setDragging] = useState(false);
   return (
     <div
@@ -67,7 +89,21 @@ export function PanelSplitter({ label, value, onChange, side, min, max, reset }:
         onChange(value + (side === "left" ? d : -d));
       }}
     >
-      <span aria-hidden="true" className={`absolute inset-y-8 left-1/2 w-0.5 -translate-x-1/2 rounded-full transition-colors ${dragging ? "bg-primary" : "bg-transparent group-hover:bg-primary/60 group-focus-visible:bg-primary"}`} />
+      {/* (Clipchamp-style: nothing shows until the pointer is on it; then a line and a grip in the primary colour) */}
+      <span aria-hidden="true" className={`absolute inset-y-3 left-1/2 w-px -translate-x-1/2 transition-colors ${dragging ? "bg-primary" : "bg-transparent group-hover:bg-primary/50 group-focus-visible:bg-primary"}`} />
+      <span aria-hidden="true" className={`absolute top-1/2 left-1/2 h-9 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all ${dragging ? "bg-primary opacity-100" : "bg-primary opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"}`} />
+      {onCollapse && (
+        <button
+          type="button"
+          aria-label={collapseLabel ?? "Hide panel"}
+          title={collapseLabel ?? "Hide panel"}
+          className="absolute top-3 left-1/2 flex size-5 -translate-x-1/2 items-center justify-center rounded-full bg-overlay text-muted opacity-0 shadow-[var(--shadow-float)] transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onCollapse}
+        >
+          <Icon name={side === "left" ? "chevronLeft" : "chevronRight"} className="size-3" />
+        </button>
+      )}
     </div>
   );
 }

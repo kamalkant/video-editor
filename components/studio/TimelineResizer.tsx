@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { readLocal, writeLocal } from "@/lib/editor/localStore";
+import { Icon } from "@/components/ui/Icon";
 
 const KEY = "VDO:v1:timelineHeight";
 const MIN = 150;
@@ -30,10 +31,13 @@ export function TimelineResizer({
   height,
   onChange,
   rightOffset,
+  onCollapse,
 }: {
   height: number;
   onChange: (h: number) => void;
   rightOffset?: number;
+  /** Fold the timeline away (a bar brings it back). */
+  onCollapse?: () => void;
 }) {
   const start = useRef<{ y: number; h: number } | null>(null);
   return (
@@ -68,10 +72,21 @@ export function TimelineResizer({
         }
       }}
     >
-      <span
-        aria-hidden="true"
-        className="h-1 w-14 rounded-full bg-line transition-colors group-hover:bg-control group-focus-visible:bg-link"
-      />
+      {/* (Clipchamp-style: invisible until the pointer is on it; then a line and a grip in the primary colour) */}
+      <span aria-hidden="true" className="pointer-events-none absolute inset-x-3 top-1/2 h-px -translate-y-1/2 bg-transparent transition-colors group-hover:bg-primary/50 group-focus-visible:bg-primary" />
+      <span aria-hidden="true" className="relative h-1.5 w-10 rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
+      {onCollapse && (
+        <button
+          type="button"
+          aria-label="Hide the timeline"
+          title="Hide the timeline (Ctrl+Alt+3)"
+          className="relative ml-2 flex size-5 items-center justify-center rounded-full bg-overlay text-muted opacity-0 shadow-[var(--shadow-float)] transition-opacity hover:text-ink group-hover:opacity-100 focus-visible:opacity-100"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onCollapse}
+        >
+          <Icon name="chevronDown" className="size-3" />
+        </button>
+      )}
     </div>
   );
 }

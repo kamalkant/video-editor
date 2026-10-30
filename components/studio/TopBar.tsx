@@ -1,7 +1,6 @@
 "use client";
 
 import { jobProgress } from "@/lib/export/progress";
-import { ACCOUNTS_URL } from "@/lib/apps";
 import Link from "next/link";
 import { useState, type ComponentProps, type ReactElement, type RefObject } from "react";
 import { Icon } from "@/components/ui/Icon";
@@ -13,7 +12,6 @@ import type { Job } from "@/lib/jobs/queue";
 import { formatFps, formatTime } from "@/lib/format";
 import type { ProjectRef, SaveState } from "@/lib/projects/useProjectSync";
 import type { VideoMeta } from "@/lib/videos";
-import { AiStatus } from "./AiStatus";
 import { ExportMenu } from "./ExportMenu";
 import { MoreMenu } from "./MoreMenu";
 import { ProjectFacts } from "./ProjectFacts";
@@ -22,8 +20,7 @@ import { TasksButton } from "./TasksButton";
 import { ThemeMenu } from "./ThemeMenu";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
-import { VersionsMenu, type VersionsProps } from "./VersionsMenu";
-import { useAuth } from "@/lib/auth/AuthContext";
+import type { VersionsProps } from "./VersionsMenu";
 import { useLiveJob } from "@/lib/export/liveJob";
 
 function ProjectName({ name, onRename, inputRef }: { name: string; onRename: (n: string) => void; inputRef?: RefObject<HTMLInputElement | null> }) {
@@ -109,7 +106,6 @@ export function TopBar(p: {
   const running = job && (job.state === "queued" || job.state === "running");
   const step = job?.steps.find((s) => s.state === "running");
   const mod = useModKey();
-  const { isAdmin } = useAuth();
   const iconBtn = "flex size-hit items-center justify-center rounded-md text-muted hover:bg-raised hover:text-ink disabled:opacity-35";
   const rename = () => {
     p.nameRef.current?.focus();
@@ -141,37 +137,9 @@ export function TopBar(p: {
           <span className="text-base font-bold tracking-tight">
             ViPlay <span className="font-semibold text-muted text-xs">Studio</span>
           </span>
-          <span className="text-2xs text-muted max-md:hidden">Create • Generate • Edit • Compose</span>
         </span>
         <span className="sr-only"> — new project</span>
       </Link>
-      <span aria-hidden="true" className="h-7 w-px bg-line max-sm:hidden" />
-      {/* Ecosystem Switcher */}
-      <nav aria-label="Ecosystem Portals" className="flex items-center gap-1 bg-surface-raised border border-line rounded-lg p-0.5 text-xs max-sm:hidden">
-        <Link
-          href="/editor"
-          className="px-2 py-0.5 rounded-md bg-primary text-white font-medium text-2xs shadow-xs"
-          title="ViPlay Studio Editor"
-        >
-          Studio
-        </Link>
-        <Link
-          href="/"
-          className="px-2 py-0.5 rounded-md text-muted hover:text-ink hover:bg-raised font-medium text-2xs transition"
-          title="ViPlay 3D Website & Story"
-        >
-          Website
-        </Link>
-        {isAdmin && (
-          <a
-            href={`${ACCOUNTS_URL}/admin`}
-            className="px-2 py-0.5 rounded-md text-purple-600 dark:text-purple-400 hover:bg-raised font-semibold text-2xs transition"
-            title="ViPlay Admin Suite"
-          >
-            Admin
-          </a>
-        )}
-      </nav>
       <span aria-hidden="true" className="h-7 w-px bg-line max-sm:hidden" />
       <div className="flex min-w-0 items-center gap-2">
         {p.project ? (
@@ -261,38 +229,6 @@ export function TopBar(p: {
         <span className="flex items-center gap-0.5 max-sm:hidden">
           <TasksButton className={iconBtn} />
         </span>
-        <span className="flex items-center gap-0.5 max-lg:hidden">
-          <AiStatus className={iconBtn} />
-          <span aria-hidden="true" className="mx-1 h-6 w-px bg-line" />
-        </span>
-        <span className="flex items-center gap-0.5 max-lg:hidden">
-          <VersionsMenu {...p.versions} className={iconBtn} />
-          {p.focus !== null &&
-            tip(
-              p.focus ? "Show the side panels (F or Esc)" : "Focus mode: hide the side panels (F)",
-              <button type="button" className={`${iconBtn} ${p.focus ? "bg-primary-soft text-ink" : ""}`} onClick={p.onFocus} aria-pressed={p.focus} aria-label="Focus mode" data-testid="focus-mode">
-                <Icon name="focus" className="size-5" />
-              </button>,
-            )}
-          {p.onToggleProxy &&
-            tip(
-              p.proxyMode
-                ? "Proxy Mode: Active (720p). Playback & scrubbing are accelerated. Final export always uses 100% original master quality."
-                : "Proxy Mode: Off. Click to enable 720p fast-seeking proxies for smooth editing.",
-              <button
-                type="button"
-                className={`${iconBtn} gap-1 ${p.proxyMode ? "bg-warn-soft text-warn-ink" : ""}`}
-                onClick={p.onToggleProxy}
-                aria-pressed={p.proxyMode}
-                aria-label="Toggle proxy editing (720p)"
-                data-testid="topbar-proxy-toggle"
-              >
-                <Icon name="speed" className="size-3.5" />
-                <span className="text-2xs font-bold tracking-tight">720p</span>
-              </button>,
-            )}
-          <span aria-hidden="true" className="mx-1 h-6 w-px bg-line" />
-        </span>
         <button type="button" className={iconBtn} onClick={p.onUndo} disabled={!p.canUndo} aria-label="Undo" title={`Undo (${mod} Z)`}>
           <Icon name="undo" className="size-5" />
         </button>
@@ -301,28 +237,20 @@ export function TopBar(p: {
           <Icon name="redo" className="size-5" />
         </button>
         <span className="flex items-center gap-0.5 max-lg:hidden">
-          <button type="button" className={iconBtn} onClick={p.onHelp} aria-label="Help and keyboard shortcuts" title="Help (?)">
-            <Icon name="help" className="size-5" />
-          </button>
           <ThemeMenu className={iconBtn} />
         </span>
-        {/* phones and tablets: search, add media, versions, API keys, help and the theme */}
-        <span className="flex lg:hidden">
-          <MoreMenu className={iconBtn} onSearch={p.onSearch} onAddMedia={p.uploading ? null : p.onChangeVideo} onVersions={p.project ? p.projectMenu.onVersions : null} onHelp={p.onHelp} />
-        </span>
-        {p.onShare && (
-          <button
-            type="button"
-            onClick={p.onShare}
-            className="flex h-8 items-center gap-1.5 rounded-md border border-line bg-canvas px-2.5 text-xs font-medium text-ink hover:border-control hover:bg-raised transition-colors mr-1 hidden"
-            aria-label="Share project"
-            title="Share a preview link"
-            data-testid="topbar-share-button"
-          >
-            <Icon name="share" className="size-3.5 text-primary" />
-            <span className="max-sm:hidden">Share</span>
-          </button>
-        )}
+        {/* the rest, when it's wanted: versions, focus mode, 720p proxies, API keys, help (and on phones: search, add media, theme) */}
+        <MoreMenu
+          className={iconBtn}
+          onSearch={p.onSearch}
+          onAddMedia={p.uploading ? null : p.onChangeVideo}
+          onVersions={p.project ? p.projectMenu.onVersions : null}
+          onHelp={p.onHelp}
+          focus={p.focus}
+          onFocus={p.onFocus}
+          proxyMode={p.onToggleProxy ? !!p.proxyMode : null}
+          onToggleProxy={p.onToggleProxy}
+        />
         <ExportMenu
           label={
             running

@@ -24,22 +24,29 @@ export type PanelId =
 export type RailItem = { id: PanelId | null; label: string; icon: IconName };
 type Item = RailItem;
 
-/** Desktop rail: Media, Library, Projects, Brand Kit first, then the tools. Items without an id are not built yet. */
+/**
+ * Desktop rail: only what you add to the video (as in Clipchamp and Google Vids). Clip settings are on the right,
+ * for the selected clip; projects are in the project menu, the stock library in Media, backdrops on the Project card.
+ */
 export const DESKTOP: Item[] = [
   { id: "media", label: "Media", icon: "media" },
-  { id: "projects", label: "Projects", icon: "projects" },
-  { id: "brand", label: "Brand Kit", icon: "brand" },
-  { id: "edit", label: "Edit", icon: "edit" },
-  { id: "background", label: "Background", icon: "background" },
-  { id: "ai", label: "AI Tools", icon: "ai" },
-  { id: "elements", label: "Elements", icon: "elements" },
   { id: "text", label: "Text", icon: "text" },
-  { id: "effects", label: "Effects", icon: "effects" },
-  { id: "transitions", label: "Transitions", icon: "transitions" },
+  { id: "elements", label: "Elements", icon: "elements" },
   { id: "audio", label: "Audio", icon: "audio" },
-  { id: "subtitles", label: "Subtitles", icon: "subtitles" },
+  { id: "subtitles", label: "Captions", icon: "subtitles" },
+  { id: "transitions", label: "Transitions", icon: "transitions" },
+  { id: "effects", label: "Effects", icon: "effects" },
   { id: "templates", label: "Templates", icon: "templates" },
+  { id: "brand", label: "Brand Kit", icon: "brand" },
+  { id: "ai", label: "AI", icon: "ai" },
+];
+
+/** Panels that are no longer on the rail but still open (Search tools, the project menu, Media, the Project card). */
+export const MORE_PANELS: Item[] = [
+  { id: "projects", label: "Projects", icon: "projects" },
   { id: "library", label: "Library", icon: "library" },
+  { id: "background", label: "Background", icon: "background" },
+  { id: "edit", label: "Edit", icon: "edit" },
 ];
 
 /** Phones: a tab bar under the preview. */

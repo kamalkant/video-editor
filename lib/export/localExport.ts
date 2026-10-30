@@ -56,6 +56,8 @@ export interface LocalExportOptions {
   speech?: Range[];
   /** Pictures (PNG / JPG): the timeline time of the frame (the playhead). */
   at?: number;
+  /** Where the pictures are made: in Workers (the page stays free, the preview can keep working) or on the page. */
+  onWhere?: (where: "worker" | "page") => void;
 }
 
 export interface LocalExportResult {
@@ -674,6 +676,7 @@ async function exportOnce(opts: LocalExportOptions, mode: ExportMode): Promise<L
     const frameParts = splitFrames(totalFrames, Math.max(1, Math.round(F * 2)), mode.parts ? partCount(totalFrames, F, navigator.hardwareConcurrency, ((videoConfig.bitrate ?? 0) * D) / 8) : 1);
     const inWorker = worker && !pageOnly(doc, media) && usesWorker(mode.use, frameParts.length);
     mode.inParts = inWorker && frameParts.length > 1;
+    opts.onWhere?.(inWorker ? "worker" : "page");
     let poster: Blob | null = null;
     try {
       if (inWorker) {

@@ -378,18 +378,27 @@ let filmBusy = false;
 export const FILM_DELAY_MS = 600;
 let filmPaused = false;
 let filmResume: (() => void) | null = null;
+/** Why the films wait: the preview plays, or an export is being made in this browser. */
+const filmWaits = new Set<"play" | "export">();
+
 /**
  * While the preview plays, the film waits (ProgramPlayer): decoding the same file twice at once makes
- * playback stutter on slower computers. It goes on where it stopped.
+ * playback stutter on slower computers. While an export is made in this browser too (Studio): it needs the
+ * computer, and each film that arrived re-rendered the editor. It goes on where it stopped once no reason is left.
  */
-export function setFilmPaused(paused: boolean) {
-  if (filmPaused === paused) return;
-  filmPaused = paused;
-  if (!paused) {
+export function setFilmPaused(paused: boolean, why: "play" | "export" = "play") {
+  if (paused) filmWaits.add(why);
+  else filmWaits.delete(why);
+  const now = filmWaits.size > 0;
+  if (filmPaused === now) return;
+  filmPaused = now;
+  if (!now) {
     filmResume?.();
     filmResume = null;
   }
 }
+/** Whether the films wait now (for any reason). */
+export const filmsPaused = () => filmPaused;
 const filmGo = (): Promise<void> => (filmPaused ? new Promise((r) => (filmResume = r)) : Promise.resolve());
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

@@ -30,6 +30,7 @@ import { ExportResults, ExportSummary } from "./ExportResults";
 import type { PreviewThumbs } from "./ExportPreview";
 import { FormatPicker } from "./FormatPicker";
 import { OutputSettings } from "./OutputSettings";
+import { useLiveJob } from "@/lib/export/liveJob";
 
 type CategoryTab = "video" | "image" | "audio" | "share";
 
@@ -203,6 +204,8 @@ export function ExportDialog(p: {
    */
   renderPreview?: (o: { width: number; height: number; format: ExportFormat; paused: boolean; onTime: (t: number) => void; thumbs: PreviewThumbs }) => ReactNode;
 }) {
+  // (its percent as it is now: lib/export/liveJob; the editor itself re-renders only when the job changes shape)
+  const job = useLiveJob(p.job);
   const [tab, setTab] = useState<CategoryTab>("video");
   const [again, setAgain] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -236,22 +239,22 @@ export function ExportDialog(p: {
 
   // Reset exporting state when export finishes or fails
   useEffect(() => {
-    if (p.job?.state === "done" || p.job?.state === "failed" || p.startError) {
+    if (job?.state === "done" || job?.state === "failed" || p.startError) {
       setExporting(false);
     }
-  }, [p.job?.state, p.startError]);
+  }, [job?.state, p.startError]);
 
   const f = formatOf(p.format) ?? formatOf("mp4")!;
-  const running = exporting || p.starting || p.job?.state === "queued" || p.job?.state === "running";
-  const done = !running && p.job?.state === "done" && !again;
+  const running = exporting || p.starting || job?.state === "queued" || job?.state === "running";
+  const done = !running && job?.state === "done" && !again;
   const packOfVideo = !!p.video && p.format === "pack";
   const blocked = pr ? p.blockedOf(p.format) : "Add a video or picture first.";
 
   // (the whole export's progress: the running step's own started again at 0 at each step)
-  const getProgress = (): number => jobProgress(p.job);
+  const getProgress = (): number => jobProgress(job);
 
   // (before any early return: hooks run in the same order every time)
-  const eta = useEta(running, getProgress(), p.job?.id ?? null);
+  const eta = useEta(running, getProgress(), job?.id ?? null);
 
   const close = () => {
     setAgain(false);
@@ -392,10 +395,10 @@ export function ExportDialog(p: {
     }
   };
 
-  if (done && p.job && !again) {
+  if (done && job && !again) {
     return (
       <Dialog open={p.open} onClose={close} title="Export & Share" size="md">
-        <ExportResults job={p.job} spec={p.spec} onGenerate={generate} onShowFinal={p.onShowFinal} onAgain={() => setAgain(true)} projectName={p.projectName} doc={p.doc} />
+        <ExportResults job={job} spec={p.spec} onGenerate={generate} onShowFinal={p.onShowFinal} onAgain={() => setAgain(true)} projectName={p.projectName} doc={p.doc} />
       </Dialog>
     );
   }
@@ -403,12 +406,12 @@ export function ExportDialog(p: {
   const progressPct = getProgress();
 
   const primaryLabel = running
-    ? p.job?.state === "queued"
+    ? job?.state === "queued"
       ? "Queued in background..."
-      : p.starting && !p.job
+      : p.starting && !job
         ? (p.startStatus || "Preparing media assets…")
         : // (the step it's on: "Making the video again, with the browser's own encoder" says why it started over)
-          `${p.job?.steps.find((x) => x.state === "running")?.label ?? "Rendering"} · ${progressPct}%`
+          `${job?.steps.find((x) => x.state === "running")?.label ?? "Rendering"} · ${progressPct}%`
     : p.format === "mp4"
       ? "Make video (MP4)"
       : p.format === "pack"

@@ -23,6 +23,7 @@ import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { VersionsMenu, type VersionsProps } from "./VersionsMenu";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useLiveJob } from "@/lib/export/liveJob";
 
 function ProjectName({ name, onRename, inputRef }: { name: string; onRename: (n: string) => void; inputRef?: RefObject<HTMLInputElement | null> }) {
   const [draft, setDraft] = useState<string | null>(null);
@@ -102,8 +103,10 @@ export function TopBar(p: {
   proxyMode?: boolean;
   onToggleProxy?: () => void;
 }) {
-  const running = p.job && (p.job.state === "queued" || p.job.state === "running");
-  const step = p.job?.steps.find((s) => s.state === "running");
+  // (its percent as it is now: lib/export/liveJob; the editor itself re-renders only when the job changes shape)
+  const job = useLiveJob(p.job);
+  const running = job && (job.state === "queued" || job.state === "running");
+  const step = job?.steps.find((s) => s.state === "running");
   const mod = useModKey();
   const { isAdmin } = useAuth();
   const iconBtn = "flex size-hit items-center justify-center rounded-md text-muted hover:bg-raised hover:text-ink disabled:opacity-35";
@@ -321,8 +324,8 @@ export function TopBar(p: {
         <ExportMenu
           label={
             running
-              ? `Exporting${step ? `\u00A0${jobProgress(p.job)}%` : "…"}`
-              : p.job?.state === "done"
+              ? `Exporting${step ? `\u00A0${jobProgress(job)}%` : "…"}`
+              : job?.state === "done"
                 ? "Export ✓"
                 : "Export"
           }

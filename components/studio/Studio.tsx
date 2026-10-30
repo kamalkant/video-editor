@@ -119,6 +119,7 @@ import {
   releaseLocalExcept,
   restoreLocal,
   restorePending,
+  setFilmPaused,
   setLocalAccount,
   subscribeLocal,
   uploadingItems,
@@ -133,8 +134,8 @@ import { newUuid } from "@/lib/storage/uuid";
 const PROBE_TIMEOUT_MS = 6_000;
 import { historyReducer, initHistory } from "@/lib/editor/history";
 import { keepsOwnUndo } from "@/lib/editor/keys";
-import { useExportTab } from "@/lib/export/useExportTab";
-import { jobProgress } from "@/lib/export/progress";
+import { jobShape, publishJob } from "@/lib/export/liveJob";
+import { ExportProgress } from "./ExportProgress";
 import {
   LAST_SETTINGS_KEY,
   readLocal,
@@ -241,7 +242,7 @@ import { OutputSettings } from "./OutputSettings";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { DESKTOP as RAIL_ITEMS, Rail, type PanelId } from "./Rail";
 import type { Command } from "@/lib/editor/commands";
-import { stepsPercent, useTask } from "@/lib/editor/tasks";
+import { useTask } from "@/lib/editor/tasks";
 import { setTheme, THEMES } from "@/lib/editor/theme";
 import { isMac } from "@/lib/editor/platform";
 import type { VersionSummary } from "@/lib/projects/versionList";
@@ -877,6 +878,17 @@ function StudioInner(props: Props) {
   const [lastT, setLastT] = useState(0);
   const [jobId, setJobId] = useState<string | null>(initialJob?.id ?? null);
   const [localJob, setLocalJob] = useState<Job | null>(null);
+  /** The browser export's shape last put in the state (its percent is in lib/export/liveJob, not here). */
+  const localShape = useRef("");
+  /** Where the browser export makes its pictures: in Workers the preview keeps working meanwhile. */
+  const [exportWhere, setExportWhere] = useState<"worker" | "page">("page");
+  // the timeline's films wait while the browser export runs (they decode videos too, and each one re-rendered
+  // the editor and woke the preview)
+  const localRunning = localJob?.state === "running";
+  useEffect(() => {
+    setFilmPaused(localRunning, "export");
+    return () => setFilmPaused(false, "export");
+  }, [localRunning]);
   // the export started on this page (listed in Background tasks from its start, even when it's quick)
   const [ownJob, setOwnJob] = useState<string | null>(null);
   const localAbortController = useRef<AbortController | null>(null);
@@ -1179,14 +1191,6 @@ function StudioInner(props: Props) {
   const job = localJob ?? serverJob;
   const connection = localJob ? "ok" : serverConnection;
   const running = !!job && (job.state === "queued" || job.state === "running");
-  // the tab says how far an export is (and when it's ready), and the screen stays awake meanwhile
-  useExportTab({
-    projectName,
-    running,
-    pct: jobProgress(job),
-    done: job?.state === "done",
-    jobId: job?.id ?? null,
-  });
 
   // the address bar always points at the open project
   const projectId = sync.project?.id ?? null;
@@ -5120,38 +5124,9 @@ function StudioInner(props: Props) {
     c.reversed && !hasAi(c) ? (rev.url[c.id] ?? null) : null;
 
   // ---------- background tasks (the top bar's list) ----------
-  const exportStep = job?.steps.find((x) => x.state === "running");
+  // (the export's: ExportProgress, which follows its percent without re-rendering the editor)
   const exportStarting =
     starting || (!!ownJob && ownJob === jobId && job?.id !== jobId);
-  useTask(
-    exportStarting
-      ? {
-          id: "export",
-          kind: "export",
-          label: "Exporting",
-          detail: "Starting…",
-          percent: 0,
-        }
-      : !job || job.state === "canceled"
-        ? null
-        : {
-            id: "export",
-            kind: "export",
-            label: running
-              ? "Exporting"
-              : job.state === "done"
-                ? "Export ready"
-                : "Export failed",
-            detail: running ? exportStep?.label : (job.error ?? undefined),
-            percent: running ? stepsPercent(job.steps) : null,
-            state: running
-              ? "running"
-              : job.state === "done"
-                ? "done"
-                : "failed",
-          },
-    () => setExportOpen(true),
-  );
   const veoJob = veo.job;
   useTask(
     veoJob
@@ -5426,9 +5401,17 @@ function StudioInner(props: Props) {
             liveOf,
             speech,
             at: pictureAt,
+            // (each report goes to what shows the percent; the editor re-renders only when the job's
+            // shape changes: started, a step done, finished)
             onProgress: (progressJob) => {
-              setLocalJob(progressJob);
+              publishJob(progressJob);
+              const shape = jobShape(progressJob);
+              if (shape !== localShape.current) {
+                localShape.current = shape;
+                setLocalJob(progressJob);
+              }
             },
+            onWhere: setExportWhere,
           });
           setLocalJob(res.job);
           setJobId(res.job.id);
@@ -8596,8 +8579,9 @@ function StudioInner(props: Props) {
   const programPane = (
     <ProgramPlayer
       doc={doc}
-      // (an export made in this browser, its dialog open: the preview draws nothing, the export gets the computer)
-      suspended={exportOpen && localJob?.state === "running"}
+      // (an export made on this page, its dialog open: the preview draws nothing, the export gets the computer;
+      // made in Workers, the preview keeps working)
+      suspended={exportOpen && localJob?.state === "running" && exportWhere === "page"}
       proxyMode={proxyMode}
       localVersion={localVer}
       media={playerMedia}
@@ -9353,6 +9337,12 @@ function StudioInner(props: Props) {
           onRestore={restoreVersion}
         />
       )}
+      <ExportProgress
+        job={job}
+        starting={exportStarting}
+        projectName={projectName}
+        onOpen={() => setExportOpen(true)}
+      />
       {exportOpen && (
         <ExportDialog
           open={exportOpen}

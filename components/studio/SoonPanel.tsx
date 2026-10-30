@@ -4,7 +4,7 @@ import { AREAS, featuresIn, STATUS_LABEL, type Area, type Status } from "@/lib/r
 import { ACCOUNTS_URL } from "@/lib/apps";
 
 const BADGE: Record<Status, string> = {
-  ready: "rounded bg-emerald-500/90 px-1.5 py-px text-[0.625rem] font-semibold text-white",
+  ready: "rounded bg-emerald-500/90 px-1.5 py-px text-2xs font-semibold text-white",
   next: "soon",
   later: "soon opacity-80",
 };
@@ -22,7 +22,7 @@ export function SoonPanel({ area, actions = {}, hideReady = false }: { area: Are
       {!hideReady && <p className="text-xs text-muted">{a.blurb}</p>}
       {groups.map((g) => (
         <section key={g.s} aria-label={STATUS_LABEL[g.s]} className="flex flex-col gap-1.5">
-          <h3 className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">{STATUS_LABEL[g.s]}</h3>
+          <h3 className="text-2xs font-semibold uppercase tracking-wide text-muted">{STATUS_LABEL[g.s]}</h3>
           <ul className="flex flex-col gap-1.5">
             {g.list.map((f) => {
               const act = actions[f.id] as (() => void) | undefined;
@@ -32,8 +32,8 @@ export function SoonPanel({ area, actions = {}, hideReady = false }: { area: Are
                     <span className="text-sm font-medium">{f.name}</span>
                     <span className={BADGE[f.status]}>{f.status === "ready" ? (act ? "Use" : f.beta ? "Beta" : "Ready") : f.status === "next" ? "Soon" : "Later"}</span>
                   </span>
-                  <span className="text-[0.6875rem] leading-snug text-muted">{f.detail}</span>
-                  {f.beta && <span className="text-[0.6875rem] leading-snug text-amber-500">Beta: {f.beta}</span>}
+                  <span className="text-2xs leading-snug text-muted">{f.detail}</span>
+                  {f.beta && <span className="text-2xs leading-snug text-amber-500">Beta: {f.beta}</span>}
                 </>
               );
               return (

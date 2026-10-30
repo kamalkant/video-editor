@@ -88,7 +88,7 @@ export function EffectsPanel({
         {clip && isVisual && color && (
           <button
             type="button"
-            className="text-[0.6875rem] text-link underline shrink-0"
+            className="text-2xs text-link underline shrink-0"
             onClick={() => onChangeColor(clip.id, undefined, "clip:color-reset")}
           >
             Reset
@@ -135,7 +135,7 @@ export function EffectsPanel({
             <>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-muted">Cinematic Looks ({Object.keys(LOOKS).length})</span>
-                <span className="text-[0.6875rem] text-muted">Click to apply</span>
+                <span className="text-2xs text-muted">Click to apply</span>
               </div>
               <LooksStrip
                 color={color}
@@ -179,7 +179,7 @@ export function EffectsPanel({
             <>
               {/* Sliders for fine-tuning */}
               <div className="flex flex-col gap-2 rounded-lg border border-line bg-raised/30 p-2.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">VFX Controls</span>
+                <span className="text-2xs font-semibold uppercase tracking-wider text-muted">VFX Controls</span>
                 <LabeledSlider
                   label="Glow / Bloom"
                   value={Math.round((color?.glow ?? 0) * 100)}
@@ -236,7 +236,7 @@ export function EffectsPanel({
 
               {/* Quick Presets */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">VFX Presets</span>
+                <span className="text-2xs font-semibold uppercase tracking-wider text-muted">VFX Presets</span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -250,7 +250,7 @@ export function EffectsPanel({
                       <Icon name="sun" className="size-4" />
                     </div>
                     <span className="text-xs font-medium text-ink">Glow & Bloom</span>
-                    <span className="text-[0.625rem] text-muted leading-tight">Warm highlights and luminous radiance</span>
+                    <span className="text-2xs text-muted leading-tight">Warm highlights and luminous radiance</span>
                   </button>
 
                   <button
@@ -265,7 +265,7 @@ export function EffectsPanel({
                       <Icon name="film" className="size-4" />
                     </div>
                     <span className="text-xs font-medium text-ink">Vintage 8mm</span>
-                    <span className="text-[0.625rem] text-muted leading-tight">Analog film grain & warm vignette</span>
+                    <span className="text-2xs text-muted leading-tight">Analog film grain & warm vignette</span>
                   </button>
 
                   <button
@@ -280,7 +280,7 @@ export function EffectsPanel({
                       <Icon name="moon" className="size-4" />
                     </div>
                     <span className="text-xs font-medium text-ink">Dramatic Noir</span>
-                    <span className="text-[0.625rem] text-muted leading-tight">High-contrast monochrome & texture</span>
+                    <span className="text-2xs text-muted leading-tight">High-contrast monochrome & texture</span>
                   </button>
 
                   <button
@@ -295,7 +295,7 @@ export function EffectsPanel({
                       <Icon name="magic" className="size-4" />
                     </div>
                     <span className="text-xs font-medium text-ink">Cyberpunk</span>
-                    <span className="text-[0.625rem] text-muted leading-tight">Neon saturation with edge glow</span>
+                    <span className="text-2xs text-muted leading-tight">Neon saturation with edge glow</span>
                   </button>
 
                   <button
@@ -306,11 +306,11 @@ export function EffectsPanel({
                       onChangeColor(clip.id, next, "clip:vfx");
                     }}
                   >
-                    <div className="flex size-7 items-center justify-center rounded-md bg-indigo-500/20 text-indigo-400">
+                    <div className="flex size-7 items-center justify-center rounded-md bg-primary/20 text-link">
                       <Icon name="blur" className="size-4" />
                     </div>
                     <span className="text-xs font-medium text-ink">Dreamy Blur</span>
-                    <span className="text-[0.625rem] text-muted leading-tight">Soft atmospheric Gaussian blur</span>
+                    <span className="text-2xs text-muted leading-tight">Soft atmospheric Gaussian blur</span>
                   </button>
 
                   <button
@@ -325,7 +325,7 @@ export function EffectsPanel({
                       <Icon name="grid" className="size-4" />
                     </div>
                     <span className="text-xs font-medium text-ink">8-Bit Pixelate</span>
-                    <span className="text-[0.625rem] text-muted leading-tight">Retro arcade pixel grid mosaic</span>
+                    <span className="text-2xs text-muted leading-tight">Retro arcade pixel grid mosaic</span>
                   </button>
                 </div>
               </div>
@@ -357,7 +357,7 @@ export function EffectsPanel({
                   }}
                 >
                   <span className="text-xs font-bold text-sky-400 drop-shadow-[0_0_8px_#38bdf8]">Neon Glow</span>
-                  <p className="text-[0.625rem] text-muted">Vibrant electric aura</p>
+                  <p className="text-2xs text-muted">Vibrant electric aura</p>
                 </button>
 
                 <button
@@ -371,7 +371,7 @@ export function EffectsPanel({
                   }}
                 >
                   <span className="text-xs font-bold text-amber-400">Outline & Shadow</span>
-                  <p className="text-[0.625rem] text-muted">Punchy comic style</p>
+                  <p className="text-2xs text-muted">Punchy comic style</p>
                 </button>
 
                 <button
@@ -385,7 +385,7 @@ export function EffectsPanel({
                   }}
                 >
                   <span className="text-xs font-bold text-ink">Pill Badge</span>
-                  <p className="text-[0.625rem] text-muted">Contained backdrop</p>
+                  <p className="text-2xs text-muted">Contained backdrop</p>
                 </button>
 
                 <button
@@ -399,7 +399,7 @@ export function EffectsPanel({
                   }}
                 >
                   <span className="text-xs font-bold text-rose-400">Gradient Duo</span>
-                  <p className="text-[0.625rem] text-muted">Warm sunset gradient</p>
+                  <p className="text-2xs text-muted">Warm sunset gradient</p>
                 </button>
               </div>
             </div>
@@ -420,7 +420,7 @@ export function EffectsPanel({
                   }}
                 >
                   <span className="text-xs font-medium text-ink">Thick Outline</span>
-                  <p className="text-[0.625rem] text-muted">High-contrast white border</p>
+                  <p className="text-2xs text-muted">High-contrast white border</p>
                 </button>
 
                 <button
@@ -434,7 +434,7 @@ export function EffectsPanel({
                   }}
                 >
                   <span className="text-xs font-medium text-sky-400">Hollow Wireframe</span>
-                  <p className="text-[0.625rem] text-muted">Neon stroke, see-through fill</p>
+                  <p className="text-2xs text-muted">Neon stroke, see-through fill</p>
                 </button>
               </div>
             </div>

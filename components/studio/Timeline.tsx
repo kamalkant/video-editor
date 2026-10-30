@@ -163,7 +163,7 @@ function TrackName({
     return (
       <input
         autoFocus
-        className="field h-6 min-h-0 min-w-0 flex-1 px-1 text-[0.6875rem]"
+        className="field h-6 min-h-0 min-w-0 flex-1 px-1 text-2xs"
         aria-label="Track name"
         value={edit}
         maxLength={40}
@@ -1996,13 +1996,13 @@ export function Timeline(p: TimelineProps) {
       {isMobile ? (
         <div className="flex h-9 shrink-0 items-center justify-between border-b border-line bg-surface px-2 gap-1.5 overflow-hidden">
           {/* Mobile Timecode & Fit */}
-          <div className="flex items-center gap-1 shrink-0 text-[11px] font-semibold tabular-nums text-muted">
+          <div className="flex items-center gap-1 shrink-0 text-2xs font-semibold tabular-nums text-muted">
             <span className="text-ink font-bold">{formatTenths(t)}</span>
             <span>/</span>
             <span>{formatTenths(docDuration(doc))}</span>
             <button
               type="button"
-              className="ml-1 rounded px-1.5 py-0.5 text-[10px] font-medium text-link hover:bg-raised"
+              className="ml-1 rounded px-1.5 py-0.5 text-2xs font-medium text-link hover:bg-raised"
               onClick={fit}
               disabled={empty}
             >
@@ -2739,7 +2739,7 @@ export function Timeline(p: TimelineProps) {
                       track: tr,
                     });
                   }}
-                  className={`relative flex items-center ${isMobile ? "justify-center px-0.5" : "gap-1 px-1.5"} border-b border-line text-[0.6875rem] transition-colors h-16 ${isDraggingThis ? "opacity-40 bg-raised/50" : ""}`}
+                  className={`relative flex items-center ${isMobile ? "justify-center px-0.5" : "gap-1 px-1.5"} border-b border-line text-2xs transition-colors h-16 ${isDraggingThis ? "opacity-40 bg-raised/50" : ""}`}
                 >
                   {isMobile ? (
                     <div
@@ -2930,7 +2930,7 @@ export function Timeline(p: TimelineProps) {
                     <span
                       key={v}
                       aria-hidden="true"
-                      className="absolute top-0 h-full whitespace-nowrap border-l border-line pl-1 text-[0.625rem] leading-6 text-muted"
+                      className="absolute top-0 h-full whitespace-nowrap border-l border-line pl-1 text-2xs leading-6 text-muted"
                       style={{ left: x(v) }}
                     >
                       {tickLabel(v, step)}
@@ -3127,7 +3127,7 @@ export function Timeline(p: TimelineProps) {
                           <span
                             aria-hidden="true"
                             data-testid="drop-shadow"
-                            className="pointer-events-none absolute inset-y-1 z-20 flex items-center overflow-hidden rounded-md border-2 border-dashed border-link bg-link/15 px-1.5 text-[0.625rem] font-medium text-ink"
+                            className="pointer-events-none absolute inset-y-1 z-20 flex items-center overflow-hidden rounded-md border-2 border-dashed border-link bg-link/15 px-1.5 text-2xs font-medium text-ink"
                             style={{
                               left: x(shadow.start) + 1,
                               width: Math.max(4, x(shadow.length) - 1),
@@ -3186,7 +3186,7 @@ export function Timeline(p: TimelineProps) {
                                     >
                                       <span
                                         aria-hidden="true"
-                                        className="text-[0.625rem] font-bold leading-none text-white"
+                                        className="text-2xs font-bold leading-none text-white"
                                       >
                                         {has ? "⇄" : "+"}
                                       </span>
@@ -3249,7 +3249,7 @@ export function Timeline(p: TimelineProps) {
                                 >
                                   <span
                                     aria-hidden="true"
-                                    className="text-[0.625rem] font-bold leading-none text-white"
+                                    className="text-2xs font-bold leading-none text-white"
                                   >
                                     {has ? "⇄" : "+"}
                                   </span>
@@ -4009,7 +4009,7 @@ function ClipBlock(p: {
       {c.type === "audio" && p.width > 48 && (
         <span
           aria-hidden="true"
-          className={`pointer-events-none absolute left-4 right-4 top-0.5 z-[5] truncate text-[0.625rem] font-medium leading-tight ${isLight ? "text-teal-950" : "text-white/85"}`}
+          className={`pointer-events-none absolute left-4 right-4 top-0.5 z-[5] truncate text-2xs font-medium leading-tight ${isLight ? "text-teal-950" : "text-white/85"}`}
         >
           {label}
         </span>
@@ -4049,7 +4049,7 @@ function ClipBlock(p: {
       )}
       {c.type === "video" && (c.speed ?? 1) !== 1 && p.width > 30 && (
         <span
-          className="pointer-events-none absolute left-3 top-0.5 rounded bg-amber-400 px-1 text-[0.625rem] font-bold text-black"
+          className="pointer-events-none absolute left-3 top-0.5 rounded bg-amber-400 px-1 text-2xs font-bold text-black"
           data-testid="speed-badge"
         >
           {c.speed}×
@@ -4057,7 +4057,7 @@ function ClipBlock(p: {
       )}
       {c.type === "video" && c.reversed && p.width > 30 && (
         <span
-          className="pointer-events-none absolute right-3 top-0.5 rounded bg-fuchsia-400 px-1 text-[0.625rem] font-bold text-black"
+          className="pointer-events-none absolute right-3 top-0.5 rounded bg-fuchsia-400 px-1 text-2xs font-bold text-black"
           aria-hidden="true"
           title="Plays backwards"
         >
@@ -4094,7 +4094,7 @@ function ClipBlock(p: {
                 : (c as any).generation.mediaType === "audio" ||
                     c.type === "audio"
                   ? "border-teal-500 bg-white"
-                  : "border-blue-500 bg-white"
+                  : "border-primary bg-white"
             } p-1 shadow-sm text-slate-800 backdrop-blur-xs pointer-events-auto`}
           >
             {/* Left Gradient Thumbnail with Sparkle & Hover Cancel */}
@@ -4126,7 +4126,7 @@ function ClipBlock(p: {
 
             {/* Center: Status text & Progress Bar */}
             <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
-              <span className="flex items-center justify-between text-[0.6875rem] font-semibold text-slate-800 leading-none">
+              <span className="flex items-center justify-between text-2xs font-semibold text-slate-800 leading-none">
                 <span className="truncate">
                   {(c as any).generation.status === "failed"
                     ? "Failed: " +
@@ -4139,7 +4139,7 @@ function ClipBlock(p: {
                   className={`block h-full rounded-full transition-all duration-300 ${
                     (c as any).generation.status === "failed"
                       ? "bg-rose-500"
-                      : "bg-blue-600"
+                      : "bg-primary"
                   }`}
                   style={{
                     width: `${Math.max(5, (c as any).generation.progress ?? 0)}%`,
@@ -4150,7 +4150,7 @@ function ClipBlock(p: {
 
             {/* Right Duration Badge */}
             {p.width > 90 && (
-              <span className="shrink-0 rounded-md bg-slate-800/90 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white tabular-nums shadow-xs">
+              <span className="shrink-0 rounded-md bg-slate-800/90 px-1.5 py-0.5 text-2xs font-semibold text-white tabular-nums shadow-xs">
                 {clipLength(c).toFixed(1)}s
               </span>
             )}
@@ -4170,7 +4170,7 @@ function ClipBlock(p: {
                     e.preventDefault();
                     p.onRetryGeneration?.(c.id);
                   }}
-                  className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-200/90 hover:bg-blue-600 hover:text-white text-slate-600 transition-colors cursor-pointer select-none"
+                  className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-200/90 hover:bg-primary hover:text-white text-slate-600 transition-colors cursor-pointer select-none"
                 >
                   <Icon name="rotate" className="size-3" />
                 </button>

@@ -223,7 +223,7 @@ export function VoiceSearchMic({
       {errorMessage && (
         <div
           role="alert"
-          className="absolute bottom-full right-0 mb-1.5 whitespace-nowrap rounded-md bg-danger px-2 py-1 text-[11px] font-medium text-white shadow-lg pointer-events-none z-50 animate-in fade-in zoom-in-95 duration-150"
+          className="absolute bottom-full right-0 mb-1.5 whitespace-nowrap rounded-md bg-danger px-2 py-1 text-2xs font-medium text-white shadow-lg pointer-events-none z-50 animate-in fade-in zoom-in-95 duration-150"
         >
           {errorMessage}
         </div>

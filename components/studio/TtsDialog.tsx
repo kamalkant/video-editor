@@ -137,7 +137,7 @@ function TtsBody({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             <span className="flex items-center gap-1">
               {label} {id === "gemini" && <GeminiBadge />}
             </span>
-            <span className="text-[0.625rem] font-normal">{id === "mac" && !macVoices ? "needs the Mac app" : note}</span>
+            <span className="text-2xs font-normal">{id === "mac" && !macVoices ? "needs the Mac app" : note}</span>
           </button>
         ))}
       </div>
@@ -157,7 +157,7 @@ function TtsBody({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
           placeholder="Type or paste what the voice should say…"
           aria-describedby="tts-count"
         />
-        <span id="tts-count" className="self-end text-[0.6875rem] text-muted">
+        <span id="tts-count" className="self-end text-2xs text-muted">
           {text.length} / 5000
         </span>
       </label>
@@ -294,7 +294,7 @@ function TtsBody({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
           />
         )
       ) : (
-        <p className="text-[0.6875rem] text-muted">
+        <p className="text-2xs text-muted">
           Uses the voices built into your Mac: free and offline. More voices:
           System Settings → Accessibility → Spoken Content.
         </p>

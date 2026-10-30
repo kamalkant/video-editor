@@ -85,7 +85,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
   const [made, setMade] = useState<VideoMeta | null>(null);
 
   const off = p.gemini !== "ready" && p.gemini !== "fake";
-  if (off) return p.gemini === "loading" ? <p className="text-sm text-slate-400 py-6 text-center">Connecting to Google Gemini…</p> : <GeminiKeyCard />;
+  if (off) return p.gemini === "loading" ? <p className="text-sm text-muted py-6 text-center">Connecting to Google Gemini…</p> : <GeminiKeyCard />;
 
   const generate = async (fromId?: string) => {
     if (!prompt.trim() || busy) return;
@@ -116,9 +116,9 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
   return (
     <div className="flex flex-col gap-5" data-testid="generate-image">
       {/* Top Controls: Mode Switcher & Quality Tier */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
         {/* Purpose pills */}
-        <div className="inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-1" role="radiogroup" aria-label="Creation Mode">
+        <div className="inline-flex rounded-xl border border-line bg-raised p-1" role="radiogroup" aria-label="Creation Mode">
           <button
             type="button"
             role="radio"
@@ -127,7 +127,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
             className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
               purpose === "picture"
                 ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-indigo-500/20"
-                : "text-slate-400 hover:text-white"
+                : "text-muted hover:text-ink"
             }`}
           >
             <Icon name="image" className="size-3.5" />
@@ -141,7 +141,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
             className={`flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-medium transition-all ${
               purpose === "background"
                 ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-pink-500/20"
-                : "text-slate-400 hover:text-white"
+                : "text-muted hover:text-ink"
             }`}
           >
             <Icon name="gradient" className="size-3.5" />
@@ -151,7 +151,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
 
         {/* Quality selector chips */}
         <div className="flex items-center gap-1.5 text-xs">
-          <span className="text-slate-400 mr-1 text-[0.6875rem] uppercase tracking-wider font-semibold">Quality:</span>
+          <span className="text-muted mr-1 text-2xs uppercase tracking-wider font-semibold">Quality:</span>
           {(Object.keys(IMAGE_QUALITY) as ImageQuality[]).map((q) => {
             const active = quality === q;
             return (
@@ -161,12 +161,12 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
                 onClick={() => setQuality(q)}
                 className={`rounded-lg border px-2.5 py-1 text-xs transition-all ${
                   active
-                    ? "border-indigo-400 bg-indigo-500/20 font-semibold text-white shadow-sm"
-                    : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200"
+                    ? "border-primary bg-primary/20 font-semibold text-white shadow-sm"
+                    : "border-line bg-raised text-muted hover:text-ink"
                 }`}
               >
                 {IMAGE_QUALITY[q].label}
-                <span className="text-[0.625rem] text-slate-400 ml-1 font-normal">{IMAGE_QUALITY[q].size}</span>
+                <span className="text-2xs text-muted ml-1 font-normal">{IMAGE_QUALITY[q].size}</span>
               </button>
             );
           })}
@@ -178,16 +178,16 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <label htmlFor="flow-prompt-input" className="text-xs font-semibold text-slate-300">
+              <label htmlFor="flow-prompt-input" className="text-xs font-semibold text-muted">
                 {made ? "Prompt (Modify or generate anew)" : "Visual Prompt"}
               </label>
               <PromptEnhancerButton prompt={prompt} onEnhanced={(exp) => setPrompt(exp)} type="image" />
             </div>
 
-            <div className="relative rounded-2xl border border-white/10 bg-slate-950/60 p-2.5 shadow-inner focus-within:border-indigo-400/80 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+            <div className="relative rounded-2xl border border-line bg-canvas/60 p-2.5 shadow-inner focus-within:border-primary focus-within:ring-2 focus-within:ring-primary transition-all">
               <textarea
                 id="flow-prompt-input"
-                className="w-full min-h-28 resize-y bg-transparent text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 outline-none"
+                className="w-full min-h-28 resize-y bg-transparent text-sm leading-relaxed text-ink placeholder:text-muted outline-none"
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 maxLength={2000}
@@ -197,7 +197,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
                     : "e.g. Cinematic macro shot of a golden pocket watch resting on velvet, dramatic lighting, 8k..."
                 }
               />
-              <div className="flex items-center justify-between border-t border-white/5 pt-2 text-[0.6875rem] text-slate-400">
+              <div className="flex items-center justify-between border-t border-line pt-2 text-2xs text-muted">
                 <span>Google Flow Prompt Builder</span>
                 <span>{prompt.length} / 2000</span>
               </div>
@@ -207,15 +207,15 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
           {/* Interactive Style Pills */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-300">Inspiration & Keywords</span>
-              <div className="flex gap-1 text-[0.6875rem]">
+              <span className="text-xs font-medium text-muted">Inspiration & Keywords</span>
+              <div className="flex gap-1 text-2xs">
                 {(["styles", "lighting", "backgrounds"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setChipTab(t)}
                     className={`rounded px-2 py-0.5 capitalize transition-colors ${
-                      chipTab === t ? "bg-white/15 text-white font-medium" : "text-slate-400 hover:text-slate-200"
+                      chipTab === t ? "bg-raised text-white font-medium" : "text-muted hover:text-ink"
                     }`}
                   >
                     {t}
@@ -229,8 +229,8 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
           {/* Visual Aspect Ratio Selector */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-300">Aspect Ratio</span>
-              <span className="text-[0.6875rem] text-slate-400">Project Canvas: {p.canvas.width}×{p.canvas.height}</span>
+              <span className="text-xs font-medium text-muted">Aspect Ratio</span>
+              <span className="text-2xs text-muted">Project Canvas: {p.canvas.width}×{p.canvas.height}</span>
             </div>
             <AspectTileSelector value={aspect} onChange={setAspect} />
           </div>
@@ -262,7 +262,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
                 type="button"
                 disabled={busy || !prompt.trim()}
                 onClick={() => void generate(made.id)}
-                className="rounded-xl border border-white/15 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/[0.1] hover:text-white transition-all"
+                className="rounded-xl border border-line bg-raised px-4 py-2.5 text-sm font-medium text-ink hover:bg-hover hover:text-ink transition-all"
                 title="Feed this picture back with updated prompt guidance"
               >
                 Remix This · {cost}
@@ -285,15 +285,15 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
 
         {/* Right Column: Generation Canvas & Result Actions */}
         <div className="flex flex-col gap-3">
-          <div className="relative flex min-h-64 flex-1 flex-col items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-slate-950/80 p-3 shadow-inner">
+          <div className="relative flex min-h-64 flex-1 flex-col items-center justify-center overflow-hidden rounded-2xl border border-line bg-canvas/80 p-3 shadow-inner">
             {busy ? (
               <div className="flex flex-col items-center gap-3 text-center p-6" aria-live="polite">
                 <div className="relative flex size-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-blue-500 via-indigo-500 to-fuchsia-500 shadow-xl shadow-indigo-500/30 animate-pulse">
                   <span className="text-2xl text-white">✨</span>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm font-semibold text-slate-100">Creating your visual…</p>
-                  <p className="text-xs text-slate-400">Gemini is synthesizing light, texture and composition</p>
+                  <p className="text-sm font-semibold text-ink">Creating your visual…</p>
+                  <p className="text-xs text-muted">Gemini is synthesizing light, texture and composition</p>
                 </div>
               </div>
             ) : made ? (
@@ -305,7 +305,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
                     alt={`Generated by Gemini: ${prompt}`}
                     className="max-h-80 w-full rounded-xl object-contain shadow-2xl"
                   />
-                  <div className="absolute top-2 right-2 rounded-md bg-black/60 backdrop-blur-md px-2 py-0.5 text-[0.625rem] text-slate-300 font-mono">
+                  <div className="absolute top-2 right-2 rounded-md bg-black/60 backdrop-blur-md px-2 py-0.5 text-2xs text-muted font-mono">
                     {aspect} · SynthID
                   </div>
                 </div>
@@ -321,7 +321,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
                   </button>
                   <button
                     type="button"
-                    className="rounded-xl border border-white/15 bg-white/[0.08] px-3 py-2 text-xs font-semibold text-white hover:bg-white/[0.15] transition-all flex items-center justify-center gap-1.5"
+                    className="rounded-xl border border-line bg-raised px-3 py-2 text-xs font-semibold text-white hover:bg-hover transition-all flex items-center justify-center gap-1.5"
                     onClick={() => p.onAddToTimeline(made)}
                   >
                     <Icon name="plus" className="size-3.5" />
@@ -330,12 +330,12 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-2 text-center p-6 text-slate-500">
-                <div className="flex size-12 items-center justify-center rounded-2xl bg-white/[0.03] border border-white/5 text-slate-400">
+              <div className="flex flex-col items-center gap-2 text-center p-6 text-muted">
+                <div className="flex size-12 items-center justify-center rounded-2xl bg-raised border border-line text-muted">
                   <Icon name="image" className="size-6" />
                 </div>
-                <p className="text-xs font-medium text-slate-400">Ready to create</p>
-                <p className="text-[0.6875rem] max-w-xs text-slate-400">
+                <p className="text-xs font-medium text-muted">Ready to create</p>
+                <p className="text-2xs max-w-xs text-muted">
                   Enter your prompt or choose keywords on the left to generate imagery with Google Flow.
                 </p>
               </div>

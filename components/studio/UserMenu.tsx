@@ -84,21 +84,21 @@ export function UserMenu(p?: { onOpenStorage?: () => void }) {
           {/* User Profile Header */}
           <div className="border-b border-line/70 px-2.5 py-2">
             <div className="font-bold text-xs text-ink truncate">{user.name}</div>
-            <div className="text-[11px] text-muted truncate">{user.email || user.phone_number || "Verified Account"}</div>
+            <div className="text-2xs text-muted truncate">{user.email || user.phone_number || "Verified Account"}</div>
             <div className="mt-1.5 flex items-center justify-between gap-1">
               <span
-                className={`inline-block rounded px-1.5 py-0.2 font-mono text-[9px] font-bold ${
+                className={`inline-block rounded px-1.5 py-0.2 font-mono text-2xs font-bold ${
                   user.role === "super_admin"
                     ? "bg-purple-500/15 text-purple-600 dark:text-purple-400"
                     : user.role === "admin"
-                    ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                    ? "bg-primary/15 text-link dark:text-link"
                     : "bg-neutral-500/15 text-neutral-600 dark:text-neutral-400"
                 }`}
               >
                 {roleLabel}
               </span>
               {accountCode && (
-                <span className="font-mono text-[9px] font-semibold text-primary truncate" title={`Local Workspace: ${accountCode}`}>
+                <span className="font-mono text-2xs font-semibold text-primary truncate" title={`Local Workspace: ${accountCode}`}>
                   {accountCode}
                 </span>
               )}

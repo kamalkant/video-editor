@@ -143,7 +143,7 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
           void save();
         }}
       >
-        <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[0.6875rem] text-muted">
+        <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-2xs text-muted">
           Save a version
           <input className="field h-8 min-h-0 px-2 text-sm" value={name} maxLength={80} placeholder={next} onChange={(e) => setName(e.target.value)} aria-label="Version name" />
         </label>
@@ -151,7 +151,7 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
           {busy === "save" ? "Saving…" : "Save"}
         </button>
       </form>
-      <p className="text-[0.6875rem] text-muted" aria-live="polite">
+      <p className="text-2xs text-muted" aria-live="polite">
         {saved ? `✓ Saved “${saved}”.` : "A copy of the project as it is now, to come back to later."}
       </p>
       {error && (
@@ -159,7 +159,7 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
           {error}
         </p>
       )}
-      <h3 className="mt-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Saved versions</h3>
+      <h3 className="mt-1 text-2xs font-semibold uppercase tracking-wide text-muted">Saved versions</h3>
       {list === null ? (
         <p className="text-xs text-muted">Loading…</p>
       ) : list.length === 0 ? (
@@ -171,14 +171,14 @@ export function VersionsList({ projectId, flush, onRestore, onDone }: VersionsPr
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="flex items-center gap-1.5 text-xs">
                   <span className="truncate font-medium">{v.name}</span>
-                  {v.auto && <span className="shrink-0 rounded bg-soon px-1 text-[0.625rem] text-muted">automatic</span>}
+                  {v.auto && <span className="shrink-0 rounded bg-soon px-1 text-2xs text-muted">automatic</span>}
                 </span>
-                <span className="truncate text-[0.6875rem] text-muted">
+                <span className="truncate text-2xs text-muted">
                   {when(v.createdAt)} · {formatTime(v.duration)} · {v.clips} {v.clips === 1 ? "clip" : "clips"}
                   {v.missing > 0 && <span className="text-warn-ink"> · {v.missing === 1 ? "a video is missing" : `${v.missing} videos are missing`}</span>}
                 </span>
               </span>
-              <button type="button" className="btn btn-secondary min-h-7 px-2 text-[0.6875rem]" disabled={!!busy || v.clips === 0} title={v.clips === 0 ? "Its videos were deleted" : undefined} onClick={() => void restore(v)} aria-label={`Restore ${v.name}`}>
+              <button type="button" className="btn btn-secondary min-h-7 px-2 text-2xs" disabled={!!busy || v.clips === 0} title={v.clips === 0 ? "Its videos were deleted" : undefined} onClick={() => void restore(v)} aria-label={`Restore ${v.name}`}>
                 {busy === v.id ? "…" : "Restore"}
               </button>
               <button type="button" className="flex size-7 items-center justify-center rounded text-muted hover:bg-canvas hover:text-danger disabled:opacity-40" disabled={!!busy} onClick={() => void remove(v)} aria-label={`Delete ${v.name}`} title="Delete this version">

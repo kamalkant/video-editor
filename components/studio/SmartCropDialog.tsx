@@ -111,7 +111,7 @@ export function SmartCropDialog(p: {
       size="md"
       title="Smart Reframe"
       subtitle="Crop a wide video for Shorts and Reels around the person in it"
-      badge={<span className="rounded bg-emerald-600/90 px-1.5 py-px text-[0.625rem] font-semibold text-white">Finds the face · in your browser</span>}
+      badge={<span className="rounded bg-emerald-600/90 px-1.5 py-px text-2xs font-semibold text-white">Finds the face · in your browser</span>}
       busy={busy}
       busyLabel="Looking for the face in 5 frames…"
       testId="smart-crop-dialog"
@@ -119,7 +119,7 @@ export function SmartCropDialog(p: {
       <div className="flex flex-col gap-4">
         {/* Format Selector */}
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-semibold text-slate-300">Target Social Platform</span>
+          <span className="text-xs font-semibold text-muted">Target Social Platform</span>
           <div className="grid grid-cols-2 gap-2">
             {FORMATS.map((f) => {
               const active = format === f.id;
@@ -130,12 +130,12 @@ export function SmartCropDialog(p: {
                   onClick={() => setFormat(f.id)}
                   className={`flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
                     active
-                      ? "border-indigo-400 bg-indigo-500/15 text-white shadow-md ring-1 ring-indigo-500/40"
-                      : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20 hover:bg-white/[0.05]"
+                      ? "border-primary bg-primary/15 text-white shadow-md ring-1 ring-primary"
+                      : "border-line bg-raised text-muted hover:border-line hover:bg-hover"
                   }`}
                 >
                   <span className="text-xs font-semibold">{f.label}</span>
-                  <span className="text-[0.625rem] text-slate-400 mt-0.5">{f.sub}</span>
+                  <span className="text-2xs text-muted mt-0.5">{f.sub}</span>
                 </button>
               );
             })}
@@ -144,7 +144,7 @@ export function SmartCropDialog(p: {
 
         {/* Subject Focus Strategy */}
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-semibold text-slate-300">Subject Tracking Bias</span>
+          <span className="text-xs font-semibold text-muted">Subject Tracking Bias</span>
           <div className="grid grid-cols-2 gap-2">
             {[
               { id: "auto" as const, label: "Follow the face", sub: "Finds where the person is" },
@@ -158,24 +158,24 @@ export function SmartCropDialog(p: {
                 onClick={() => setFocus(st.id)}
                 className={`rounded-xl border p-2 text-center transition-all ${
                   focus === st.id
-                    ? "border-indigo-400 bg-indigo-500/20 text-white font-semibold shadow-sm"
-                    : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200"
+                    ? "border-primary bg-primary/20 text-white font-semibold shadow-sm"
+                    : "border-line bg-raised text-muted hover:text-ink"
                 }`}
               >
                 <span className="text-xs block">{st.label}</span>
-                <span className="text-[0.625rem] text-slate-400 block mt-0.5">{st.sub}</span>
+                <span className="text-2xs text-muted block mt-0.5">{st.sub}</span>
               </button>
             ))}
           </div>
         </div>
 
         {/* Preview Frame Box */}
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-inner">
-          <div className="relative aspect-video w-56 rounded-lg bg-slate-900 border border-white/10 overflow-hidden flex items-center justify-center">
-            <span className="text-[0.625rem] text-slate-500">16:9 Landscape Source</span>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-line bg-canvas/80 p-5 shadow-inner">
+          <div className="relative aspect-video w-56 rounded-lg bg-surface border border-line overflow-hidden flex items-center justify-center">
+            <span className="text-2xs text-muted">16:9 Landscape Source</span>
             {/* Dynamic crop preview box */}
             <div
-              className="absolute inset-y-1 rounded border-2 border-indigo-400 bg-indigo-500/20 shadow-lg shadow-indigo-500/30 transition-all duration-300"
+              className="absolute inset-y-1 rounded border-2 border-primary bg-primary/20 shadow-lg shadow-indigo-500/30 transition-all duration-300"
               style={{
                 width: format === "9:16" ? "32%" : format === "1:1" ? "56%" : format === "4:3" ? "75%" : "96%",
                 left:
@@ -188,16 +188,16 @@ export function SmartCropDialog(p: {
               }}
             >
               <div className="flex h-full w-full items-center justify-center">
-                <span className="text-[0.5625rem] font-bold text-white bg-black/60 px-1 py-0.5 rounded">
+                <span className="text-2xs font-bold text-white bg-black/60 px-1 py-0.5 rounded">
                   {format}
                 </span>
               </div>
             </div>
           </div>
-          <span className="text-[0.6875rem] text-slate-400 mt-2">
+          <span className="text-2xs text-muted mt-2">
             {focus === "auto" ? `${format}: the crop goes where the face is` : `${format}: ${focus}`}
           </span>
-          {error && <span className="mt-2 text-[0.6875rem] text-red-400" role="alert">{error}</span>}
+          {error && <span className="mt-2 text-2xs text-red-400" role="alert">{error}</span>}
         </div>
 
         {/* Apply Action */}

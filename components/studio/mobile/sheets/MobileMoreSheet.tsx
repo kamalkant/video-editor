@@ -44,7 +44,7 @@ export function MobileMoreSheet({
     <div className="flex flex-col gap-3 py-1">
       {/* Canvas Aspect Ratio Row */}
       <div className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold text-muted">Canvas Aspect Ratio</span>
+        <span className="text-2xs font-semibold text-muted">Canvas Aspect Ratio</span>
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
           {ASPECT_RATIOS.map((ar) => {
             const isSelected = currentRatio === ar.id;
@@ -60,7 +60,7 @@ export function MobileMoreSheet({
                 }`}
               >
                 <span className="text-xs font-semibold">{ar.label}</span>
-                <span className="text-[9px] text-muted truncate">{ar.desc}</span>
+                <span className="text-2xs text-muted truncate">{ar.desc}</span>
               </button>
             );
           })}
@@ -69,7 +69,7 @@ export function MobileMoreSheet({
 
       {/* Grid of secondary studio modules */}
       <div className="flex flex-col gap-1.5">
-        <span className="text-[11px] font-semibold text-muted">Studio Panels</span>
+        <span className="text-2xs font-semibold text-muted">Studio Panels</span>
         <div className="grid grid-cols-3 gap-2">
           {MORE_TOOLS.map((tool) => (
             <button
@@ -79,7 +79,7 @@ export function MobileMoreSheet({
               className="flex flex-col items-center justify-center gap-1.5 rounded-xl border border-line bg-surface p-2.5 hover:border-primary/50 transition-all active:scale-95 text-center"
             >
               <Icon name={tool.icon} className="size-4.5 text-primary" />
-              <span className="text-[11px] font-medium text-ink truncate max-w-full">
+              <span className="text-2xs font-medium text-ink truncate max-w-full">
                 {tool.label}
               </span>
             </button>

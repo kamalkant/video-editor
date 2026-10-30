@@ -62,7 +62,7 @@ export function BackgroundSwatches({
           return (
             <label
               key={t.value}
-              className={`relative flex cursor-pointer flex-col items-center gap-0.5 rounded-[var(--radius-control)] border bg-raised p-1 text-[0.6875rem] w-[4.75rem] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-link ${
+              className={`relative flex cursor-pointer flex-col items-center gap-0.5 rounded-[var(--radius-control)] border bg-raised p-1 text-2xs w-[4.75rem] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-link ${
                 selected ? "border-primary font-semibold ring-1 ring-primary" : "border-line hover:border-control"
               }`}
             >

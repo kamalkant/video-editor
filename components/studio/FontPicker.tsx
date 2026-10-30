@@ -204,7 +204,7 @@ export function FontPicker({
                 setActive(0);
                 setScroll(0);
                 if (listRef.current) listRef.current.scrollTop = 0;
-              }} className={`rounded-full border px-2 py-0.5 text-[0.6875rem] ${tab === t.id ? "border-primary bg-primary-soft text-ink" : "border-line text-muted hover:text-ink"}`}>
+              }} className={`rounded-full border px-2 py-0.5 text-2xs ${tab === t.id ? "border-primary bg-primary-soft text-ink" : "border-line text-muted hover:text-ink"}`}>
               {t.label}
             </button>
           ))}
@@ -216,7 +216,7 @@ export function FontPicker({
               const top = i * ROW;
               if (r.kind === "head")
                 return (
-                  <div key={`h${i}`} className="absolute inset-x-0 flex items-end px-2 pb-1 text-[0.625rem] font-semibold uppercase tracking-wide text-muted" style={{ top, height: ROW }}>
+                  <div key={`h${i}`} className="absolute inset-x-0 flex items-end px-2 pb-1 text-2xs font-semibold uppercase tracking-wide text-muted" style={{ top, height: ROW }}>
                     {r.label}
                   </div>
                 );
@@ -241,7 +241,7 @@ export function FontPicker({
           {!catalog && <p className="absolute inset-x-0 bottom-2 text-center text-xs text-muted">Loading the font library…</p>}
         </div>
         {failed && <p className="text-xs text-muted">The Google Fonts list couldn&apos;t load (no internet?). Built-in and Brand Kit fonts still work.</p>}
-        <p className="text-[0.6875rem] text-muted">Google Fonts load when you use them; your own fonts: Brand Kit.</p>
+        <p className="text-2xs text-muted">Google Fonts load when you use them; your own fonts: Brand Kit.</p>
       </div>
     </Popover>
   );

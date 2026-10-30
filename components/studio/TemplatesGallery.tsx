@@ -160,8 +160,8 @@ export function TemplatesGallery({
                 <span className="flex aspect-video items-center justify-center overflow-hidden rounded-md bg-canvas">
                   <TemplateThumb doc={doc} />
                 </span>
-                <span className="px-0.5 text-[0.6875rem] font-medium truncate">{t.name}</span>
-                <span className="px-0.5 text-[0.625rem] text-muted">
+                <span className="px-0.5 text-2xs font-medium truncate">{t.name}</span>
+                <span className="px-0.5 text-2xs text-muted">
                   {t.category} · {doc.canvas.width}×{doc.canvas.height}
                 </span>
               </button>
@@ -179,7 +179,7 @@ export function TemplatesGallery({
           );
         })}
       </ul>
-      <p className="text-[0.6875rem] text-muted">
+      <p className="text-2xs text-muted">
         Includes News, YouTube, Social, Business, Gaming, Weather Radar, and your own saved custom templates.
       </p>
     </div>

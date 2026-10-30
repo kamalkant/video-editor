@@ -98,7 +98,7 @@ export function MobileFiltersSheet({
                 <span className="flex size-7 items-center justify-center rounded-full bg-raised/80">
                   🎨
                 </span>
-                <span className="text-[10px] text-muted truncate max-w-full">{p.label}</span>
+                <span className="text-2xs text-muted truncate max-w-full">{p.label}</span>
               </button>
             );
           })}
@@ -106,7 +106,7 @@ export function MobileFiltersSheet({
       ) : (
         <div className="flex flex-col gap-2 py-1">
           <div className="flex flex-col gap-1">
-            <div className="flex justify-between text-[11px] text-muted">
+            <div className="flex justify-between text-2xs text-muted">
               <span>Brightness</span>
               <span className="tabular-nums font-semibold text-ink">{brightness}%</span>
             </div>
@@ -125,7 +125,7 @@ export function MobileFiltersSheet({
           </div>
 
           <div className="flex flex-col gap-1">
-            <div className="flex justify-between text-[11px] text-muted">
+            <div className="flex justify-between text-2xs text-muted">
               <span>Contrast</span>
               <span className="tabular-nums font-semibold text-ink">{contrast}%</span>
             </div>

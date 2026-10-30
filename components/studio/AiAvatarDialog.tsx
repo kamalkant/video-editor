@@ -68,7 +68,7 @@ export function AiAvatarDialog(p: {
     >
       {off ? (
         p.gemini === "loading" ? (
-          <p className="text-sm text-slate-400 py-6 text-center">Connecting to Google Gemini…</p>
+          <p className="text-sm text-muted py-6 text-center">Connecting to Google Gemini…</p>
         ) : (
           <GeminiKeyCard />
         )
@@ -76,7 +76,7 @@ export function AiAvatarDialog(p: {
         <div className="flex flex-col gap-4">
           {/* Avatar Persona Selector */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-slate-300">Choose Presenter Persona</span>
+            <span className="text-xs font-semibold text-muted">Choose Presenter Persona</span>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {AVATARS.map((av) => {
                 const active = selectedAvatar.id === av.id;
@@ -87,13 +87,13 @@ export function AiAvatarDialog(p: {
                     onClick={() => setSelectedAvatar(av)}
                     className={`flex flex-col items-center rounded-xl border p-3 text-center transition-all ${
                       active
-                        ? "border-indigo-400 bg-indigo-500/20 text-white shadow-md ring-1 ring-indigo-500/40"
-                        : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20 hover:text-white"
+                        ? "border-primary bg-primary/20 text-white shadow-md ring-1 ring-primary"
+                        : "border-line bg-raised text-muted hover:border-line hover:text-ink"
                     }`}
                   >
                     <span className="text-3xl mb-1">{av.avatar}</span>
                     <span className="text-xs font-semibold">{av.name}</span>
-                    <span className="text-[0.625rem] text-slate-400 leading-tight mt-0.5">{av.role}</span>
+                    <span className="text-2xs text-muted leading-tight mt-0.5">{av.role}</span>
                   </button>
                 );
               })}
@@ -102,12 +102,12 @@ export function AiAvatarDialog(p: {
 
           {/* Script Input */}
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="avatar-script-input" className="text-xs font-semibold text-slate-300">
+            <label htmlFor="avatar-script-input" className="text-xs font-semibold text-muted">
               Presenter Script
             </label>
             <textarea
               id="avatar-script-input"
-              className="w-full min-h-24 resize-y rounded-xl border border-white/10 bg-slate-950/80 p-3 text-xs leading-relaxed text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-400"
+              className="w-full min-h-24 resize-y rounded-xl border border-line bg-canvas/80 p-3 text-xs leading-relaxed text-ink placeholder:text-muted outline-none focus:border-primary"
               value={script}
               onChange={(e) => setScript(e.target.value)}
               placeholder="Type what this presenter should present in your video…"
@@ -127,8 +127,8 @@ export function AiAvatarDialog(p: {
           </button>
 
           {generated && (
-            <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/90 p-4 shadow-inner">
-              <span className="text-xs font-semibold text-slate-300">Generated Presenter Preview</span>
+            <div className="flex flex-col gap-3 rounded-2xl border border-line bg-canvas p-4 shadow-inner">
+              <span className="text-xs font-semibold text-muted">Generated Presenter Preview</span>
               <div className="overflow-hidden rounded-xl bg-black/40 flex items-center justify-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img

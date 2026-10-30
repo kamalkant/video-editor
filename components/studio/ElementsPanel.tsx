@@ -106,7 +106,7 @@ export function ElementsPanel(p: {
             title={`${x.label} · Click or drag onto preview`}
           >
             <ElementThumb el={x.el} />
-            <span className="truncate px-0.5 text-[0.6875rem] font-medium">{x.label}</span>
+            <span className="truncate px-0.5 text-2xs font-medium">{x.label}</span>
           </button>
         </li>
       ))}
@@ -142,9 +142,9 @@ export function ElementsPanel(p: {
                     <span className="absolute right-[12%] top-[14%] flex size-[28%] items-center justify-center rounded-md bg-white/90 text-slate-800">
                       <Icon name="brand" className="size-[60%]" />
                     </span>
-                    {p.logo !== "off" && <span className="absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded bg-black/65 px-1 text-[0.5625rem] leading-4 text-white">{p.logo === "on" ? "On" : "Brand Kit"}</span>}
+                    {p.logo !== "off" && <span className="absolute bottom-1 left-1 max-w-[calc(100%-0.5rem)] truncate rounded bg-black/65 px-1 text-2xs leading-4 text-white">{p.logo === "on" ? "On" : "Brand Kit"}</span>}
                   </span>
-                  <span className="truncate px-0.5 text-[0.6875rem] font-medium">Logo</span>
+                  <span className="truncate px-0.5 text-2xs font-medium">Logo</span>
                 </button>
               </li>
             ),
@@ -176,7 +176,7 @@ export function ElementsPanel(p: {
                 Add
               </button>
             </form>
-            <p id="any-emoji-hint" className="text-[0.6875rem] text-muted">
+            <p id="any-emoji-hint" className="text-2xs text-muted">
               Ctrl ⌘ Space: every emoji. They look like your Mac&apos;s emoji; for paid ads, the app&apos;s own stickers are safer.
             </p>
             {EMOJI_GROUPS.map((g) => {
@@ -184,7 +184,7 @@ export function ElementsPanel(p: {
               if (!list.length) return null;
               return (
                 <div key={g} role="group" aria-label={g} className="flex flex-col gap-1">
-                  {!q.trim() && <span className="text-[0.6875rem] text-muted">{g}</span>}
+                  {!q.trim() && <span className="text-2xs text-muted">{g}</span>}
                   <ul className="grid grid-cols-7 gap-0.5 @sm:grid-cols-9 @md:grid-cols-11 @lg:grid-cols-12">
                     {list.map((x) => (
                       <li key={x.e}>

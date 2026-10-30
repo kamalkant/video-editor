@@ -44,7 +44,7 @@ export function CanvasSizeFields({ canvas, onCanvas }: SizeProps) {
               aria-pressed={on}
               title={p.label}
               onClick={() => onCanvas({ width: p.width, height: p.height, ...(isVertical ? { fit: "fill" } : {}) })}
-              className={`flex flex-col items-center gap-1 rounded-md border px-1 py-1.5 text-[0.6875rem] ${on ? "border-primary bg-primary-soft text-ink" : "border-line text-muted hover:border-control hover:text-ink"}`}
+              className={`flex flex-col items-center gap-1 rounded-md border px-1 py-1.5 text-2xs ${on ? "border-primary bg-primary-soft text-ink" : "border-line text-muted hover:border-control hover:text-ink"}`}
             >
               <Shape w={p.width} h={p.height} />
               {id}
@@ -62,12 +62,12 @@ export function CanvasSizeFields({ canvas, onCanvas }: SizeProps) {
           onCanvas({ width: W, height: H, ...(isVertical ? { fit: "fill" } : {}) });
         }}
       >
-        <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[0.6875rem] text-muted">
+        <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-2xs text-muted">
           Width
           <input className="field h-8 min-h-0 px-2 text-sm" inputMode="numeric" value={w} onChange={(e) => setW(e.target.value.replace(/\D/g, ""))} aria-label="Custom width" />
         </label>
         <span className="pb-2 text-muted">×</span>
-        <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-[0.6875rem] text-muted">
+        <label className="flex min-w-0 flex-1 flex-col gap-0.5 text-2xs text-muted">
           Height
           <input className="field h-8 min-h-0 px-2 text-sm" inputMode="numeric" value={h} onChange={(e) => setH(e.target.value.replace(/\D/g, ""))} aria-label="Custom height" />
         </label>
@@ -75,7 +75,7 @@ export function CanvasSizeFields({ canvas, onCanvas }: SizeProps) {
           Set
         </button>
       </form>
-      <p className="mt-2 text-[0.6875rem] text-muted">Any size from 64 to 3840 pixels (even numbers). Clips are fitted to the new frame; move them on the preview.</p>
+      <p className="mt-2 text-2xs text-muted">Any size from 64 to 3840 pixels (even numbers). Clips are fitted to the new frame; move them on the preview.</p>
     </>
   );
 }

@@ -61,7 +61,7 @@ export function TextPanel({ onAdd, onElements }: { onAdd: (styleId: string) => v
               <StyleThumb id={t.id} />
               <span className="flex items-baseline justify-between gap-1 px-0.5">
                 <span className="truncate text-xs font-medium">{t.label}</span>
-                <span className="text-[0.625rem] text-link opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+ Add</span>
+                <span className="text-2xs text-link opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">+ Add</span>
               </span>
             </button>
           </li>

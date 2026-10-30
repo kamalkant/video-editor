@@ -67,7 +67,7 @@ export function MobileBottomToolbar({
             aria-label="Done editing clip"
           >
             <Icon name="check" className="size-4 text-primary" />
-            <span className="text-[10px] font-semibold">Done</span>
+            <span className="text-2xs font-semibold">Done</span>
           </button>
         )}
 
@@ -83,7 +83,7 @@ export function MobileBottomToolbar({
             aria-label="Split"
           >
             <Icon name="split" className="size-4 text-ink" />
-            <span className="text-[10px] leading-tight">Split</span>
+            <span className="text-2xs leading-tight">Split</span>
           </button>
         )}
 
@@ -100,7 +100,7 @@ export function MobileBottomToolbar({
           aria-label="Edit"
         >
           <Icon name="cut" className={`size-4 ${activeTab === "edit" ? "text-white" : "text-ink"}`} />
-          <span className="text-[10px] leading-tight">Edit</span>
+          <span className="text-2xs leading-tight">Edit</span>
         </button>
 
         {/* Filters */}
@@ -116,7 +116,7 @@ export function MobileBottomToolbar({
           aria-label="Filters"
         >
           <Icon name="palette" className={`size-4 ${activeTab === "filters" ? "text-white" : "text-ink"}`} />
-          <span className="text-[10px] leading-tight">Filters</span>
+          <span className="text-2xs leading-tight">Filters</span>
         </button>
 
         {/* Effects */}
@@ -132,7 +132,7 @@ export function MobileBottomToolbar({
           aria-label="Effects"
         >
           <Icon name="effects" className={`size-4 ${activeTab === "effects" ? "text-white" : "text-ink"}`} />
-          <span className="text-[10px] leading-tight">Effects</span>
+          <span className="text-2xs leading-tight">Effects</span>
         </button>
 
         {/* Crop */}
@@ -145,7 +145,7 @@ export function MobileBottomToolbar({
             aria-label="Crop"
           >
             <Icon name="crop" className="size-4 text-ink" />
-            <span className="text-[10px] leading-tight">Crop</span>
+            <span className="text-2xs leading-tight">Crop</span>
           </button>
         )}
 
@@ -159,7 +159,7 @@ export function MobileBottomToolbar({
             aria-label="Cutout"
           >
             <Icon name="wand" className="size-4 text-ink" />
-            <span className="text-[10px] leading-tight">Cutout</span>
+            <span className="text-2xs leading-tight">Cutout</span>
           </button>
         )}
 
@@ -173,7 +173,7 @@ export function MobileBottomToolbar({
             aria-label="Duplicate"
           >
             <Icon name="copy" className="size-4 text-ink" />
-            <span className="text-[10px] leading-tight">Duplicate</span>
+            <span className="text-2xs leading-tight">Duplicate</span>
           </button>
         )}
 
@@ -187,7 +187,7 @@ export function MobileBottomToolbar({
             aria-label="Delete"
           >
             <Icon name="trash" className="size-4 text-rose-500" />
-            <span className="text-[10px] leading-tight">Delete</span>
+            <span className="text-2xs leading-tight">Delete</span>
           </button>
         )}
       </nav>
@@ -212,7 +212,7 @@ export function MobileBottomToolbar({
           <div className="flex size-5 items-center justify-center rounded-full bg-primary text-white shadow-xs">
             <Icon name="plus" className="size-3" />
           </div>
-          <span className="truncate text-[10px] font-semibold leading-tight tracking-tight">
+          <span className="truncate text-2xs font-semibold leading-tight tracking-tight">
             Add
           </span>
         </button>
@@ -238,7 +238,7 @@ export function MobileBottomToolbar({
               name={tab.icon}
               className={`size-4.5 shrink-0 ${isActive ? "text-white" : "text-muted"}`}
             />
-            <span className="truncate text-[10px] leading-tight tracking-tight">
+            <span className="truncate text-2xs leading-tight tracking-tight">
               {tab.label}
             </span>
           </button>

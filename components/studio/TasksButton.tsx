@@ -18,7 +18,7 @@ function Row({ t, onPick }: { t: Task; onPick: () => void }) {
             <span className="min-w-0 flex-1 truncate font-medium">{t.label}</span>
             <span className={`shrink-0 tabular-nums ${t.state === "failed" ? "text-danger" : "text-muted"}`}>{running ? (t.percent != null ? `${t.percent}%` : "") : t.state === "done" ? "Done" : "Failed"}</span>
           </span>
-          {t.detail && <span className="truncate text-[0.6875rem] text-muted">{t.detail}</span>}
+          {t.detail && <span className="truncate text-2xs text-muted">{t.detail}</span>}
           {running && (
             <span className="relative h-1 overflow-hidden rounded-full bg-track" role="progressbar" aria-label={t.label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={t.percent ?? undefined}>
               {t.percent != null ? <span className="absolute inset-y-0 left-0 rounded-full bg-primary transition-[width]" style={{ width: `${t.percent}%` }} /> : <span className="task-indeterminate absolute inset-y-0 w-1/3 rounded-full bg-primary" />}
@@ -58,7 +58,7 @@ export function TasksButton({ className }: { className: string }) {
         <>
           <Icon name="activity" className={`size-5 ${n ? "text-link" : ""}`} />
           {n > 0 && (
-            <span data-testid="tasks-count" aria-hidden="true" className="absolute right-0.5 top-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.625rem] font-semibold leading-4 text-white">
+            <span data-testid="tasks-count" aria-hidden="true" className="absolute right-0.5 top-0.5 flex min-w-4 items-center justify-center rounded-full bg-primary px-1 text-2xs font-semibold leading-4 text-white">
               {n}
             </span>
           )}
@@ -78,10 +78,10 @@ export function TasksButton({ className }: { className: string }) {
         {finished.length > 0 && (
           <section aria-labelledby="tasks-finished" className="mt-1 border-t border-line pt-1">
             <div className="flex items-center px-2 py-1">
-              <h3 id="tasks-finished" className="flex-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
+              <h3 id="tasks-finished" className="flex-1 text-2xs font-semibold uppercase tracking-wide text-muted">
                 Recently finished
               </h3>
-              <button type="button" className="text-[0.6875rem] text-link underline" onClick={clearFinished}>
+              <button type="button" className="text-2xs text-link underline" onClick={clearFinished}>
                 Clear
               </button>
             </div>

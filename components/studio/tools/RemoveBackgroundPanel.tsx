@@ -495,7 +495,7 @@ function LiveSettings({
           </span>
           <div className="flex flex-col">
             <span className="text-xs font-medium text-ink">Live Stream Ready</span>
-            <span className="text-[11px] text-muted">60 FPS GPU-accelerated background isolation</span>
+            <span className="text-2xs text-muted">60 FPS GPU-accelerated background isolation</span>
           </div>
         </div>
         <button
@@ -532,7 +532,7 @@ function LiveSettings({
                   <Icon name={b.icon as any} className={`size-3.5 ${active ? "text-primary" : "text-muted"}`} />
                   <span className="text-xs font-semibold text-ink">{b.label}</span>
                 </div>
-                <span className="text-[10px] text-muted">{b.sub}</span>
+                <span className="text-2xs text-muted">{b.sub}</span>
               </button>
             );
           })}
@@ -872,7 +872,7 @@ export function RemoveBackgroundPanel({
                         },
                       ]}
                     />
-                    <p className="text-[0.6875rem] text-muted">
+                    <p className="text-2xs text-muted">
                       {effects
                         ? "Partly see-through on purpose: no warning."
                         : "You are warned if parts turn see-through."}

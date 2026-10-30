@@ -122,9 +122,9 @@ export function VoiceoverStudioDialog({
     >
       <div className="flex flex-col gap-5">
         {/* Top Tab Bar */}
-        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+        <div className="flex items-center justify-between border-b border-line pb-3">
           <div
-            className="inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-1"
+            className="inline-flex rounded-xl border border-line bg-raised p-1"
             role="tablist"
           >
             <button
@@ -135,7 +135,7 @@ export function VoiceoverStudioDialog({
               className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
                 tab === "tts"
                   ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/20"
-                  : "text-slate-400 hover:text-white"
+                  : "text-muted hover:text-ink"
               }`}
             >
               <Icon name="voice" className="size-4" />✦ AI Text-to-Speech
@@ -148,7 +148,7 @@ export function VoiceoverStudioDialog({
               className={`flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
                 tab === "mic"
                   ? "bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 text-white shadow-md shadow-pink-500/20"
-                  : "text-slate-400 hover:text-white"
+                  : "text-muted hover:text-ink"
               }`}
             >
               <Icon name="mic" className="size-4" />
@@ -156,7 +156,7 @@ export function VoiceoverStudioDialog({
             </button>
           </div>
 
-          <span className="text-[0.6875rem] text-slate-400">
+          <span className="text-2xs text-muted">
             {tab === "tts"
               ? "30 Gemini neural voices in 130+ languages"
               : "Real-time waveform · Teleprompter"}
@@ -311,12 +311,12 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             onClick={() => setEngine("gemini")}
             className={`flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs transition-all ${
               engine === "gemini"
-                ? "border-indigo-500 bg-indigo-500/15 font-semibold text-white shadow-sm ring-1 ring-indigo-500/40"
-                : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-white"
+                ? "border-primary bg-primary/15 font-semibold text-white shadow-sm ring-1 ring-primary"
+                : "border-line bg-raised text-muted hover:text-ink"
             }`}
           >
             <span>✦ Google Gemini Neural Voices</span>
-            <span className="rounded bg-indigo-500/20 px-1.5 py-px text-[0.625rem] text-indigo-300">
+            <span className="rounded bg-primary/20 px-1.5 py-px text-2xs text-link">
               130+ Languages
             </span>
           </button>
@@ -329,19 +329,19 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             title={macHere ? undefined : "Mac voices need the ViPlay app on a Mac. Gemini voices work here."}
             className={`flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
               engine === "mac"
-                ? "border-slate-400 bg-slate-500/20 font-semibold text-white shadow-sm"
-                : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-white"
+                ? "border-line bg-slate-500/20 font-semibold text-white shadow-sm"
+                : "border-line bg-raised text-muted hover:text-ink"
             }`}
           >
             <span>Mac System Voices</span>
-            <span className="rounded bg-white/10 px-1.5 py-px text-[0.625rem] text-slate-300">
+            <span className="rounded bg-raised px-1.5 py-px text-2xs text-muted">
               {macHere ? "Offline & Free" : "Needs the Mac app"}
             </span>
           </button>
         </div>
 
         {engine === "gemini" && (
-          <span className="text-xs text-indigo-300 font-medium">
+          <span className="text-xs text-link font-medium">
             Estimated Cost: {money(costOf.voice(text.trim().length))}
           </span>
         )}
@@ -350,7 +350,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
       {geminiOff && (
         <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3">
           {gemini === "loading" ? (
-            <p className="text-xs text-slate-300">Connecting to Gemini…</p>
+            <p className="text-xs text-muted">Connecting to Gemini…</p>
           ) : (
             <GeminiKeyCard />
           )}
@@ -363,7 +363,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
           <div className="flex items-center justify-between">
             <label
               htmlFor="tts-script-box"
-              className="text-xs font-semibold text-slate-300"
+              className="text-xs font-semibold text-muted"
             >
               Voiceover Script
             </label>
@@ -372,7 +372,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                 type="button"
                 disabled={scriptBusy || !text.trim()}
                 onClick={() => void draftScript("polish")}
-                className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[0.6875rem] text-slate-300 hover:border-indigo-400 hover:text-white transition-all disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-md border border-line bg-raised px-2 py-0.5 text-2xs text-muted hover:border-primary hover:text-ink transition-all disabled:opacity-40"
                 title="Gemini polishes sentence structure and pauses for natural spoken delivery"
               >
                 ✨ Polish with Gemini
@@ -381,7 +381,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                 type="button"
                 disabled={scriptBusy}
                 onClick={() => void draftScript("generate")}
-                className="inline-flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[0.6875rem] text-indigo-300 hover:bg-indigo-500/20 hover:text-white transition-all disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-md border border-primary bg-primary/10 px-2 py-0.5 text-2xs text-link hover:bg-primary/20 hover:text-ink transition-all disabled:opacity-40"
                 title="Gemini drafts a compelling voiceover script from your topic"
               >
                 ✨ Draft script
@@ -389,16 +389,16 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             </div>
           </div>
 
-          <div className="relative rounded-2xl border border-white/10 bg-slate-950/60 p-3 shadow-inner focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+          <div className="relative rounded-2xl border border-line bg-canvas/60 p-3 shadow-inner focus-within:border-primary focus-within:ring-2 focus-within:ring-primary transition-all">
             <textarea
               id="tts-script-box"
-              className="w-full min-h-36 resize-y bg-transparent text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 outline-none"
+              className="w-full min-h-36 resize-y bg-transparent text-sm leading-relaxed text-ink placeholder:text-muted outline-none"
               value={text}
               onChange={(e) => setText(e.target.value)}
               maxLength={5000}
               placeholder="Type or paste your voiceover script here, or click 'Draft script' to have Gemini write one for you…"
             />
-            <div className="flex items-center justify-between border-t border-white/5 pt-2 text-[0.6875rem] text-slate-400">
+            <div className="flex items-center justify-between border-t border-line pt-2 text-2xs text-muted">
               <span>
                 {wordCount} words · ~{estimatedSeconds}s duration
               </span>
@@ -410,15 +410,15 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
           {engine === "gemini" ? (
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-300">
+                <span className="text-xs font-semibold text-muted">
                   Tone & Delivery Style
                 </span>
-                <span className="text-[0.6875rem] text-slate-400">
+                <span className="text-2xs text-muted">
                   Tell Gemini how to say it
                 </span>
               </div>
               <input
-                className="rounded-xl border border-white/10 bg-slate-950/60 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-500 outline-none focus:border-indigo-400"
+                className="rounded-xl border border-line bg-canvas/60 px-3 py-2 text-xs text-ink placeholder:text-muted outline-none focus:border-primary"
                 value={style}
                 onChange={(e) => setStyle(e.target.value)}
                 maxLength={200}
@@ -444,10 +444,10 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                     key={p}
                     type="button"
                     onClick={() => setStyle(p)}
-                    className={`rounded-full border px-2.5 py-0.5 text-[0.6875rem] transition-colors ${
+                    className={`rounded-full border px-2.5 py-0.5 text-2xs transition-colors ${
                       style === p
-                        ? "border-indigo-400 bg-indigo-500/20 text-white"
-                        : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-slate-200"
+                        ? "border-primary bg-primary/20 text-white"
+                        : "border-line bg-raised text-muted hover:text-ink"
                     }`}
                   >
                     {p}
@@ -457,11 +457,11 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             </div>
           ) : (
             <div className="flex flex-col gap-2">
-              <label className="text-xs font-semibold text-slate-300">
+              <label className="text-xs font-semibold text-muted">
                 Mac Voice
               </label>
               <select
-                className="rounded-xl border border-white/10 bg-slate-950/80 px-3 py-2 text-xs text-slate-200 outline-none focus:border-indigo-400"
+                className="rounded-xl border border-line bg-canvas/80 px-3 py-2 text-xs text-ink outline-none focus:border-primary"
                 value={macVoice}
                 onChange={(e) => setMacVoice(e.target.value)}
                 disabled={macVoices === null}
@@ -521,7 +521,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
         <div className="flex flex-col gap-4">
           {engine === "gemini" && (
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold text-slate-300">
+              <span className="text-xs font-semibold text-muted">
                 Select Voice Persona
               </span>
               <div className="grid grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
@@ -539,8 +539,8 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                       onClick={() => setGVoice(v.name)}
                       className={`flex flex-col items-start rounded-xl border p-2.5 text-left transition-all ${
                         active
-                          ? "border-indigo-400 bg-indigo-500/20 text-white shadow-md ring-1 ring-indigo-500/40"
-                          : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20 hover:bg-white/[0.06]"
+                          ? "border-primary bg-primary/20 text-white shadow-md ring-1 ring-primary"
+                          : "border-line bg-raised text-muted hover:border-line hover:bg-hover"
                       }`}
                     >
                       <div className="flex w-full items-center justify-between">
@@ -552,10 +552,10 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                           <span className="size-2 rounded-full bg-indigo-400 animate-pulse" />
                         )}
                       </div>
-                      <span className="text-[0.625rem] text-indigo-300 font-medium mt-0.5">
+                      <span className="text-2xs text-link font-medium mt-0.5">
                         {persona.category}
                       </span>
-                      <span className="text-[0.625rem] text-slate-400 leading-tight mt-1 line-clamp-1">
+                      <span className="text-2xs text-muted leading-tight mt-1 line-clamp-1">
                         {v.character}
                       </span>
                     </button>
@@ -566,9 +566,9 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
           )}
 
           {/* Audio Waveform Player Output */}
-          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/80 p-4 shadow-inner">
-            <span className="text-xs font-semibold text-slate-300 flex items-center gap-2">
-              <Icon name="waveform" className="size-4 text-indigo-400" />
+          <div className="flex flex-col gap-3 rounded-2xl border border-line bg-canvas/80 p-4 shadow-inner">
+            <span className="text-xs font-semibold text-muted flex items-center gap-2">
+              <Icon name="waveform" className="size-4 text-link" />
               Generated Voiceover Preview
             </span>
 
@@ -576,11 +576,11 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
               <div className="flex flex-col gap-3" data-testid="tts-result">
                 <AudioWaveformCanvas
                   isRecording={false}
-                  className="h-14 w-full rounded-xl bg-slate-900 border border-white/5"
+                  className="h-14 w-full rounded-xl bg-surface border border-line"
                 />
-                <div className="flex items-center justify-between text-xs text-slate-400">
+                <div className="flex items-center justify-between text-xs text-muted">
                   <span>{fresh.fileName}</span>
-                  <span className="font-mono text-slate-300">
+                  <span className="font-mono text-muted">
                     {formatTime(fresh.info.duration)}
                   </span>
                 </div>
@@ -599,12 +599,12 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-center text-slate-500 gap-2">
+              <div className="flex flex-col items-center justify-center py-8 text-center text-muted gap-2">
                 <AudioWaveformCanvas
                   isRecording={false}
-                  className="h-12 w-full rounded-xl bg-slate-900/50 border border-white/5 opacity-40"
+                  className="h-12 w-full rounded-xl bg-surface/50 border border-line opacity-40"
                 />
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-muted">
                   Enter a script and click &apos;Generate Voiceover&apos; to
                   preview audio here.
                 </p>
@@ -715,12 +715,12 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
         {/* Left Column: Gemini Teleprompter */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-muted flex items-center gap-1.5">
               <span>📖</span>
               <span>Intelligent Teleprompter</span>
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-[0.625rem] text-slate-400">
+              <span className="text-2xs text-muted">
                 Scroll Speed:
               </span>
               {[0.75, 1, 1.5, 2].map((s) => (
@@ -728,10 +728,10 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                   key={s}
                   type="button"
                   onClick={() => setScrollSpeed(s)}
-                  className={`rounded px-1.5 py-0.5 text-[0.625rem] font-medium transition-colors ${
+                  className={`rounded px-1.5 py-0.5 text-2xs font-medium transition-colors ${
                     scrollSpeed === s
                       ? "bg-purple-500/20 text-purple-300 font-semibold"
-                      : "text-slate-400 hover:text-white"
+                      : "text-muted hover:text-ink"
                   }`}
                 >
                   {s}x
@@ -741,7 +741,7 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                 type="button"
                 disabled={scriptBusy}
                 onClick={() => void draftPrompterScript()}
-                className="inline-flex items-center gap-1 rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-[0.6875rem] text-purple-300 hover:bg-purple-500/20 hover:text-white transition-all disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-md border border-purple-500/30 bg-purple-500/10 px-2 py-0.5 text-2xs text-purple-300 hover:bg-purple-500/20 hover:text-ink transition-all disabled:opacity-40"
               >
                 ✨ Draft script with Gemini
               </button>
@@ -749,24 +749,24 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
           </div>
 
           {/* Prompter Reader / Editor */}
-          <div className="relative flex flex-col rounded-2xl border border-white/10 bg-slate-950/70 p-3 shadow-inner">
+          <div className="relative flex flex-col rounded-2xl border border-line bg-canvas/70 p-3 shadow-inner">
             {isRecording ? (
               <div
                 ref={prompterRef}
-                className="h-52 overflow-y-auto px-3 py-4 text-lg font-medium leading-loose text-slate-100 select-none scroll-smooth"
+                className="h-52 overflow-y-auto px-3 py-4 text-lg font-medium leading-loose text-ink select-none scroll-smooth"
               >
                 {script ||
                   "No teleprompter script provided. Speak naturally into your microphone…"}
               </div>
             ) : (
               <textarea
-                className="h-52 w-full resize-none bg-transparent p-2 text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 outline-none"
+                className="h-52 w-full resize-none bg-transparent p-2 text-sm leading-relaxed text-ink placeholder:text-muted outline-none"
                 value={script}
                 onChange={(e) => setScript(e.target.value)}
                 placeholder="Type or paste your script here for the auto-scrolling teleprompter, or click 'Draft script with Gemini'..."
               />
             )}
-            <div className="flex items-center justify-between border-t border-white/5 pt-2 text-[0.6875rem] text-slate-400">
+            <div className="flex items-center justify-between border-t border-line pt-2 text-2xs text-muted">
               <span>
                 {isRecording
                   ? "🔴 Teleprompter is scrolling automatically"
@@ -778,11 +778,11 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
 
           {/* Microphone Selector */}
           <div className="flex items-center gap-3 text-xs">
-            <span className="text-slate-400 font-medium">Microphone:</span>
+            <span className="text-muted font-medium">Microphone:</span>
             <select
               value={micId}
               onChange={(e) => setMicId(e.target.value)}
-              className="flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-purple-400"
+              className="flex-1 rounded-xl border border-line bg-canvas/80 px-3 py-1.5 text-xs text-ink outline-none focus:border-purple-400"
             >
               {rec.devices.mics.map((d) => (
                 <option key={d.deviceId} value={d.deviceId}>
@@ -795,14 +795,14 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
 
         {/* Right Column: Audio Waveform Visualizer & Record Controls */}
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/80 p-5 shadow-inner">
+          <div className="flex flex-col gap-3 rounded-2xl border border-line bg-canvas/80 p-5 shadow-inner">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-muted flex items-center gap-1.5">
                 <Icon name="waveform" className="size-4 text-purple-400" />
                 Live Microphone Monitor
               </span>
               <span
-                className={`flex items-center gap-1 text-xs font-mono font-semibold ${isRecording ? "text-rose-400 animate-pulse" : "text-slate-400"}`}
+                className={`flex items-center gap-1 text-xs font-mono font-semibold ${isRecording ? "text-rose-400 animate-pulse" : "text-muted"}`}
               >
                 {isRecording && (
                   <span className="size-2 rounded-full bg-rose-500" />
@@ -815,7 +815,7 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             <AudioWaveformCanvas
               level={rec.level}
               isRecording={isRecording}
-              className="h-24 w-full rounded-xl bg-slate-950 border border-white/10"
+              className="h-24 w-full rounded-xl bg-canvas border border-line"
             />
 
             {/* Countdown Banner */}
@@ -842,7 +842,7 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                 <button
                   type="button"
                   onClick={() => rec.stop()}
-                  className="flex items-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-lg hover:bg-slate-200 active:scale-95 transition-all"
+                  className="flex items-center gap-2 rounded-2xl bg-white px-6 py-3 text-sm font-semibold text-ink shadow-lg hover:bg-hover active:scale-95 transition-all"
                 >
                   <span className="size-3.5 rounded bg-rose-600" />
                   Stop Recording
@@ -852,13 +852,13 @@ function MicVoiceoverSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
 
             {/* Review Take */}
             {hasTake && (
-              <div className="flex flex-col gap-3 border-t border-white/10 pt-4 mt-2">
-                <div className="flex items-center justify-between text-xs text-slate-300">
+              <div className="flex flex-col gap-3 border-t border-line pt-4 mt-2">
+                <div className="flex items-center justify-between text-xs text-muted">
                   <span className="font-semibold">Review Voiceover Take:</span>
                   <button
                     type="button"
                     onClick={() => rec.discard()}
-                    className="text-slate-400 hover:text-rose-400 text-[0.6875rem] underline"
+                    className="text-muted hover:text-rose-400 text-2xs underline"
                   >
                     Retake / Discard
                   </button>

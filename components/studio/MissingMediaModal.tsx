@@ -86,7 +86,7 @@ export function MissingMediaModal({
                   <div className="truncate font-semibold text-ink">
                     {item.name || `Asset ${item.id.slice(0, 8)}…`}
                   </div>
-                  <div className="text-[10px] text-muted font-mono truncate">ID: {item.id}</div>
+                  <div className="text-2xs text-muted font-mono truncate">ID: {item.id}</div>
                 </div>
 
                 <label className="relative shrink-0 cursor-pointer">

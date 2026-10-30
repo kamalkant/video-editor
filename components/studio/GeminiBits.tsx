@@ -7,7 +7,7 @@ import { openAiSettings, useGemini } from "@/lib/editor/useGemini";
 /** The mark on every feature that uses Google Gemini (the only ones that go online). */
 export function GeminiBadge({ className = "" }: { className?: string }) {
   return (
-    <span className={`inline-flex items-center gap-0.5 rounded bg-primary-soft px-1.5 py-px text-[0.625rem] font-semibold text-link ${className}`} title="Uses Google Gemini (online)">
+    <span className={`inline-flex items-center gap-0.5 rounded bg-primary-soft px-1.5 py-px text-2xs font-semibold text-link ${className}`} title="Uses Google Gemini (online)">
       <Icon name="ai" className="size-3" />
       Gemini
     </span>
@@ -17,7 +17,7 @@ export function GeminiBadge({ className = "" }: { className?: string }) {
 /** "Sends … to Google Gemini · costs …" under a Gemini button, so nothing is sent or paid by surprise. */
 export function GeminiNote({ sends, cost, extra }: { sends: string; cost: string; extra?: string }) {
   return (
-    <p className="text-[0.6875rem] leading-snug text-muted" data-testid="gemini-note">
+    <p className="text-2xs leading-snug text-muted" data-testid="gemini-note">
       Sends {sends} to Google Gemini · {cost} on your Google account{extra ? ` · ${extra}` : ""}.
     </p>
   );

@@ -56,7 +56,7 @@ export function TransitionPreview({ type }: { type: TransitionType | "none" }) {
       <span className="absolute inset-0 bg-gradient-to-br from-sky-500 to-indigo-700" style={run(x.a)} />
       <span className="absolute inset-0 bg-gradient-to-br from-amber-400 to-rose-600" style={run(x.b)} />
       {x.dip && <span className="absolute inset-0" style={{ background: x.dip, ...run("tr-dip") }} />}
-      <span className="absolute bottom-0.5 left-1 text-[0.5625rem] font-bold text-white/80">A→B</span>
+      <span className="absolute bottom-0.5 left-1 text-2xs font-bold text-white/80">A→B</span>
     </span>
   );
 }
@@ -68,14 +68,14 @@ export function TransitionsPanel({ onApply, onApplyAll, onNone, onNoneAll, hint 
       <p className="text-xs text-muted">{hint ?? "Click one to put it on the cut nearest the playhead. The two clips overlap for its length."}</p>
       <ul className="grid grid-cols-2 gap-2">
         <li>
-          <button type="button" onClick={onNone} aria-label="No transition: a plain cut" title="A plain cut: the next clip just starts" className="flex w-full flex-col gap-1 rounded-lg border border-line p-1 text-left text-[0.6875rem] hover:border-primary hover:bg-primary-soft" data-testid="transition-none">
+          <button type="button" onClick={onNone} aria-label="No transition: a plain cut" title="A plain cut: the next clip just starts" className="flex w-full flex-col gap-1 rounded-lg border border-line p-1 text-left text-2xs hover:border-primary hover:bg-primary-soft" data-testid="transition-none">
             <TransitionPreview type="none" />
             None
           </button>
         </li>
         {TRANSITION_TYPES.map((t) => (
           <li key={t}>
-            <button type="button" onClick={() => onApply(t)} aria-label={`Add ${TRANSITIONS[t].label}: ${TRANSITIONS[t].hint}`} title={TRANSITIONS[t].hint} className="flex w-full flex-col gap-1 rounded-lg border border-line p-1 text-left text-[0.6875rem] hover:border-primary hover:bg-primary-soft">
+            <button type="button" onClick={() => onApply(t)} aria-label={`Add ${TRANSITIONS[t].label}: ${TRANSITIONS[t].hint}`} title={TRANSITIONS[t].hint} className="flex w-full flex-col gap-1 rounded-lg border border-line p-1 text-left text-2xs hover:border-primary hover:bg-primary-soft">
               <TransitionPreview type={t} />
               {TRANSITIONS[t].label}
             </button>
@@ -90,7 +90,7 @@ export function TransitionsPanel({ onApply, onApplyAll, onNone, onNoneAll, hint 
           Remove every transition on Video 1
         </button>
       </div>
-      <p className="text-[0.6875rem] text-muted">
+      <p className="text-2xs text-muted">
         <span className="soon mr-1">Soon</span> Zoom, spin and glitch transitions.
       </p>
     </div>
@@ -115,14 +115,14 @@ export function TransitionCard({ between, transition, maxLength, onChange, onRem
         </p>
         <ul className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Transition type">
           <li>
-            <button type="button" role="radio" aria-checked={false} onClick={onRemove} title="A plain cut: removes this transition" className="flex w-full flex-col gap-1 rounded-md border border-line p-1 text-[0.625rem] hover:border-control">
+            <button type="button" role="radio" aria-checked={false} onClick={onRemove} title="A plain cut: removes this transition" className="flex w-full flex-col gap-1 rounded-md border border-line p-1 text-2xs hover:border-control">
               <TransitionPreview type="none" />
               None
             </button>
           </li>
           {TRANSITION_TYPES.map((t) => (
             <li key={t}>
-              <button type="button" role="radio" aria-checked={transition.type === t} onClick={() => onChange({ ...transition, type: t })} className={`flex w-full flex-col gap-1 rounded-md border p-1 text-[0.625rem] ${transition.type === t ? "border-primary bg-primary-soft" : "border-line hover:border-control"}`}>
+              <button type="button" role="radio" aria-checked={transition.type === t} onClick={() => onChange({ ...transition, type: t })} className={`flex w-full flex-col gap-1 rounded-md border p-1 text-2xs ${transition.type === t ? "border-primary bg-primary-soft" : "border-line hover:border-control"}`}>
                 <TransitionPreview type={t} />
                 {TRANSITIONS[t].label}
               </button>
@@ -130,7 +130,7 @@ export function TransitionCard({ between, transition, maxLength, onChange, onRem
           ))}
         </ul>
         <LabeledSlider label="Length" value={transition.duration} min={MIN_TRANSITION} max={Math.max(MIN_TRANSITION, Math.min(MAX_TRANSITION, maxLength))} step={0.1} decimals={1} unit={{ short: "s", spoken: "seconds" }} valueText={(v) => `${v.toFixed(1)} seconds`} onChange={(v) => onChange({ ...transition, duration: v }, "transition:length")} />
-        <p className="-mt-1 text-[0.6875rem] text-muted">At most half of the shorter clip ({maxLength.toFixed(1)} s here).</p>
+        <p className="-mt-1 text-2xs text-muted">At most half of the shorter clip ({maxLength.toFixed(1)} s here).</p>
         <button type="button" className="btn btn-secondary text-xs" onClick={onApplyAll}>
           Use this on every cut
         </button>

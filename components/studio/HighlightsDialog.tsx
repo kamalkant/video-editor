@@ -13,7 +13,7 @@ import { ensureOnServer, notOnServer } from "@/lib/media/localMedia";
 
 const CATEGORY_TAGS: Record<HighlightCategory, { label: string; icon: string; badge: string }> = {
   hook: { label: "Viral Hook", icon: "bolt", badge: "bg-red-500/15 text-red-400 border-red-500/30" },
-  insight: { label: "Key Insight", icon: "star", badge: "bg-blue-500/15 text-blue-400 border-blue-500/30" },
+  insight: { label: "Key Insight", icon: "star", badge: "bg-primary/15 text-link border-primary" },
   climax: { label: "Climax", icon: "magic", badge: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   story: { label: "Story", icon: "text", badge: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
   reaction: { label: "Reaction", icon: "sparkle", badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
@@ -253,7 +253,7 @@ export function HighlightsDialog({
               }}
               title="Assemble highlights as a continuous recap reel on the timeline"
             >
-              🎬 Create Recap Reel ({selectedHighlights.length})
+              Create Recap Reel ({selectedHighlights.length})
             </button>
           </div>
         </div>
@@ -292,7 +292,7 @@ export function HighlightsDialog({
 
           {/* Goal Selector */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[0.6875rem] font-medium text-muted">Goal:</span>
+            <span className="text-2xs font-medium text-muted">Goal:</span>
             <select
               className="field py-1 text-xs"
               value={goal}
@@ -300,14 +300,14 @@ export function HighlightsDialog({
               disabled={!!busy}
             >
               <option value="viral-shorts">⚡ Viral Shorts (&lt;60s)</option>
-              <option value="recap">🎬 Recap Reel (2–3 mins)</option>
+              <option value="recap">Recap Reel (2–3 mins)</option>
               <option value="key-moments">🎯 All Key Moments</option>
             </select>
           </div>
 
           {/* Framing Selector */}
           <div className="flex items-center gap-1.5">
-            <span className="text-[0.6875rem] font-medium text-muted">Framing:</span>
+            <span className="text-2xs font-medium text-muted">Framing:</span>
             <select
               className="field py-1 text-xs"
               value={aspect}
@@ -385,7 +385,7 @@ export function HighlightsDialog({
                       className={`group relative flex flex-col gap-2 rounded-xl border p-3.5 transition-all ${
                         isSelected
                           ? "border-primary/50 bg-primary/5 shadow-sm"
-                          : "border-line bg-raised/30 hover:border-line-strong hover:bg-raised/60"
+                          : "border-line bg-raised/30 hover:border-line-strong hover:bg-hover/60"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -398,10 +398,10 @@ export function HighlightsDialog({
                             onChange={() => toggleSelect(h.id)}
                             aria-label={`Select ${h.title}`}
                           />
-                          <span className="flex size-5 items-center justify-center rounded-full bg-slate-800 text-[0.6875rem] font-bold text-slate-300">
+                          <span className="flex size-5 items-center justify-center rounded-full bg-raised text-2xs font-bold text-muted">
                             {idx + 1}
                           </span>
-                          <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[0.6875rem] font-semibold ${cat.badge}`}>
+                          <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-2xs font-semibold ${cat.badge}`}>
                             <Icon name={cat.icon as any} className="size-3" />
                             {cat.label}
                           </span>
@@ -436,7 +436,7 @@ export function HighlightsDialog({
                           </p>
                         )}
                         {h.summary && h.summary !== h.quote && (
-                          <p className="line-clamp-2 text-[0.6875rem] text-muted-strong">
+                          <p className="line-clamp-2 text-2xs text-muted-strong">
                             {h.summary}
                           </p>
                         )}
@@ -448,46 +448,46 @@ export function HighlightsDialog({
                           <span className="font-mono text-ink font-medium">
                             {formatTime(h.start)} → {formatTime(h.end)}
                           </span>
-                          <span className="rounded bg-line/60 px-1.5 py-0.5 text-[0.6875rem] font-medium text-slate-300">
+                          <span className="rounded bg-line/60 px-1.5 py-0.5 text-2xs font-medium text-muted">
                             {h.duration.toFixed(1)}s
                           </span>
                         </div>
 
                         {/* Nudge Buttons */}
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[0.625rem] text-muted uppercase tracking-wider font-semibold">Trim:</span>
-                          <div className="flex items-center rounded border border-line bg-canvas text-[0.6875rem]">
+                          <span className="text-2xs text-muted uppercase tracking-wider font-semibold">Trim:</span>
+                          <div className="flex items-center rounded border border-line bg-canvas text-2xs">
                             <button
                               type="button"
-                              className="px-1.5 py-0.5 hover:bg-raised text-muted hover:text-ink"
+                              className="px-1.5 py-0.5 hover:bg-hover text-muted hover:text-ink"
                               onClick={() => nudge(h.id, "start", -0.5)}
                               title="Start 0.5s earlier"
                             >
                               -0.5s
                             </button>
-                            <span className="border-x border-line px-1 text-[0.625rem] text-muted">Start</span>
+                            <span className="border-x border-line px-1 text-2xs text-muted">Start</span>
                             <button
                               type="button"
-                              className="px-1.5 py-0.5 hover:bg-raised text-muted hover:text-ink"
+                              className="px-1.5 py-0.5 hover:bg-hover text-muted hover:text-ink"
                               onClick={() => nudge(h.id, "start", 0.5)}
                               title="Start 0.5s later"
                             >
                               +0.5s
                             </button>
                           </div>
-                          <div className="flex items-center rounded border border-line bg-canvas text-[0.6875rem]">
+                          <div className="flex items-center rounded border border-line bg-canvas text-2xs">
                             <button
                               type="button"
-                              className="px-1.5 py-0.5 hover:bg-raised text-muted hover:text-ink"
+                              className="px-1.5 py-0.5 hover:bg-hover text-muted hover:text-ink"
                               onClick={() => nudge(h.id, "end", -0.5)}
                               title="End 0.5s earlier"
                             >
                               -0.5s
                             </button>
-                            <span className="border-x border-line px-1 text-[0.625rem] text-muted">End</span>
+                            <span className="border-x border-line px-1 text-2xs text-muted">End</span>
                             <button
                               type="button"
-                              className="px-1.5 py-0.5 hover:bg-raised text-muted hover:text-ink"
+                              className="px-1.5 py-0.5 hover:bg-hover text-muted hover:text-ink"
                               onClick={() => nudge(h.id, "end", 0.5)}
                               title="End 0.5s later"
                             >
@@ -498,7 +498,7 @@ export function HighlightsDialog({
                           {/* Quick Insert Clip */}
                           <button
                             type="button"
-                            className="btn btn-secondary py-0.5 px-2 text-[0.6875rem] ml-1"
+                            className="btn btn-secondary py-0.5 px-2 text-2xs ml-1"
                             onClick={() => {
                               onInsertClip(h);
                               onClose();
@@ -545,7 +545,7 @@ export function HighlightsDialog({
                       className={`group flex items-start gap-3 rounded-md p-2 transition-colors cursor-pointer ${
                         isSelected
                           ? "bg-primary/20 border border-primary/40 text-ink"
-                          : "hover:bg-raised/70 border border-transparent"
+                          : "hover:bg-hover/70 border border-transparent"
                       }`}
                       onClick={() => {
                         setSelSegIndex(idx);
@@ -555,14 +555,14 @@ export function HighlightsDialog({
                         }
                       }}
                     >
-                      <span className="font-mono text-[0.6875rem] text-muted shrink-0 mt-0.5 select-none">
+                      <span className="font-mono text-2xs text-muted shrink-0 mt-0.5 select-none">
                         {formatTime(s.start)}
                       </span>
                       <p className="text-xs text-ink flex-1 leading-relaxed">{s.text}</p>
                       {isSelected && (
                         <button
                           type="button"
-                          className="btn btn-primary py-0.5 px-2 text-[0.6875rem] shrink-0 self-center"
+                          className="btn btn-primary py-0.5 px-2 text-2xs shrink-0 self-center"
                           onClick={(e) => {
                             e.stopPropagation();
                             onInsertClip({
@@ -588,7 +588,7 @@ export function HighlightsDialog({
                 })
               )}
             </div>
-            <p className="text-[0.6875rem] text-muted">
+            <p className="text-2xs text-muted">
               Click any sentence to audition and extract it as a timeline clip.
             </p>
           </div>

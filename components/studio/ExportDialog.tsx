@@ -28,6 +28,7 @@ import { coverMediaIdOrNull, type TimelineDoc } from "@/lib/edit/doc";
 import { localInfo, localThumb } from "@/lib/media/localMedia";
 import { ExportResults, ExportSummary } from "./ExportResults";
 import type { PreviewThumbs } from "./ExportPreview";
+import { Icon } from "@/components/ui/Icon";
 import { FormatPicker } from "./FormatPicker";
 import { OutputSettings } from "./OutputSettings";
 import { useLiveJob } from "@/lib/export/liveJob";
@@ -430,7 +431,7 @@ export function ExportDialog(p: {
         </div>
         <div>
           <h2 className="text-base font-bold leading-tight text-ink sm:text-lg">Export & Share</h2>
-          <p className="text-[0.6875rem] font-normal text-muted">Choose the best format and settings for your video</p>
+          <p className="text-2xs font-normal text-muted">Choose the best format and settings for your video</p>
         </div>
       </div>
     }>
@@ -520,7 +521,7 @@ export function ExportDialog(p: {
             <div className="flex flex-col gap-3 py-1">
               <div className="rounded-xl border border-dialog-card-border bg-dialog-card p-3">
                 <h3 className="text-xs font-semibold text-ink">Project Link</h3>
-                <p className="mt-0.5 text-[0.625rem] text-muted">
+                <p className="mt-0.5 text-2xs text-muted">
                   Share this project link directly with collaborators or clients.
                 </p>
                 <div className="mt-2.5 flex items-center gap-2">
@@ -550,7 +551,7 @@ export function ExportDialog(p: {
                     YT
                   </div>
                   <span className="text-xs font-semibold text-ink">YouTube Studio</span>
-                  <span className="text-[0.625rem] text-muted">Upload 16:9 or Shorts</span>
+                  <span className="text-2xs text-muted">Upload 16:9 or Shorts</span>
                 </a>
                 <button
                   type="button"
@@ -561,7 +562,7 @@ export function ExportDialog(p: {
                     IG
                   </div>
                   <span className="text-xs font-semibold text-ink">Instagram</span>
-                  <span className="text-[0.625rem] text-muted">Reels or Feed Post</span>
+                  <span className="text-2xs text-muted">Reels or Feed Post</span>
                 </button>
                 <a
                   href={`https://api.whatsapp.com/send?text=${encodeURIComponent(typeof window !== "undefined" ? window.location.href : "")}`}
@@ -573,7 +574,7 @@ export function ExportDialog(p: {
                     WA
                   </div>
                   <span className="text-xs font-semibold text-ink">WhatsApp</span>
-                  <span className="text-[0.625rem] text-muted">Share project link</span>
+                  <span className="text-2xs text-muted">Share project link</span>
                 </a>
                 <button
                   type="button"
@@ -587,7 +588,7 @@ export function ExportDialog(p: {
                     MP4
                   </div>
                   <span className="text-xs font-semibold text-ink">Quick Export</span>
-                  <span className="text-[0.625rem] text-muted">Download local MP4</span>
+                  <span className="text-2xs text-muted">Download local MP4</span>
                 </button>
               </div>
             </div>
@@ -602,7 +603,7 @@ export function ExportDialog(p: {
               >
                 <div className="flex items-center justify-between mb-1.5 px-0.5">
                   <h3 className="text-xs font-semibold text-ink">Quick presets</h3>
-                  <span className="text-[0.5625rem] text-muted">Scroll for more →</span>
+                  <span className="text-2xs text-muted">Scroll for more →</span>
                 </div>
                 <div className={`scrollbar-hover-visible ${recHovered ? "scrollbar-active" : ""} flex items-stretch gap-2 overflow-x-auto pt-0.5 pb-2.5 px-0.5`}>
                   {QUICK_PRESETS.map((rec) => {
@@ -649,7 +650,7 @@ export function ExportDialog(p: {
                             {displayAspect}
                           </span>
                         </div>
-                        <div className="flex items-center gap-1 font-bold text-[0.6875rem] text-ink">
+                        <div className="flex items-center gap-1 font-bold text-2xs text-ink">
                           {rec.icon === "project" && (
                             <svg className="size-3 text-muted shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                               <line x1="4" y1="21" x2="4" y2="14" /><line x1="4" y1="10" x2="4" y2="3" />
@@ -673,14 +674,14 @@ export function ExportDialog(p: {
                             <span className="flex size-3 shrink-0 items-center justify-center rounded-xs bg-sky-500 text-[0.38rem] font-bold text-white">𝕏</span>
                           )}
                           {rec.icon === "4k" && (
-                            <span className="rounded bg-indigo-500/20 px-1 py-0.25 text-[0.45rem] font-bold text-indigo-400">4K</span>
+                            <span className="rounded bg-primary/20 px-1 py-0.25 text-[0.45rem] font-bold text-link">4K</span>
                           )}
                           {rec.icon === "720p" && (
                             <span className="rounded bg-sky-500/20 px-1 py-0.25 text-[0.45rem] font-bold text-sky-400">HD</span>
                           )}
                           <span className="truncate">{rec.name}</span>
                         </div>
-                        <p className="mt-0.5 text-[0.5625rem] text-muted leading-tight truncate">
+                        <p className="mt-0.5 text-2xs text-muted leading-tight truncate">
                           {itemW}×{itemH}
                         </p>
                       </button>
@@ -750,7 +751,7 @@ export function ExportDialog(p: {
               {/* Numeric Inputs */}
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="flex-1">
-                  <label className="block text-[0.625rem] text-muted mb-0.5 font-medium">Width</label>
+                  <label className="block text-2xs text-muted mb-0.5 font-medium">Width</label>
                   <input
                     type="number"
                     min={EXPORT_MIN_SIDE}
@@ -768,11 +769,11 @@ export function ExportDialog(p: {
                     className="p-1 rounded hover:bg-dialog-card-hover text-xs"
                     title={aspectLocked ? "Lock ratio" : "Unlock ratio"}
                   >
-                    {aspectLocked ? "🔒" : "🔓"}
+                    <Icon name="lock" className={`size-3.5 ${aspectLocked ? "text-primary" : "text-muted"}`} />
                   </button>
                 </div>
                 <div className="flex-1">
-                  <label className="block text-[0.625rem] text-muted mb-0.5 font-medium">Height</label>
+                  <label className="block text-2xs text-muted mb-0.5 font-medium">Height</label>
                   <input
                     type="number"
                     min={EXPORT_MIN_SIDE}
@@ -792,7 +793,7 @@ export function ExportDialog(p: {
                     key={a.id}
                     type="button"
                     onClick={() => handleAspectSelect(a.id)}
-                    className={`rounded-md border py-0.5 text-[0.625rem] font-semibold transition-all ${
+                    className={`rounded-md border py-0.5 text-2xs font-semibold transition-all ${
                       aspectId === a.id
                         ? "border-primary bg-primary/10 text-primary font-bold ring-1 ring-primary"
                         : "border-dialog-card-border bg-dialog-header text-muted hover:border-control hover:text-ink"
@@ -810,7 +811,7 @@ export function ExportDialog(p: {
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <span className="text-xs font-semibold text-ink">Quality</span>
                   <span
-                    className="inline-flex items-center justify-center size-3.5 rounded-full bg-dialog-header border border-dialog-card-border text-[0.5625rem] text-muted font-normal cursor-help"
+                    className="inline-flex items-center justify-center size-3.5 rounded-full bg-dialog-header border border-dialog-card-border text-2xs text-muted font-normal cursor-help"
                     title="Controls output video encoding bitrate"
                   >
                     ?
@@ -831,7 +832,7 @@ export function ExportDialog(p: {
                         }`}
                       >
                         <span className="text-xs font-bold leading-tight">{q.label}</span>
-                        <span className="mt-0.5 text-[0.5625rem] text-muted leading-tight">{q.sub}</span>
+                        <span className="mt-0.5 text-2xs text-muted leading-tight">{q.sub}</span>
                         <span className="text-[0.5rem] text-muted/80 leading-tight">{q.note}</span>
                       </button>
                     );
@@ -847,7 +848,7 @@ export function ExportDialog(p: {
                 <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
                 <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
               </svg>
-              <div className="flex-1 text-[0.6875rem]">
+              <div className="flex-1 text-2xs">
                 <span className="text-muted mr-1.5">Estimated file size</span>
                 <span className="font-bold text-ink">
                   {(() => {
@@ -877,7 +878,7 @@ export function ExportDialog(p: {
                       {progressPct}%
                     </span>
                   </div>
-                  <div className="-mt-1 min-h-4 text-[0.6875rem] text-muted" aria-live="polite">
+                  <div className="-mt-1 min-h-4 text-2xs text-muted" aria-live="polite">
                     {eta}
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/60">
@@ -892,7 +893,7 @@ export function ExportDialog(p: {
                       setExporting(false);
                       p.onCancel();
                     }}
-                    className="text-center text-[0.6875rem] font-medium text-danger hover:underline pt-0.5"
+                    className="text-center text-2xs font-medium text-danger hover:underline pt-0.5"
                   >
                     Cancel export
                   </button>
@@ -928,7 +929,7 @@ export function ExportDialog(p: {
                     <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
                   </svg>
                   <span>Share directly</span>
-                  <span className="text-[0.625rem] text-muted">▾</span>
+                  <span className="text-2xs text-muted">▾</span>
                 </button>
 
                 {shareMenuOpen && (
@@ -941,7 +942,7 @@ export function ExportDialog(p: {
                       }}
                       className="w-full rounded-lg px-3 py-1.5 text-left text-xs text-ink hover:bg-canvas flex items-center gap-2"
                     >
-                      <span>📋</span>
+                      <Icon name="copy" className="size-3.5 text-muted" />
                       <span>{copiedLink ? "Link copied!" : "Copy project link"}</span>
                     </button>
                     <button
@@ -952,7 +953,7 @@ export function ExportDialog(p: {
                       }}
                       className="w-full rounded-lg px-3 py-1.5 text-left text-xs text-ink hover:bg-canvas flex items-center gap-2"
                     >
-                      <span>📱</span>
+                      <Icon name="share" className="size-3.5 text-muted" />
                       <span>Native share sheet</span>
                     </button>
                     <a

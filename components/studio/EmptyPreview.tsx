@@ -47,7 +47,7 @@ export function EmptyPreview({
             <div className="w-full max-w-xs py-1">
               <p className="mb-1.5 truncate text-xs font-medium text-ink">Uploading {state.name}…</p>
               <progress className="w-full h-1.5 rounded-full" aria-label="Uploading" value={state.loaded} max={state.total} />
-              <p className="mt-1 text-[10px] text-muted">
+              <p className="mt-1 text-2xs text-muted">
                 {formatBytes(state.loaded)} of {formatBytes(state.total)}
               </p>
               <button type="button" className="btn btn-secondary mt-1.5 text-xs py-1 px-3" onClick={onCancel}>
@@ -57,7 +57,7 @@ export function EmptyPreview({
           ) : state.kind === "checking" ? (
             <div className="py-2">
               <p className="text-xs font-semibold text-ink">Checking file…</p>
-              <p className="text-[10px] text-muted">Reading size, frame rate and sound</p>
+              <p className="text-2xs text-muted">Reading size, frame rate and sound</p>
             </div>
           ) : (
             <>
@@ -68,7 +68,7 @@ export function EmptyPreview({
                 </div>
                 <div className="flex flex-col text-left">
                   <h2 className="text-xs font-semibold text-ink leading-tight">Add Media</h2>
-                  <span className="text-[10px] text-muted leading-tight">Videos, photos or audio</span>
+                  <span className="text-2xs text-muted leading-tight">Videos, photos or audio</span>
                 </div>
               </div>
 
@@ -88,7 +88,7 @@ export function EmptyPreview({
                   <button
                     type="button"
                     onClick={() => onRecord("camera")}
-                    className="flex items-center gap-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-[11px] font-medium text-ink hover:bg-raised active:scale-95 transition-all shrink-0"
+                    className="flex items-center gap-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-2xs font-medium text-ink hover:bg-raised active:scale-95 transition-all shrink-0"
                   >
                     <Icon name="camera" className="size-3 text-red-400" />
                     <span>Camera</span>
@@ -98,7 +98,7 @@ export function EmptyPreview({
                   <button
                     type="button"
                     onClick={onText}
-                    className="flex items-center gap-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-[11px] font-medium text-ink hover:bg-raised active:scale-95 transition-all shrink-0"
+                    className="flex items-center gap-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-2xs font-medium text-ink hover:bg-raised active:scale-95 transition-all shrink-0"
                   >
                     <Icon name="text" className="size-3 text-amber-400" />
                     <span>Text</span>
@@ -108,7 +108,7 @@ export function EmptyPreview({
                   <button
                     type="button"
                     onClick={onBlank}
-                    className="flex items-center gap-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-[11px] font-medium text-ink hover:bg-raised active:scale-95 transition-all shrink-0"
+                    className="flex items-center gap-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-2xs font-medium text-ink hover:bg-raised active:scale-95 transition-all shrink-0"
                   >
                     <Icon name="plus" className="size-3 text-sky-400" />
                     <span>Blank</span>
@@ -118,7 +118,7 @@ export function EmptyPreview({
                   <button
                     type="button"
                     onClick={onElements}
-                    className="flex items-center gap-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-[11px] font-medium text-ink hover:bg-raised active:scale-95 transition-all shrink-0"
+                    className="flex items-center gap-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-2xs font-medium text-ink hover:bg-raised active:scale-95 transition-all shrink-0"
                   >
                     <Icon name="elements" className="size-3 text-purple-400" />
                     <span>Elements</span>
@@ -179,7 +179,7 @@ export function EmptyPreview({
               {onElements && <StartIcon label="Elements" icon="elements" onClick={onElements} />}
               {onBlank && <StartIcon label="Start with a blank" icon="plus" onClick={onBlank} />}
             </div>
-            <p className="text-[0.6875rem] text-muted">
+            <p className="text-2xs text-muted">
               Videos up to {LIMITS.maxDurationSec / 60} min · max {limitSizeLabel()} · MP4, MOV, WebM, M4V, MKV, AVI, PNG, JPG, MP3, WAV, M4A
             </p>
             {state.kind === "error" && (

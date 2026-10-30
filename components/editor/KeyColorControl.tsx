@@ -90,7 +90,7 @@ export function KeyColorControl(p: {
           </button>
         </Tip>
       </div>
-      <p className="text-[0.6875rem] text-muted">RGB: {rgbText(p.value)}</p>
+      <p className="text-2xs text-muted">RGB: {rgbText(p.value)}</p>
       {error && (
         <p id="hex-error" className="text-sm text-danger">
           {error}

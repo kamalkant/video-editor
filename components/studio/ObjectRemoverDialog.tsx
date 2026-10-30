@@ -35,19 +35,19 @@ export function ObjectRemoverDialog(p: {
       size="md"
       title="Cover an object (Beta)"
       subtitle="Adds a box that blends the pixels around it. Move and resize it over a logo or small object on the preview."
-      badge={<span className="rounded bg-amber-500/95 px-1.5 py-px text-[0.625rem] font-semibold text-black">Beta · not AI inpainting</span>}
+      badge={<span className="rounded bg-amber-500/95 px-1.5 py-px text-2xs font-semibold text-black">Beta · not AI inpainting</span>}
       busy={busy}
       busyLabel="Adding the cover box…"
       testId="object-remover-dialog"
     >
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="erase-object-input" className="text-xs font-semibold text-slate-300">
+          <label htmlFor="erase-object-input" className="text-xs font-semibold text-muted">
             Describe the object or element to erase
           </label>
           <input
             id="erase-object-input"
-            className="rounded-xl border border-white/10 bg-slate-950/80 px-3.5 py-2.5 text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-400"
+            className="rounded-xl border border-line bg-canvas/80 px-3.5 py-2.5 text-xs text-ink placeholder:text-muted outline-none focus:border-primary"
             value={objectPrompt}
             onChange={(e) => setObjectPrompt(e.target.value)}
             placeholder="e.g. Bystander in background, trash can on street, microphone boom, logo watermark..."
@@ -56,7 +56,7 @@ export function ObjectRemoverDialog(p: {
 
         {/* Quick Presets */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-[0.6875rem] text-slate-400 font-medium">Common items to erase:</span>
+          <span className="text-2xs text-muted font-medium">Common items to erase:</span>
           <div className="flex flex-wrap gap-1.5">
             {["Bystander in background", "Logo / Watermark", "Power lines in sky", "Microphone boom", "Glares & reflections"].map(
               (item) => (
@@ -64,7 +64,7 @@ export function ObjectRemoverDialog(p: {
                   key={item}
                   type="button"
                   onClick={() => setObjectPrompt(item)}
-                  className="rounded-full border border-white/10 bg-white/[0.02] px-2.5 py-1 text-xs text-slate-300 hover:border-indigo-400 hover:text-white transition-all"
+                  className="rounded-full border border-line bg-raised px-2.5 py-1 text-xs text-muted hover:border-primary hover:text-ink transition-all"
                 >
                   + {item}
                 </button>

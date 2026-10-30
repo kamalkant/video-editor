@@ -36,7 +36,7 @@ export function UpscaleEnhanceDialog(p: {
       size="md"
       title="Google AI Video Upscaler"
       subtitle="Sharpens the clip and enlarges it with high-quality Lanczos scaling when you export at 1080p or 4K"
-      badge={<span className="rounded bg-emerald-600/90 px-1.5 py-px text-[0.625rem] font-semibold text-white">Runs on this computer</span>}
+      badge={<span className="rounded bg-emerald-600/90 px-1.5 py-px text-2xs font-semibold text-white">Runs on this computer</span>}
       busy={busy}
       busyLabel="Applying super-resolution filters and detail reconstruction…"
       testId="upscale-enhance-dialog"
@@ -44,7 +44,7 @@ export function UpscaleEnhanceDialog(p: {
       <div className="flex flex-col gap-4">
         {/* Target Resolution */}
         <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold text-slate-300">Target Resolution</span>
+          <span className="text-xs font-semibold text-muted">Target Resolution</span>
           <div className="grid grid-cols-2 gap-2">
             {(["1080p", "4K"] as const).map((r) => {
               const active = targetRes === r;
@@ -55,12 +55,12 @@ export function UpscaleEnhanceDialog(p: {
                   onClick={() => setTargetRes(r)}
                   className={`rounded-xl border p-3 text-center transition-all ${
                     active
-                      ? "border-indigo-400 bg-indigo-500/20 text-white font-semibold shadow-sm"
-                      : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20 hover:text-white"
+                      ? "border-primary bg-primary/20 text-white font-semibold shadow-sm"
+                      : "border-line bg-raised text-muted hover:border-line hover:text-ink"
                   }`}
                 >
                   <span className="text-base font-bold block">{r}</span>
-                  <span className="text-[0.625rem] text-slate-400 block mt-0.5">
+                  <span className="text-2xs text-muted block mt-0.5">
                     {r === "4K" ? "3840×2160 Ultra HD" : "1920×1080 Full HD"}
                   </span>
                 </button>
@@ -70,10 +70,10 @@ export function UpscaleEnhanceDialog(p: {
         </div>
 
         {/* Sharpening & noise */}
-        <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-slate-950/60 p-3">
+        <div className="flex flex-col gap-2 rounded-2xl border border-line bg-canvas/60 p-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-300 font-medium">Edge sharpening</span>
-            <span className="text-indigo-400 font-mono">{Math.round(sharpen * 100)}%</span>
+            <span className="text-muted font-medium">Edge sharpening</span>
+            <span className="text-link font-mono">{Math.round(sharpen * 100)}%</span>
           </div>
           <input
             type="range"
@@ -85,7 +85,7 @@ export function UpscaleEnhanceDialog(p: {
             className="w-full accent-indigo-500 cursor-pointer"
           />
 
-          <label className="flex items-center gap-2 pt-2 text-xs text-slate-300 cursor-pointer">
+          <label className="flex items-center gap-2 pt-2 text-xs text-muted cursor-pointer">
             <input
               type="checkbox"
               checked={denoise}

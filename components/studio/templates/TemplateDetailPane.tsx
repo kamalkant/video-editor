@@ -590,7 +590,7 @@ export function TemplateDetailPane({
               >
                 {isPlaying ? "⏸" : "▶"}
               </button>
-              <span className="font-mono text-[0.6875rem] text-white/80">
+              <span className="font-mono text-2xs text-white/80">
                 {formatTime(currentTime)} / {formatTime(template.duration)}
               </span>
 
@@ -694,16 +694,16 @@ export function TemplateDetailPane({
 
         {/* Technical Badges */}
         <div className="flex flex-wrap gap-1.5 pt-1">
-          <span className="rounded bg-raised px-2 py-1 text-[0.6875rem] font-medium text-ink border border-line">
+          <span className="rounded bg-raised px-2 py-1 text-2xs font-medium text-ink border border-line">
             📺 {template.resolution} Ultra HD
           </span>
-          <span className="rounded bg-raised px-2 py-1 text-[0.6875rem] font-medium text-ink border border-line">
+          <span className="rounded bg-raised px-2 py-1 text-2xs font-medium text-ink border border-line">
             ⏱ {formatTime(template.duration)} Duration
           </span>
-          <span className="rounded bg-raised px-2 py-1 text-[0.6875rem] font-medium text-ink border border-line">
+          <span className="rounded bg-raised px-2 py-1 text-2xs font-medium text-ink border border-line">
             📐 {template.aspectRatio} Ratio
           </span>
-          <span className="rounded bg-raised px-2 py-1 text-[0.6875rem] font-medium text-ink border border-line">
+          <span className="rounded bg-raised px-2 py-1 text-2xs font-medium text-ink border border-line">
             🎞 {template.slots.length} Ready Layers
           </span>
         </div>
@@ -745,7 +745,7 @@ export function TemplateDetailPane({
       <div className="flex flex-col gap-2 pt-2 border-t border-line">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted">Customize Template</h3>
-          <span className="text-[0.625rem] text-muted">Edit before opening</span>
+          <span className="text-2xs text-muted">Edit before opening</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -756,7 +756,7 @@ export function TemplateDetailPane({
           >
             <span className="text-base">👤</span>
             <span className="text-xs font-semibold text-ink">Change Presenter</span>
-            <span className="text-[0.625rem] text-muted">AI Avatar or Upload</span>
+            <span className="text-2xs text-muted">AI Avatar or Upload</span>
           </button>
 
           <button
@@ -766,7 +766,7 @@ export function TemplateDetailPane({
           >
             <span className="text-base">🖼️</span>
             <span className="text-xs font-semibold text-ink">Replace Background</span>
-            <span className="text-[0.625rem] text-muted">Video Loop or 3D</span>
+            <span className="text-2xs text-muted">Video Loop or 3D</span>
           </button>
 
           <button
@@ -776,7 +776,7 @@ export function TemplateDetailPane({
           >
             <span className="text-base">🎵</span>
             <span className="text-xs font-semibold text-ink">Audio & Music</span>
-            <span className="text-[0.625rem] text-muted">Broadcast Soundtracks</span>
+            <span className="text-2xs text-muted">Broadcast Soundtracks</span>
           </button>
 
           <button
@@ -786,7 +786,7 @@ export function TemplateDetailPane({
           >
             <span className="text-base">✏️</span>
             <span className="text-xs font-semibold text-ink">Edit Text</span>
-            <span className="text-[0.625rem] text-muted">Headlines & Tickers</span>
+            <span className="text-2xs text-muted">Headlines & Tickers</span>
           </button>
 
           <button
@@ -796,7 +796,7 @@ export function TemplateDetailPane({
           >
             <span className="text-base">🎨</span>
             <span className="text-xs font-semibold text-ink">Colors & Logo</span>
-            <span className="text-[0.625rem] text-muted">Brand Kit & Station Bug</span>
+            <span className="text-2xs text-muted">Brand Kit & Station Bug</span>
           </button>
         </div>
       </div>
@@ -813,10 +813,10 @@ export function TemplateDetailPane({
                 onClick={() => onSelectSimilar(st)}
                 className="group flex flex-col gap-1 rounded-lg border border-line bg-surface p-1.5 text-left transition-all hover:border-primary hover:shadow-sm"
               >
-                <div className="aspect-video w-full rounded bg-black/60 flex items-center justify-center text-[0.625rem] font-bold text-muted group-hover:text-primary">
+                <div className="aspect-video w-full rounded bg-black/60 flex items-center justify-center text-2xs font-bold text-muted group-hover:text-primary">
                   {st.resolution}
                 </div>
-                <span className="truncate text-[0.6875rem] font-medium text-ink group-hover:text-primary">
+                <span className="truncate text-2xs font-medium text-ink group-hover:text-primary">
                   {st.name}
                 </span>
               </button>

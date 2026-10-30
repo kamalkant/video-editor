@@ -55,7 +55,7 @@ export function OutputSettings({ output: o, info, patch, crop, idPrefix = "out" 
                 <span className="flex flex-wrap items-center gap-1.5">
                   {f.label}
                 </span>
-                <span id={`${idPrefix}-${f.state}-${f.label.length}`} className="block text-[0.6875rem] text-muted">
+                <span id={`${idPrefix}-${f.state}-${f.label.length}`} className="block text-2xs text-muted">
                   {f.state === "always" ? `Always · ${f.note}` : f.note}
                 </span>
               </span>
@@ -100,10 +100,10 @@ export function OutputSettings({ output: o, info, patch, crop, idPrefix = "out" 
           ]}
         />
       )}
-      {info?.soundDetected && <p className="-mt-2 text-[0.6875rem] text-muted">This video has sound. Browsers start it muted; visitors tap to hear it.</p>}
+      {info?.soundDetected && <p className="-mt-2 text-2xs text-muted">This video has sound. Browsers start it muted; visitors tap to hear it.</p>}
       <div className="flex flex-col gap-1 border-t border-line pt-2">
         <Switch label="Crop empty area around the person" checked={o.crop.enabled} onCheckedChange={(v) => patch({ crop: { ...o.crop, enabled: v } })} describedBy={`${idPrefix}-crop-help`} />
-        <p id={`${idPrefix}-crop-help`} className="text-[0.6875rem] text-muted">
+        <p id={`${idPrefix}-crop-help`} className="text-2xs text-muted">
           Cuts the empty transparent space. Smaller files; the box shows on the preview.
         </p>
         {o.crop.enabled && (

@@ -171,7 +171,7 @@ export function TransformPanel({
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium">Pivot</span>
             {t.pivot && (
-              <button type="button" className="text-[0.6875rem] text-link underline" onClick={() => setPivot({ x: 0.5, y: 0.5 })}>
+              <button type="button" className="text-2xs text-link underline" onClick={() => setPivot({ x: 0.5, y: 0.5 })}>
                 Middle
               </button>
             )}
@@ -183,7 +183,7 @@ export function TransformPanel({
         </div>
       )}
       {hasCorners(t.corners) && (
-        <div className="flex items-center justify-between rounded-md border border-line px-2 py-1 text-[0.6875rem]" data-testid="perspective-row">
+        <div className="flex items-center justify-between rounded-md border border-line px-2 py-1 text-2xs" data-testid="perspective-row">
           <span>Perspective: corners moved</span>
           <button type="button" className="text-link underline" onClick={() => onTransform({ corners: undefined }, g("corners"))}>
             Reset
@@ -215,12 +215,12 @@ function PxField({ label, title, value, onCommit }: { label: string; title: stri
     else el.value = String(shown);
   };
   return (
-    <label className="flex min-w-0 flex-col gap-0.5 text-[0.6875rem]" title={title}>
+    <label className="flex min-w-0 flex-col gap-0.5 text-2xs" title={title}>
       <span className="font-medium text-muted">{label}</span>
       <span className="flex items-center rounded-md border border-line bg-surface pr-1.5 focus-within:border-primary">
         {/* (a new value from outside — a drag on the preview — shows: the field is made again) */}
         <input key={shown} type="number" inputMode="numeric" defaultValue={shown} aria-label={`${label} (pixels)`} className="min-w-0 flex-1 bg-transparent px-1.5 py-1 text-xs tabular-nums outline-none" onBlur={(e) => commit(e.currentTarget)} onKeyDown={(e) => e.key === "Enter" && commit(e.currentTarget)} />
-        <span className="text-[0.625rem] text-muted">px</span>
+        <span className="text-2xs text-muted">px</span>
       </span>
     </label>
   );

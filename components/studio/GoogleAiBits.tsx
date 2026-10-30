@@ -45,15 +45,15 @@ export function AspectTileSelector({
             onClick={() => onChange(opt.id)}
             className={`group relative flex flex-col items-center justify-between rounded-xl border p-2.5 text-center transition-all ${
               active
-                ? "border-indigo-500 bg-indigo-500/10 text-white shadow-sm ring-1 ring-indigo-500/40"
-                : "border-white/10 bg-white/[0.02] text-slate-400 hover:border-white/20 hover:bg-white/[0.05] hover:text-slate-200"
+                ? "border-primary bg-primary/10 text-white shadow-sm ring-1 ring-primary"
+                : "border-line bg-raised text-muted hover:border-line hover:bg-hover hover:text-ink"
             }`}
           >
             {/* Visual ratio preview rectangle */}
             <div className="flex h-10 w-full items-center justify-center">
               <div
                 className={`rounded border transition-colors ${
-                  active ? "border-indigo-400 bg-indigo-400/20" : "border-slate-500/60 bg-slate-500/10"
+                  active ? "border-primary bg-indigo-400/20" : "border-line bg-slate-500/10"
                 }`}
                 style={{
                   width: `${Math.min(38, Math.max(16, (opt.ratioWidth / Math.max(opt.ratioWidth, opt.ratioHeight)) * 36))}px`,
@@ -62,7 +62,7 @@ export function AspectTileSelector({
               />
             </div>
             <span className="text-xs font-semibold mt-1">{opt.label}</span>
-            <span className="text-[0.625rem] text-slate-400 leading-tight truncate w-full mt-0.5">{opt.sub}</span>
+            <span className="text-2xs text-muted leading-tight truncate w-full mt-0.5">{opt.sub}</span>
           </button>
         );
       })}
@@ -115,7 +115,7 @@ export function PromptEnhancerButton({
         type="button"
         disabled={disabled || busy || !prompt.trim()}
         onClick={() => void enhance()}
-        className="group relative inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-gradient-to-r from-blue-900/30 via-indigo-900/30 to-purple-900/30 px-3 py-1 text-xs font-medium text-indigo-300 shadow-sm transition-all hover:border-indigo-400/60 hover:from-blue-900/50 hover:to-purple-900/50 hover:text-white disabled:opacity-50"
+        className="group relative inline-flex items-center gap-1.5 rounded-full border border-primary bg-gradient-to-r from-blue-900/30 via-indigo-900/30 to-purple-900/30 px-3 py-1 text-xs font-medium text-link shadow-sm transition-all hover:border-primary hover:from-blue-900/50 hover:to-purple-900/50 hover:text-ink disabled:opacity-50"
         title="Use Gemini to expand your idea into a detailed, photorealistic prompt"
       >
         <span className="flex size-3.5 items-center justify-center text-amber-300 transition-transform group-hover:scale-110">
@@ -123,7 +123,7 @@ export function PromptEnhancerButton({
         </span>
         <span>{busy ? "Enhancing…" : "Enhance prompt with Gemini"}</span>
       </button>
-      {error && <span className="text-[0.6875rem] text-rose-400">{error}</span>}
+      {error && <span className="text-2xs text-rose-400">{error}</span>}
     </div>
   );
 }
@@ -153,8 +153,8 @@ export function StyleChipGroup({
             onClick={() => onSelect(c)}
             className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
               active
-                ? "border-indigo-500 bg-indigo-500/20 font-medium text-white shadow-sm"
-                : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-white/20 hover:bg-white/[0.08] hover:text-white"
+                ? "border-primary bg-primary/20 font-medium text-white shadow-sm"
+                : "border-line bg-raised text-muted hover:border-line hover:bg-hover hover:text-ink"
             }`}
           >
             + {c.label}
@@ -173,7 +173,7 @@ export function AudioWaveformCanvas({
   audioElement,
   level = 0,
   isRecording = false,
-  className = "h-16 w-full rounded-xl bg-slate-950/70 border border-white/10",
+  className = "h-16 w-full rounded-xl bg-canvas/70 border border-line",
 }: {
   stream?: MediaStream | null;
   audioElement?: HTMLAudioElement | null;
@@ -288,9 +288,9 @@ export function GoogleGeminiPill({
 }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[0.6875rem] font-semibold tracking-wide text-indigo-300 shadow-sm ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full border border-primary bg-primary/10 px-2 py-0.5 text-2xs font-semibold tracking-wide text-link shadow-sm ${className}`}
     >
-      <span className="text-[0.625rem]">✨</span>
+      <span className="text-2xs">✨</span>
       <span>{label}</span>
     </span>
   );

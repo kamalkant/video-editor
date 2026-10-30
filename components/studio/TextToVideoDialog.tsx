@@ -68,7 +68,7 @@ export function TextToVideoDialog(p: {
     >
       {off ? (
         p.gemini === "loading" ? (
-          <p className="text-sm text-slate-400 py-6 text-center">Connecting to Google Gemini…</p>
+          <p className="text-sm text-muted py-6 text-center">Connecting to Google Gemini…</p>
         ) : (
           <GeminiKeyCard />
         )
@@ -76,22 +76,22 @@ export function TextToVideoDialog(p: {
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
-              <label htmlFor="script-to-video-input" className="text-xs font-semibold text-slate-300">
+              <label htmlFor="script-to-video-input" className="text-xs font-semibold text-muted">
                 Scene Script / Visual Description
               </label>
               <PromptEnhancerButton prompt={script} onEnhanced={(exp) => setScript(exp)} type="video" />
             </div>
 
-            <div className="relative rounded-2xl border border-white/10 bg-slate-950/60 p-3 shadow-inner focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-500/20 transition-all">
+            <div className="relative rounded-2xl border border-line bg-canvas/60 p-3 shadow-inner focus-within:border-primary focus-within:ring-2 focus-within:ring-primary transition-all">
               <textarea
                 id="script-to-video-input"
-                className="w-full min-h-32 resize-y bg-transparent text-sm leading-relaxed text-slate-100 placeholder:text-slate-500 outline-none"
+                className="w-full min-h-32 resize-y bg-transparent text-sm leading-relaxed text-ink placeholder:text-muted outline-none"
                 value={script}
                 onChange={(e) => setScript(e.target.value)}
                 maxLength={2000}
                 placeholder="e.g. Drone camera sweeps over misty redwood trees at sunrise, golden sunlight filtering through fog, 4k cinematic lighting, ultra-realistic..."
               />
-              <div className="flex items-center justify-between border-t border-white/5 pt-2 text-[0.6875rem] text-slate-400">
+              <div className="flex items-center justify-between border-t border-line pt-2 text-2xs text-muted">
                 <span>Veo Generative Storyboard</span>
                 <span>{script.length} / 2000</span>
               </div>
@@ -100,14 +100,14 @@ export function TextToVideoDialog(p: {
 
           {/* Aspect Ratio */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-slate-300">Target Framing</span>
+            <span className="text-xs font-semibold text-muted">Target Framing</span>
             <AspectTileSelector value={aspect} onChange={setAspect} />
           </div>
 
           {/* Duration & Resolution */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-300">Duration</label>
+              <label className="text-xs font-semibold text-muted">Duration</label>
               <div className="flex gap-1.5">
                 {([4, 6, 8] as VeoSeconds[]).map((sec) => (
                   <button
@@ -116,8 +116,8 @@ export function TextToVideoDialog(p: {
                     onClick={() => setSeconds(sec)}
                     className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition-all ${
                       seconds === sec
-                        ? "border-indigo-400 bg-indigo-500/20 text-white shadow-sm"
-                        : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-white"
+                        ? "border-primary bg-primary/20 text-white shadow-sm"
+                        : "border-line bg-raised text-muted hover:text-ink"
                     }`}
                   >
                     {sec}s
@@ -127,7 +127,7 @@ export function TextToVideoDialog(p: {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-300">Resolution</label>
+              <label className="text-xs font-semibold text-muted">Resolution</label>
               <div className="flex gap-1.5">
                 {(["720p", "1080p"] as VeoResolution[]).map((res) => (
                   <button
@@ -136,8 +136,8 @@ export function TextToVideoDialog(p: {
                     onClick={() => setResolution(res)}
                     className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition-all ${
                       resolution === res
-                        ? "border-indigo-400 bg-indigo-500/20 text-white shadow-sm"
-                        : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-white"
+                        ? "border-primary bg-primary/20 text-white shadow-sm"
+                        : "border-line bg-raised text-muted hover:text-ink"
                     }`}
                   >
                     {res}
@@ -168,7 +168,7 @@ export function TextToVideoDialog(p: {
                 </>
               )}
             </button>
-            <p className="mt-2 text-center text-[0.6875rem] text-slate-400">
+            <p className="mt-2 text-center text-2xs text-muted">
               Generates in background (1–3 min). Once started, your video automatically appears in My Assets.
             </p>
           </div>

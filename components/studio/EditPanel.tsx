@@ -199,7 +199,7 @@ export function EditPanel(props: EditPanelProps) {
               disabled={!a.onClick}
               onClick={a.onClick ?? undefined}
               title={a.keys ? `${a.hint} (${a.keys})` : a.hint}
-              className="flex w-full flex-col items-center gap-1 rounded-lg border border-line bg-raised px-1 py-2 text-[0.6875rem] text-ink hover:border-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:text-muted disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-raised"
+              className="flex w-full flex-col items-center gap-1 rounded-lg border border-line bg-raised px-1 py-2 text-2xs text-ink hover:border-primary hover:bg-primary-soft disabled:cursor-not-allowed disabled:text-muted disabled:opacity-40 disabled:hover:border-line disabled:hover:bg-raised"
             >
               <Icon name={a.icon} className="size-5" />
               <span className="leading-tight">{a.label}</span>
@@ -209,7 +209,7 @@ export function EditPanel(props: EditPanelProps) {
       </ul>
       {tabs.length > 0 && (
         <section aria-labelledby="edit-settings" className="flex flex-col gap-1.5">
-          <h3 id="edit-settings" className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
+          <h3 id="edit-settings" className="text-2xs font-semibold uppercase tracking-wide text-muted">
             Clip settings
           </h3>
           <ul className="flex flex-col gap-1">

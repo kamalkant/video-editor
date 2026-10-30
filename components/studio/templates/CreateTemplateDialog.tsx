@@ -132,7 +132,7 @@ export function CreateTemplateDialog({
             ))}
             {base && !looks.includes(base) && <option value={base.id}>{base.name} (made for {base.aspectRatio})</option>}
           </select>
-          <span className="text-[0.6875rem] text-muted">{base ? `Its titles, ticker and graphics go over your video (${base.slots.length} layers). You can change the words after.` : "No titles or graphics: add them in the editor."}</span>
+          <span className="text-2xs text-muted">{base ? `Its titles, ticker and graphics go over your video (${base.slots.length} layers). You can change the words after.` : "No titles or graphics: add them in the editor."}</span>
         </label>
         {!baseOk && base && ratio && (
           <Notice tone="warning" title={`${base.name} is made for ${base.aspectRatio} videos`}>
@@ -167,7 +167,7 @@ function FileRow({ label, s, pick, clear, kind }: { label: string; s: Slot; pick
         <span className="text-xs font-semibold">{label}</span>
         <span className="flex items-center gap-1.5">
           {clear && s.meta && (
-            <button type="button" className="text-[0.6875rem] text-muted hover:text-danger" onClick={clear}>
+            <button type="button" className="text-2xs text-muted hover:text-danger" onClick={clear}>
               Remove
             </button>
           )}
@@ -177,7 +177,7 @@ function FileRow({ label, s, pick, clear, kind }: { label: string; s: Slot; pick
         </span>
       </div>
       {s.progress !== null && (
-        <div className="flex items-center gap-2 text-[0.6875rem] text-muted" aria-live="polite">
+        <div className="flex items-center gap-2 text-2xs text-muted" aria-live="polite">
           <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-raised">
             <span className="block h-full bg-primary transition-[width]" style={{ width: `${s.progress}%` }} />
           </span>
@@ -185,7 +185,7 @@ function FileRow({ label, s, pick, clear, kind }: { label: string; s: Slot; pick
         </div>
       )}
       {s.meta && (
-        <div className="flex items-center gap-2 text-[0.6875rem]" data-testid={`create-template-${kind}`}>
+        <div className="flex items-center gap-2 text-2xs" data-testid={`create-template-${kind}`}>
           {kind === "video" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={`/api/videos/${s.meta.id}/thumb`} alt="" className="h-10 w-16 rounded object-cover" />
@@ -204,11 +204,11 @@ function FileRow({ label, s, pick, clear, kind }: { label: string; s: Slot; pick
         </div>
       )}
       {s.error && (
-        <p role="alert" className="text-[0.6875rem] text-danger">
+        <p role="alert" className="text-2xs text-danger">
           {s.error}
         </p>
       )}
-      {!s.meta && !s.error && s.progress === null && <p className="text-[0.6875rem] text-muted">{kind === "video" ? `${VIDEO_FORMATS}. It goes on Video 1.` : "Optional. MP3, WAV, M4A, AAC, OGG. It plays under the video and shows in Audio → My uploads."}</p>}
+      {!s.meta && !s.error && s.progress === null && <p className="text-2xs text-muted">{kind === "video" ? `${VIDEO_FORMATS}. It goes on Video 1.` : "Optional. MP3, WAV, M4A, AAC, OGG. It plays under the video and shows in Audio → My uploads."}</p>}
     </div>
   );
 }

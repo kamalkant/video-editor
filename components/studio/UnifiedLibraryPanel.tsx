@@ -459,7 +459,7 @@ export function UnifiedLibraryPanel({
                 key={cat.id}
                 type="button"
                 onClick={() => setActiveCategory(cat.id)}
-                className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium transition-colors ${
+                className={`flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-2xs font-medium transition-colors ${
                   active
                     ? "bg-primary text-white shadow-xs"
                     : "bg-raised/60 text-muted hover:bg-raised hover:text-ink"
@@ -477,7 +477,7 @@ export function UnifiedLibraryPanel({
 
       {/* Progress / Status banner */}
       {progressMsg && (
-        <div className="shrink-0 bg-primary/10 border-b border-primary/20 px-3 py-1.5 text-[11px] text-primary flex items-center gap-2">
+        <div className="shrink-0 bg-primary/10 border-b border-primary/20 px-3 py-1.5 text-2xs text-primary flex items-center gap-2">
           <Spinner size="xs" />
           <span>{progressMsg}</span>
         </div>
@@ -487,12 +487,12 @@ export function UnifiedLibraryPanel({
       <div className="flex-1 overflow-y-auto p-2.5 space-y-4">
         {/* why a search source found nothing: a missing API key for stock videos */}
         {q.trim() && stockNeedsKey && activeCategory !== "photos" && activeCategory !== "audio" && (
-          <div className="rounded-lg border border-warn-line bg-warn-soft px-2.5 py-2 text-[11px] leading-snug text-ink" role="status" data-testid="library-search-notes">
+          <div className="rounded-lg border border-warn-line bg-warn-soft px-2.5 py-2 text-2xs leading-snug text-ink" role="status" data-testid="library-search-notes">
             <p className="font-semibold">Some sources can't search yet</p>
             <ul className="mt-1 list-disc space-y-0.5 pl-4">
               <li>Stock videos (Pixabay / Pexels): add a free Pixabay or Pexels API key.</li>
             </ul>
-            <button type="button" className="mt-1.5 text-[11px] font-semibold text-primary underline" onClick={openAiSettings}>
+            <button type="button" className="mt-1.5 text-2xs font-semibold text-primary underline" onClick={openAiSettings}>
               Open API keys
             </button>
           </div>
@@ -500,15 +500,15 @@ export function UnifiedLibraryPanel({
         {/* 1. Stock Videos (Pexels / Pixabay) */}
         {(activeCategory === "all" || activeCategory === "videos") && (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
+            <div className="flex items-center justify-between text-muted text-2xs font-semibold px-1">
               <span>STOCK VIDEOS {stockVideos.length > 0 && `(${stockVideos.length})`}</span>
-              <span className="text-[10px] text-muted/80">Hover to play</span>
+              <span className="text-2xs text-muted/80">Hover to play</span>
             </div>
             {isSearchingStock && stockVideos.length === 0 ? (
               <SkeletonGrid n={6} className="grid-cols-[repeat(auto-fill,minmax(110px,1fr))]" />
             ) : stockVideos.length === 0 ? (
               activeCategory === "videos" ? (
-                <div className="py-6 text-center text-muted text-[11px]">
+                <div className="py-6 text-center text-muted text-2xs">
                   Type in the search bar above to find free stock videos.
                 </div>
               ) : null
@@ -571,7 +571,7 @@ export function UnifiedLibraryPanel({
                             className="absolute inset-0 size-full object-cover z-0 pointer-events-none select-none"
                           />
                         )}
-                        <span className="absolute bottom-1.5 left-1.5 z-20 rounded bg-black/75 px-1 py-0.5 text-[9px] tabular-nums text-white shadow-xs pointer-events-none select-none">
+                        <span className="absolute bottom-1.5 left-1.5 z-20 rounded bg-black/75 px-1 py-0.5 text-2xs tabular-nums text-white shadow-xs pointer-events-none select-none">
                           {formatTime(it.duration)}
                         </span>
                         <span className="absolute top-1.5 left-1.5 z-20 rounded bg-black/60 px-1 text-[8px] uppercase tracking-wider text-white/90 pointer-events-none select-none">
@@ -597,7 +597,7 @@ export function UnifiedLibraryPanel({
                         </button>
                       </div>
 
-                      <div className="p-1.5 truncate text-[11px] font-medium text-ink pointer-events-none select-none">
+                      <div className="p-1.5 truncate text-2xs font-medium text-ink pointer-events-none select-none">
                         {it.title}
                       </div>
                     </div>
@@ -613,16 +613,16 @@ export function UnifiedLibraryPanel({
         {/* 3. Photos & Backgrounds */}
         {(activeCategory === "all" || activeCategory === "photos") && (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
+            <div className="flex items-center justify-between text-muted text-2xs font-semibold px-1">
               <span>PHOTOS & BACKGROUNDS {stockPhotos.length > 0 && `(${stockPhotos.length})`}</span>
-              <span className="text-[10px] text-muted/80">Pixabay</span>
+              <span className="text-2xs text-muted/80">Pixabay</span>
             </div>
 
             {isSearchingPhotos && stockPhotos.length === 0 ? (
               <SkeletonGrid n={6} className="grid-cols-[repeat(auto-fill,minmax(110px,1fr))]" />
             ) : stockPhotos.length === 0 ? (
               activeCategory === "photos" ? (
-                <div className="py-6 text-center text-muted text-[11px]">
+                <div className="py-6 text-center text-muted text-2xs">
                   No stock photos found. Try a different search.
                 </div>
               ) : null
@@ -640,7 +640,7 @@ export function UnifiedLibraryPanel({
                         className="size-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
                       />
-                      <span className="absolute bottom-1.5 left-1.5 z-20 rounded bg-black/75 px-1 py-0.5 text-[9px] tabular-nums text-white font-medium shadow-xs">
+                      <span className="absolute bottom-1.5 left-1.5 z-20 rounded bg-black/75 px-1 py-0.5 text-2xs tabular-nums text-white font-medium shadow-xs">
                         PHOTO
                       </span>
                       <span className="absolute top-1.5 left-1.5 z-20 rounded bg-black/60 px-1 text-[8px] uppercase tracking-wider text-white/90">
@@ -662,7 +662,7 @@ export function UnifiedLibraryPanel({
                       </button>
                     </div>
 
-                    <div className="p-1.5 truncate text-[11px] font-medium text-ink" title={p.title}>
+                    <div className="p-1.5 truncate text-2xs font-medium text-ink" title={p.title}>
                       {p.title}
                     </div>
                   </div>
@@ -675,7 +675,7 @@ export function UnifiedLibraryPanel({
         {/* 4. Audio & Music Tracks */}
         {(activeCategory === "all" || activeCategory === "audio") && audioLoading && audioItems.length === 0 && (
           <div className="space-y-1.5" aria-busy="true" data-testid="library-audio-loading">
-            <div className="text-muted text-[11px] font-semibold px-1">AUDIO & MUSIC</div>
+            <div className="text-muted text-2xs font-semibold px-1">AUDIO & MUSIC</div>
             {Array.from({ length: 3 }, (_, i) => (
               <div key={i} className="flex items-center gap-2 rounded-lg border border-line bg-surface p-2">
                 <Skeleton className="size-6 shrink-0 rounded-full" />
@@ -689,13 +689,13 @@ export function UnifiedLibraryPanel({
         )}
         {(activeCategory === "all" || activeCategory === "audio") && audioItems.length > 0 && (
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-muted text-[11px] font-semibold px-1">
+            <div className="flex items-center justify-between text-muted text-2xs font-semibold px-1">
               <span>AUDIO & MUSIC ({audioItems.length})</span>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => setAudioMuted(!audioMuted)}
-                  className="flex items-center gap-1 text-[10px] text-muted hover:text-ink transition-colors cursor-pointer"
+                  className="flex items-center gap-1 text-2xs text-muted hover:text-ink transition-colors cursor-pointer"
                   title={audioMuted ? "Audio previews are muted (click to unmute)" : "Audio previews are unmuted (click to mute)"}
                 >
                   <Icon name={audioMuted ? "mute" : "volume"} className="size-3" />
@@ -746,12 +746,12 @@ export function UnifiedLibraryPanel({
                     </button>
 
                     <div className="min-w-0 flex-1">
-                      <div className={`truncate text-[11px] font-medium ${isPlaying ? "text-primary font-semibold" : "text-ink"}`}>
+                      <div className={`truncate text-2xs font-medium ${isPlaying ? "text-primary font-semibold" : "text-ink"}`}>
                         {it.title}
                       </div>
-                      <div className="text-[10px] text-muted flex items-center gap-1.5">
+                      <div className="text-2xs text-muted flex items-center gap-1.5">
                         {isPlaying && (
-                          <span className="flex items-center gap-1 text-primary text-[10px] font-medium">
+                          <span className="flex items-center gap-1 text-primary text-2xs font-medium">
                             <span className="inline-block size-1.5 rounded-full bg-primary animate-pulse" />
                             Playing ·
                           </span>

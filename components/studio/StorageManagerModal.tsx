@@ -155,7 +155,7 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
               <h2 id="storage-manager-title" className="text-sm font-bold text-ink">
                 Storage Manager
               </h2>
-              <div className="flex items-center gap-2 text-[11px] text-muted">
+              <div className="flex items-center gap-2 text-2xs text-muted">
                 <span>Account:</span>
                 <span className="font-mono font-semibold text-primary">{accountCode || "—"}</span>
                 <span>·</span>
@@ -246,13 +246,13 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
                     </div>
                     <div>
                       <h3 className="text-xs font-bold text-ink">Autosave & Drafts Folder Location</h3>
-                      <p className="text-[11px] text-muted">
+                      <p className="text-2xs text-muted">
                         Unsaved changes & project drafts automatically save directly to Documents/vdo on your Mac.
                       </p>
                     </div>
                   </div>
 
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-500 border border-emerald-500/20">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-2xs font-semibold text-emerald-500 border border-emerald-500/20">
                     <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     {folderInfo.isDefault ? "Autosaving to Documents/vdo" : "Autosaving to Documents/vdo"}
                   </span>
@@ -261,10 +261,10 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
                 {/* Folder details & action buttons */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border border-line bg-surface p-3">
                   <div className="min-w-0 flex-1">
-                    <div className="text-[10px] uppercase font-mono tracking-wider text-muted">Current Save Location</div>
+                    <div className="text-2xs uppercase font-mono tracking-wider text-muted">Current Save Location</div>
                     <div className="text-xs font-semibold text-ink truncate mt-0.5 flex items-center gap-1.5">
                       <span className="text-primary font-bold">📁 {folderInfo.folderName || "Documents/vdo"}</span>
-                      <span className="text-[10px] text-muted font-normal">(Visible on your Mac)</span>
+                      <span className="text-2xs text-muted font-normal">(Visible on your Mac)</span>
                     </div>
                   </div>
 
@@ -333,47 +333,47 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
               {/* Category Breakdown */}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 <div className="rounded-xl border border-line bg-surface p-3 space-y-1">
-                  <div className="text-[11px] text-muted">Projects</div>
+                  <div className="text-2xs text-muted">Projects</div>
                   <div className="text-base font-bold text-ink">{stats?.projectsCount || 0}</div>
-                  <div className="text-[10px] text-muted">{formatBytes(stats?.projectsBytes || 0)}</div>
+                  <div className="text-2xs text-muted">{formatBytes(stats?.projectsBytes || 0)}</div>
                 </div>
 
                 <div className="rounded-xl border border-line bg-surface p-3 space-y-1">
-                  <div className="text-[11px] text-muted">Video Assets</div>
+                  <div className="text-2xs text-muted">Video Assets</div>
                   <div className="text-base font-bold text-ink">
                     {formatBytes(stats?.videosBytes || 0)}
                   </div>
-                  <div className="text-[10px] text-muted">Originals & proxies</div>
+                  <div className="text-2xs text-muted">Originals & proxies</div>
                 </div>
 
                 <div className="rounded-xl border border-line bg-surface p-3 space-y-1">
-                  <div className="text-[11px] text-muted">Audio Assets</div>
+                  <div className="text-2xs text-muted">Audio Assets</div>
                   <div className="text-base font-bold text-ink">
                     {formatBytes(stats?.audioBytes || 0)}
                   </div>
-                  <div className="text-[10px] text-muted">Tracks & voiceovers</div>
+                  <div className="text-2xs text-muted">Tracks & voiceovers</div>
                 </div>
 
                 <div className="rounded-xl border border-line bg-surface p-3 space-y-1">
-                  <div className="text-[11px] text-muted">Images</div>
+                  <div className="text-2xs text-muted">Images</div>
                   <div className="text-base font-bold text-ink">
                     {formatBytes(stats?.imagesBytes || 0)}
                   </div>
-                  <div className="text-[10px] text-muted">Pictures & logos</div>
+                  <div className="text-2xs text-muted">Pictures & logos</div>
                 </div>
 
                 <div className="rounded-xl border border-line bg-surface p-3 space-y-1">
-                  <div className="text-[11px] text-muted">Generated Media</div>
+                  <div className="text-2xs text-muted">Generated Media</div>
                   <div className="text-base font-bold text-ink">
                     {formatBytes(stats?.generatedBytes || 0)}
                   </div>
-                  <div className="text-[10px] text-muted">AI creations</div>
+                  <div className="text-2xs text-muted">AI creations</div>
                 </div>
 
                 <div className="rounded-xl border border-line bg-surface p-3 space-y-1">
-                  <div className="text-[11px] text-muted">Unused Media</div>
+                  <div className="text-2xs text-muted">Unused Media</div>
                   <div className="text-base font-bold text-ink">{orphans.length} items</div>
-                  <div className="text-[10px] text-muted">Safe to clean</div>
+                  <div className="text-2xs text-muted">Safe to clean</div>
                 </div>
               </div>
 
@@ -482,8 +482,8 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
                       <span className="text-primary font-bold">1.</span>
                       <span>Real-time Draft Saving</span>
                     </div>
-                    <p className="text-[11px] text-muted leading-relaxed">
-                      Every edit, trim, and split writes a live <code className="text-primary font-mono text-[10px]">.draft.vdo</code> file directly into your selected Mac folder.
+                    <p className="text-2xs text-muted leading-relaxed">
+                      Every edit, trim, and split writes a live <code className="text-primary font-mono text-2xs">.draft.vdo</code> file directly into your selected Mac folder.
                     </p>
                   </div>
 
@@ -492,7 +492,7 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
                       <span className="text-primary font-bold">2.</span>
                       <span>Crash & Power Failure Protection</span>
                     </div>
-                    <p className="text-[11px] text-muted leading-relaxed">
+                    <p className="text-2xs text-muted leading-relaxed">
                       If your Mac runs out of battery or Chrome closes unexpectedly, your latest unsaved state is intact in your folder.
                     </p>
                   </div>
@@ -502,7 +502,7 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
                       <span className="text-primary font-bold">3.</span>
                       <span>Visible in macOS Finder</span>
                     </div>
-                    <p className="text-[11px] text-muted leading-relaxed">
+                    <p className="text-2xs text-muted leading-relaxed">
                       Unlike hidden browser databases, you can open this folder anytime in Finder to copy, back up, or organize your draft files.
                     </p>
                   </div>
@@ -512,7 +512,7 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
                       <span className="text-primary font-bold">4.</span>
                       <span>100% Local & Private</span>
                     </div>
-                    <p className="text-[11px] text-muted leading-relaxed">
+                    <p className="text-2xs text-muted leading-relaxed">
                       Drafts remain exclusively on your computer hard drive. Nothing is transmitted to the server without your consent.
                     </p>
                   </div>
@@ -533,7 +533,7 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
                   >
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-ink truncate">{a.name}</div>
-                      <div className="text-[10px] text-muted flex items-center gap-2">
+                      <div className="text-2xs text-muted flex items-center gap-2">
                         <span className="uppercase font-mono">{a.type}</span>
                         <span>·</span>
                         <span>{formatBytes(a.size)}</span>
@@ -567,7 +567,7 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
                     >
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-ink truncate">{a.name}</div>
-                        <div className="text-[10px] text-muted flex items-center gap-2">
+                        <div className="text-2xs text-muted flex items-center gap-2">
                           <span className="uppercase font-mono">{a.type}</span>
                           <span>·</span>
                           <span>{formatBytes(a.size)}</span>
@@ -585,7 +585,7 @@ export function StorageManagerModal({ onClose }: { onClose: () => void }) {
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-line bg-surface/50 px-6 py-3.5">
-          <div className="text-[11px] text-muted">
+          <div className="text-2xs text-muted">
             {folderInfo.hasCustomFolder ? (
               <span className="text-emerald-500 font-medium">● Autosaving to Documents/vdo</span>
             ) : (

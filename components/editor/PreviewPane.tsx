@@ -669,7 +669,7 @@ export function PreviewPane(p: {
         {p.fit && (
           <figcaption
             id="preview-caption"
-            className={`pointer-events-none absolute bottom-11 left-2 z-20 flex max-w-[80%] items-center gap-1.5 truncate rounded-md bg-black/75 px-2 py-0.5 text-[0.6875rem] text-white/80 backdrop-blur-sm shadow transition-opacity duration-200 ${
+            className={`pointer-events-none absolute bottom-11 left-2 z-20 flex max-w-[80%] items-center gap-1.5 truncate rounded-md bg-black/75 px-2 py-0.5 text-2xs text-white/80 backdrop-blur-sm shadow transition-opacity duration-200 ${
               p.exact.error ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
             }`}
             aria-live="polite"

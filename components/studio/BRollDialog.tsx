@@ -115,7 +115,7 @@ export function BRollDialog(p: {
     >
       {off ? (
         p.gemini === "loading" ? (
-          <p className="text-sm text-slate-400 py-6 text-center">Connecting to Google Gemini…</p>
+          <p className="text-sm text-muted py-6 text-center">Connecting to Google Gemini…</p>
         ) : (
           <GeminiKeyCard />
         )
@@ -123,13 +123,13 @@ export function BRollDialog(p: {
         <div className="flex flex-col gap-5">
           {/* Topic search / suggest bar */}
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="b-roll-topic-input" className="text-xs font-semibold text-slate-300">
+            <label htmlFor="b-roll-topic-input" className="text-xs font-semibold text-muted">
               What is your video about?
             </label>
             <div className="flex gap-2">
               <input
                 id="b-roll-topic-input"
-                className="flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-3.5 py-2 text-xs text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-400"
+                className="flex-1 rounded-xl border border-line bg-canvas/80 px-3.5 py-2 text-xs text-ink placeholder:text-muted outline-none focus:border-primary"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="e.g. Electric sports cars on coastal highway, or artificial intelligence workflow..."
@@ -138,7 +138,7 @@ export function BRollDialog(p: {
                 type="button"
                 disabled={suggestBusy || !topic.trim()}
                 onClick={() => void suggestIdeas()}
-                className="rounded-xl border border-indigo-500/30 bg-indigo-500/15 px-4 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/25 transition-all disabled:opacity-40"
+                className="rounded-xl border border-primary bg-primary/15 px-4 py-2 text-xs font-semibold text-link hover:bg-primary/25 transition-all disabled:opacity-40"
               >
                 {suggestBusy ? "Analyzing…" : "✨ Suggest Cutaways"}
               </button>
@@ -148,7 +148,7 @@ export function BRollDialog(p: {
           <div className="grid gap-5 lg:grid-cols-2">
             {/* Cutaway Suggestions */}
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-semibold text-slate-300">Select B-Roll Scene Idea</span>
+              <span className="text-xs font-semibold text-muted">Select B-Roll Scene Idea</span>
               <div className="flex flex-col gap-2">
                 {ideas.map((idea) => {
                   const active = selectedPrompt === idea.prompt;
@@ -159,17 +159,17 @@ export function BRollDialog(p: {
                       onClick={() => setSelectedPrompt(idea.prompt)}
                       className={`flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
                         active
-                          ? "border-indigo-400 bg-indigo-500/15 text-white shadow-md ring-1 ring-indigo-500/40"
-                          : "border-white/10 bg-white/[0.02] text-slate-300 hover:border-white/20 hover:bg-white/[0.05]"
+                          ? "border-primary bg-primary/15 text-white shadow-md ring-1 ring-primary"
+                          : "border-line bg-raised text-muted hover:border-line hover:bg-hover"
                       }`}
                     >
                       <div className="flex w-full items-center justify-between">
                         <span className="text-xs font-semibold text-white">{idea.title}</span>
-                        <span className="rounded bg-white/10 px-1.5 py-0.5 text-[0.625rem] text-slate-300">
+                        <span className="rounded bg-raised px-1.5 py-0.5 text-2xs text-muted">
                           {idea.category}
                         </span>
                       </div>
-                      <p className="text-[0.6875rem] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                      <p className="text-2xs text-muted mt-1 line-clamp-2 leading-relaxed">
                         {idea.prompt}
                       </p>
                     </button>
@@ -189,8 +189,8 @@ export function BRollDialog(p: {
             </div>
 
             {/* Generated Preview & Insert Action */}
-            <div className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/80 p-4 shadow-inner">
-              <span className="text-xs font-semibold text-slate-300">Generated B-Roll Preview</span>
+            <div className="flex flex-col gap-3 rounded-2xl border border-line bg-canvas/80 p-4 shadow-inner">
+              <span className="text-xs font-semibold text-muted">Generated B-Roll Preview</span>
               {generated ? (
                 <div className="flex flex-col gap-3">
                   <div className="overflow-hidden rounded-xl bg-black/40 flex items-center justify-center">
@@ -214,9 +214,9 @@ export function BRollDialog(p: {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500 gap-2">
+                <div className="flex flex-col items-center justify-center py-16 text-center text-muted gap-2">
                   <Icon name="film" className="size-8 opacity-40" />
-                  <p className="text-xs text-slate-400">Select an idea and generate to preview B-roll cutaway.</p>
+                  <p className="text-xs text-muted">Select an idea and generate to preview B-roll cutaway.</p>
                 </div>
               )}
             </div>

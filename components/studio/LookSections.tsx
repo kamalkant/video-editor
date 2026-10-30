@@ -45,7 +45,7 @@ export function CropRotateSection({ t, size, onChange, onCropMode, open }: { t: 
     onChange({ ...t, crop: n.l || n.t || n.r || n.b ? n : undefined }, group);
   };
   const edited = hasCrop(t) || !!rot;
-  const btn = "flex min-h-8 flex-1 items-center justify-center gap-1 rounded-md border border-line px-1.5 text-[0.6875rem] hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft";
+  const btn = "flex min-h-8 flex-1 items-center justify-center gap-1 rounded-md border border-line px-1.5 text-2xs hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft";
   return (
     <Fold
       title="Crop & turn"
@@ -53,7 +53,7 @@ export function CropRotateSection({ t, size, onChange, onCropMode, open }: { t: 
       defaultOpen={open}
       action={
         edited ? (
-          <button type="button" className="text-[0.6875rem] font-normal text-link underline" onClick={(e) => (e.preventDefault(), onChange({ ...t, crop: undefined, rotation: undefined }))}>
+          <button type="button" className="text-2xs font-normal text-link underline" onClick={(e) => (e.preventDefault(), onChange({ ...t, crop: undefined, rotation: undefined }))}>
             Reset
           </button>
         ) : undefined
@@ -115,7 +115,7 @@ export function ColorSection({ color, onChange, onAuto, open }: { color: ColorAd
       defaultOpen={open}
       action={
         color ? (
-          <button type="button" className="text-[0.6875rem] font-normal text-link underline" onClick={(e) => (e.preventDefault(), onChange(color.look || color.vignette ? { ...NEUTRAL, look: color.look, vignette: color.vignette } : undefined))}>
+          <button type="button" className="text-2xs font-normal text-link underline" onClick={(e) => (e.preventDefault(), onChange(color.look || color.vignette ? { ...NEUTRAL, look: color.look, vignette: color.vignette } : undefined))}>
             Reset
           </button>
         ) : undefined
@@ -170,7 +170,7 @@ export function WatermarkSection({
 }) {
   const list = patches ?? [];
   const set = (id: string, x: Partial<Patch>, group?: string) => onChange(list.map((p) => (p.id === id ? { ...p, ...x } : p)), group);
-  const btn = "flex min-h-7 flex-1 items-center justify-center rounded-md border border-line text-[0.6875rem] hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft";
+  const btn = "flex min-h-7 flex-1 items-center justify-center rounded-md border border-line text-2xs hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft";
   return (
     <Fold title={`Watermark & logo${list.length ? ` (${list.length})` : ""}`} testId="watermark-section" defaultOpen={list.length > 0}>
       <p className="text-xs text-muted">Draw a box over a watermark, logo, face or number plate — then remove, blur or cover it.</p>
@@ -195,7 +195,7 @@ export function WatermarkSection({
             ))}
           </div>
           {p.mode === "blur" && <LabeledSlider label="Blur strength" value={p.strength ?? 12} min={2} max={60} step={1} valueText={(v) => String(v)} onChange={(v) => set(p.id, { strength: v }, "clip:patch-blur")} />}
-          {p.mode === "remove" && <p className="text-[0.6875rem] text-muted">Filled in from the picture around the box. Best for small logos on calm backgrounds.</p>}
+          {p.mode === "remove" && <p className="text-2xs text-muted">Filled in from the picture around the box. Best for small logos on calm backgrounds.</p>}
           {p.mode === "cover" && (
             <div className="flex flex-col gap-1.5">
               <label className="flex items-center justify-between gap-2 text-xs">
@@ -245,7 +245,7 @@ export function MaskSection({ mask, onChange, onBubble }: { mask: ClipMask | und
     const n = { ...m, ...x };
     onChange(n.shape === "rect" && !n.border?.width ? undefined : n, group);
   };
-  const btn = "flex min-h-8 flex-1 items-center justify-center gap-1 rounded-md border border-line px-1 text-[0.6875rem] hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft";
+  const btn = "flex min-h-8 flex-1 items-center justify-center gap-1 rounded-md border border-line px-1 text-2xs hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft";
   return (
     <Fold title="Shape & border" testId="mask-section" defaultOpen={!!mask}>
       <div role="group" aria-label="Shape" className="grid grid-cols-5 gap-1">
@@ -262,7 +262,7 @@ export function MaskSection({ mask, onChange, onBubble }: { mask: ClipMask | und
           <span aria-hidden="true" className="size-3 rotate-45 border-[1.5px] border-current" /> Diamond
         </button>
         <button type="button" className={btn} aria-pressed={m.shape === "star" || m.shape === "custom"} onClick={() => set({ shape: "star" })}>
-          <span aria-hidden="true" className="text-[11px] leading-none">★</span> Star
+          <span aria-hidden="true" className="text-2xs leading-none">★</span> Star
         </button>
       </div>
       <button type="button" className="btn btn-secondary w-full text-xs" onClick={onBubble} data-testid="bubble">

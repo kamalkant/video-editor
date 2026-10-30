@@ -157,7 +157,7 @@ export function Rail({
                     onDropOnTab(t.id, e);
                   }
                 }}
-                className={`relative flex w-full flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-[0.6875rem] leading-tight transition-all disabled:cursor-not-allowed disabled:opacity-35 ${
+                className={`relative flex w-full flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-2xs leading-tight transition-all disabled:cursor-not-allowed disabled:opacity-35 ${
                   isHoveredDrag
                     ? "bg-primary-soft ring-2 ring-primary ring-offset-1 text-ink font-semibold"
                     : on

@@ -42,7 +42,7 @@ export function MobileAiSheet({
             </span>
             <div className="min-w-0">
               <div className="text-xs font-semibold text-ink">AI Cutout</div>
-              <div className="text-[10px] text-muted">Remove background</div>
+              <div className="text-2xs text-muted">Remove background</div>
             </div>
           </button>
         )}
@@ -57,7 +57,7 @@ export function MobileAiSheet({
           </span>
           <div className="min-w-0">
             <div className="text-xs font-semibold text-ink">Auto Subtitles</div>
-            <div className="text-[10px] text-muted">AI speech to text</div>
+            <div className="text-2xs text-muted">AI speech to text</div>
           </div>
         </button>
 
@@ -71,7 +71,7 @@ export function MobileAiSheet({
           </span>
           <div className="min-w-0">
             <div className="text-xs font-semibold text-ink">Smart Script</div>
-            <div className="text-[10px] text-muted">Generate viral hook</div>
+            <div className="text-2xs text-muted">Generate viral hook</div>
           </div>
         </button>
 
@@ -80,12 +80,12 @@ export function MobileAiSheet({
           onClick={onOpenAiTools}
           className="flex items-center gap-2 rounded-xl border border-line bg-surface p-2.5 text-left hover:border-primary/50 transition-all active:scale-95"
         >
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-raised text-indigo-500">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-raised text-link">
             <Icon name="ai" className="size-4" />
           </span>
           <div className="min-w-0">
             <div className="text-xs font-semibold text-ink">All AI Tools</div>
-            <div className="text-[10px] text-muted">Browse full suite</div>
+            <div className="text-2xs text-muted">Browse full suite</div>
           </div>
         </button>
       </div>

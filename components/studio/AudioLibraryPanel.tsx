@@ -123,7 +123,7 @@ export function AudioLibraryPanel({ onAdd, onRecordVoice, onTts }: { onAdd: (v: 
         {tabBtn("uploads", "upload", "My uploads")}
         {tabBtn("folder", "folderOpen", "My folder")}
       </div>
-      {tab === "uploads" && <p className="text-[0.6875rem] text-muted">Sounds you added to your templates (Video Templates → Create template) or uploaded there.</p>}
+      {tab === "uploads" && <p className="text-2xs text-muted">Sounds you added to your templates (Video Templates → Create template) or uploaded there.</p>}
       {tab === "folder" && (
         <div className="flex flex-col gap-1.5">
           <label className="flex flex-col gap-1 text-xs">
@@ -134,14 +134,14 @@ export function AudioLibraryPanel({ onAdd, onRecordVoice, onTts }: { onAdd: (v: 
             {busy === "folder" && <Spinner size="xs" />}
             {busy === "folder" ? "Reading the folder…" : folder ? "Read it again" : "Use this folder"}
           </button>
-          <p className="text-[0.6875rem] text-muted">Only music you own or have a licence for. Files stay where they are; adding one copies it into My Assets.</p>
+          <p className="text-2xs text-muted">Only music you own or have a licence for. Files stay where they are; adding one copies it into My Assets.</p>
         </div>
       )}
       <input className="field" type="search" placeholder="Search…" aria-label="Search the library" value={q} onChange={(e) => setQ(e.target.value)} />
       {moods.length > 1 && (
         <div className="flex flex-wrap gap-1" role="group" aria-label="Mood">
           {[null, ...moods].map((m) => (
-            <button key={m ?? "all"} type="button" aria-pressed={mood === m} onClick={() => setMood(m)} className={`rounded-md px-2 py-0.5 text-[0.6875rem] ${mood === m ? "bg-primary text-white" : "bg-raised text-muted hover:text-ink"}`}>
+            <button key={m ?? "all"} type="button" aria-pressed={mood === m} onClick={() => setMood(m)} className={`rounded-md px-2 py-0.5 text-2xs ${mood === m ? "bg-primary text-white" : "bg-raised text-muted hover:text-ink"}`}>
               {m ?? "All"}
             </button>
           ))}
@@ -166,12 +166,12 @@ export function AudioLibraryPanel({ onAdd, onRecordVoice, onTts }: { onAdd: (v: 
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="truncate text-sm font-medium">{x.title}</span>
                   {(x.artist === "Uploaded Audio" || x.source === "upload" || x.id.includes("-user-") || x.id.includes("-custom-")) && (
-                    <span className="rounded bg-primary/10 border border-primary/20 px-1 py-0.2 text-[0.5625rem] font-bold text-primary shrink-0">
+                    <span className="rounded bg-primary/10 border border-primary/20 px-1 py-0.2 text-2xs font-bold text-primary shrink-0">
                       Uploaded
                     </span>
                   )}
                 </div>
-                <span className="truncate text-[0.6875rem] text-muted">
+                <span className="truncate text-2xs text-muted">
                   {x.mood}
                   {x.artist && x.artist !== "Uploaded Audio" && x.source !== "upload" ? ` · ${x.artist}` : ""} · {formatTime(x.duration)}
                 </span>

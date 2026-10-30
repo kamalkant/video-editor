@@ -292,7 +292,7 @@ describe("Timeline Generating Clip Component", () => {
     // Overlay is present with single clean border
     const overlay = screen.getByTestId("generating-overlay");
     expect(overlay).toBeDefined();
-    expect(overlay.className).toContain("border-blue-500");
+    expect(overlay.className).toContain("border-primary");
 
     // Dedicated remove clip button is present and clickable
     const removeBtn = screen.getByRole("button", { name: /Remove clip/i });

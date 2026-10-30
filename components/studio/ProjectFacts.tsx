@@ -53,7 +53,7 @@ export function ProjectFacts(p: { canvas: Canvas; duration: number; clips: numbe
             </button>
           ))}
         </div>
-        <p className="mt-1.5 text-[0.6875rem] text-muted">Frames per second in the exported file. 30 suits most videos; 24 looks like film; 50 / 60 for fast motion.</p>
+        <p className="mt-1.5 text-2xs text-muted">Frames per second in the exported file. 30 suits most videos; 24 looks like film; 50 / 60 for fast motion.</p>
       </fieldset>
       <p className="mt-3 border-t border-line pt-2 text-xs text-muted">
         Length {formatTime(p.duration)} · {clips} on {p.tracks} {p.tracks === 1 ? "track" : "tracks"}

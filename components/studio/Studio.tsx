@@ -5821,7 +5821,7 @@ function StudioInner(props: Props) {
         media={bgMedia}
         onMedia={chooseBgMedia}
       />
-      <p className="mt-2 text-[0.6875rem] text-muted">
+      <p className="mt-2 text-2xs text-muted">
         Only for looking at transparent parts. Not exported.
       </p>
     </Popover>
@@ -8488,7 +8488,7 @@ function StudioInner(props: Props) {
       <button
         type="button"
         onClick={toggleProxyMode}
-        className={`flex items-center gap-1.5 px-2 py-0.5 text-[0.6875rem] font-medium rounded transition-colors ${
+        className={`flex items-center gap-1.5 px-2 py-0.5 text-2xs font-medium rounded transition-colors ${
           proxyMode
             ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
             : "bg-surface-2/60 text-ink-muted hover:text-ink hover:bg-surface-2 border border-line/40"
@@ -8810,7 +8810,7 @@ function StudioInner(props: Props) {
             onPointerDownCapture={() => programRef.current?.pause()}
           >
             {clipPane(
-              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-primary/30 bg-primary-soft px-1.5 py-0.5 text-[0.6875rem] font-medium text-link">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded border border-primary/30 bg-primary-soft px-1.5 py-0.5 text-2xs font-medium text-link">
                 <Icon name="video" className="size-3 text-primary" /> Clip
               </span>,
             ) ?? (
@@ -9076,7 +9076,7 @@ function StudioInner(props: Props) {
                 </button>
               </header>
               <div className="flex flex-col gap-2.5 p-3">
-                <p className="text-[0.6875rem] text-muted">
+                <p className="text-2xs text-muted">
                   Your Brand Kit logo, on the whole video. Drag it on the
                   preview; it snaps to the corners (Alt: anywhere).
                 </p>

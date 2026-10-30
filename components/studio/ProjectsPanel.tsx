@@ -656,19 +656,19 @@ export function ProjectsPanel(p: {
                   >
                     <ProjectCollage ids={x.coverIds?.length ? x.coverIds : x.coverId ? [x.coverId] : []} clips={x.clips} />
                     <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-1.5 pb-1 pt-4">
-                      <span className="min-w-0 truncate text-[0.5625rem] font-medium tabular-nums text-white" data-preserve-white>
+                      <span className="min-w-0 truncate text-2xs font-medium tabular-nums text-white" data-preserve-white>
                         {[x.duration > 0 ? formatTime(x.duration) : null, `${x.clips} clip${x.clips === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
                       </span>
                     </span>
                     <span
-                      className={`pointer-events-none absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/75 to-transparent pb-3 pr-8 pt-1.5 ${current ? "pl-10" : "pl-1.5"} text-[0.625rem] font-semibold text-white opacity-0 transition-opacity group-hover/proj:opacity-100 group-focus-within/proj:opacity-100`}
+                      className={`pointer-events-none absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/75 to-transparent pb-3 pr-8 pt-1.5 ${current ? "pl-10" : "pl-1.5"} text-2xs font-semibold text-white opacity-0 transition-opacity group-hover/proj:opacity-100 group-focus-within/proj:opacity-100`}
                       data-preserve-white
                     >
                       {x.name}
                     </span>
                   </button>
                   {current && (
-                    <span className="pointer-events-none absolute left-1 top-1 rounded bg-primary px-1 py-px text-[0.5625rem] font-semibold text-white" data-preserve-white>
+                    <span className="pointer-events-none absolute left-1 top-1 rounded bg-primary px-1 py-px text-2xs font-semibold text-white" data-preserve-white>
                       Open
                     </span>
                   )}
@@ -691,7 +691,7 @@ export function ProjectsPanel(p: {
                 {editing === x.id && (
                   <div className="p-1.5">
                     <input
-                      className="field h-6 min-h-0 w-full px-1 text-[0.6875rem]"
+                      className="field h-6 min-h-0 w-full px-1 text-2xs"
                       aria-label="New project name"
                       value={draft}
                       maxLength={80}
@@ -719,7 +719,7 @@ export function ProjectsPanel(p: {
           data-testid="projects-list"
         >
           {/* Table Header */}
-          <div className="flex items-center gap-1.5 border-b border-line px-1.5 py-1 text-[0.625rem] font-semibold text-muted">
+          <div className="flex items-center gap-1.5 border-b border-line px-1.5 py-1 text-2xs font-semibold text-muted">
             <span className="w-3.5 shrink-0" />
             <span className="w-8 shrink-0">Item</span>
             <span className="min-w-0 flex-1">Name</span>
@@ -787,7 +787,7 @@ export function ProjectsPanel(p: {
                   <div className="flex min-w-0 flex-1 items-center gap-1">
                     {editing === x.id ? (
                       <input
-                        className="field h-5 min-h-0 w-full px-1 text-[0.6875rem]"
+                        className="field h-5 min-h-0 w-full px-1 text-2xs"
                         aria-label="New project name"
                         value={draft}
                         maxLength={80}
@@ -806,7 +806,7 @@ export function ProjectsPanel(p: {
                       <>
                         <button
                           type="button"
-                          className="truncate text-left text-[0.6875rem] font-medium text-ink hover:underline focus:outline-none"
+                          className="truncate text-left text-2xs font-medium text-ink hover:underline focus:outline-none"
                           title={`${x.name} · edited ${formatAgo(x.updatedAt)}`}
                           onClick={() => {
                             if (!current) p.onOpen(x.id);
@@ -815,12 +815,12 @@ export function ProjectsPanel(p: {
                           {x.name}
                         </button>
                         {current && (
-                          <span className="shrink-0 rounded bg-primary/20 px-1 py-0.5 text-[9px] font-semibold text-primary">
+                          <span className="shrink-0 rounded bg-primary/20 px-1 py-0.5 text-2xs font-semibold text-primary">
                             Active
                           </span>
                         )}
                         {x.missing && (
-                          <span className="text-[9px] text-danger">
+                          <span className="text-2xs text-danger">
                             Missing
                           </span>
                         )}
@@ -829,7 +829,7 @@ export function ProjectsPanel(p: {
                   </div>
 
                   {/* Duration */}
-                  <span className="w-10 shrink-0 text-right text-[0.625rem] text-muted">
+                  <span className="w-10 shrink-0 text-right text-2xs text-muted">
                     {x.duration > 0 ? formatTime(x.duration) : "—"}
                   </span>
 
@@ -979,7 +979,7 @@ function ProjectCollage({ ids, clips }: { ids: string[]; clips: number }) {
         <span key={id} className={`relative overflow-hidden bg-stage ${shown.length === 3 && i === 0 ? "row-span-2" : ""}`}>
           <ProjectCover coverId={id} iconClass="size-4" />
           {more > 0 && i === 3 && (
-            <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-[0.6875rem] font-semibold text-white" data-preserve-white>
+            <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-2xs font-semibold text-white" data-preserve-white>
               +{more}
             </span>
           )}

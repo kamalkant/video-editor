@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { CapabilityBanner } from "@/components/layout/CapabilityBanner";
 import Script from "next/script";
+import localFont from "next/font/local";
 import { THEME_SCRIPT } from "@/lib/editor/themeScript";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getComputedFeaturesForUser } from "@/lib/db/features";
@@ -9,8 +10,11 @@ import { AuthProvider } from "@/lib/auth/AuthContext";
 import { getSiteUrl, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "@/lib/seo/config";
 import "./globals.css";
 
+/** Inter for the whole app (globals.css --font-sans reads --font-inter): one typeface, tuned for small UI text. */
+const inter = localFont({ src: "./fonts/Inter-latin.woff2", variable: "--font-inter", display: "swap", weight: "100 900" });
+
 export const viewport: Viewport = {
-  themeColor: "#111a2e",
+  themeColor: "#17181f",
 };
 
 export const metadata: Metadata = {
@@ -54,7 +58,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   return (
     // the saved theme (light / system) is set on <html> before React loads
-    <html lang="en" className="h-full antialiased" suppressHydrationWarning>
+    <html lang="en" className={`h-full antialiased ${inter.variable}`} suppressHydrationWarning>
       <head>
         {/* the saved theme, applied before the first paint (next/script puts it in the page's HTML; a plain
             <script> in a component makes React warn when the layout renders on the client) */}

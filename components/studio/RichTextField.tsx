@@ -342,7 +342,7 @@ export function RichTextField({ id, clip, onPatch, brandFonts = [], rows = 3, de
           <button type="button" className={btn(false)} onMouseDown={keep} onClick={() => stepSize(-1)} aria-label={hasSel ? "Smaller letters" : "Smaller text"} title="Smaller">
             A−
           </button>
-          <span className="w-12 text-center font-mono text-[0.6875rem] text-muted" aria-live="polite">
+          <span className="w-12 text-center font-mono text-2xs text-muted" aria-live="polite">
             {hasSel ? `${Math.round(sizeShare * 100)}%` : `${Math.round(st.size)}px`}
           </span>
           <button type="button" className={btn(false)} onMouseDown={keep} onClick={() => stepSize(1)} aria-label={hasSel ? "Bigger letters" : "Bigger text"} title="Bigger">
@@ -430,7 +430,7 @@ export function RichTextField({ id, clip, onPatch, brandFonts = [], rows = 3, de
         }}
         onDrop={(e) => e.preventDefault()}
       />
-      <p className="text-[0.6875rem] text-muted" aria-live="polite">
+      <p className="text-2xs text-muted" aria-live="polite">
         {hasSel ? `Styling the ${count} selected letter${count === 1 ? "" : "s"} only.` : "Select letters or a word to style just them; with nothing selected the buttons change the whole text."}
       </p>
     </div>

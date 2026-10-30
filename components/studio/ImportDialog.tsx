@@ -269,7 +269,7 @@ function LibraryTab({
                         loading="lazy"
                       />
                     )}
-                    <span className="absolute bottom-1 right-1 rounded bg-black/75 px-1 text-[0.625rem] text-white">
+                    <span className="absolute bottom-1 right-1 rounded bg-black/75 px-1 text-2xs text-white">
                       {formatTime(it.duration)}
                     </span>
                     {done[it.id] && (
@@ -282,7 +282,7 @@ function LibraryTab({
                     <span className="block truncate text-xs font-medium">
                       {it.title}
                     </span>
-                    <span className="block truncate text-[0.6875rem] text-muted">
+                    <span className="block truncate text-2xs text-muted">
                       {it.author}
                     </span>
                   </span>
@@ -360,7 +360,7 @@ function LibraryTab({
           </div>
         </div>
       )}
-      <p className="text-[0.6875rem] text-muted h-[400px]">
+      <p className="text-2xs text-muted h-[400px]">
         {`Uses your free ${SOURCE_NAME[source]} key.`}{" "}
         <button
           type="button"

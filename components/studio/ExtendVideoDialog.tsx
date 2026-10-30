@@ -63,19 +63,19 @@ export function ExtendVideoDialog(p: {
     >
       {off ? (
         p.gemini === "loading" ? (
-          <p className="text-sm text-slate-400 py-6 text-center">Connecting to Google Gemini…</p>
+          <p className="text-sm text-muted py-6 text-center">Connecting to Google Gemini…</p>
         ) : (
           <GeminiKeyCard />
         )
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="extend-prompt-input" className="text-xs font-semibold text-slate-300">
+            <label htmlFor="extend-prompt-input" className="text-xs font-semibold text-muted">
               How should the action continue?
             </label>
             <textarea
               id="extend-prompt-input"
-              className="w-full min-h-24 resize-y rounded-xl border border-white/10 bg-slate-950/80 p-3 text-xs leading-relaxed text-slate-100 placeholder:text-slate-500 outline-none focus:border-indigo-400"
+              className="w-full min-h-24 resize-y rounded-xl border border-line bg-canvas/80 p-3 text-xs leading-relaxed text-ink placeholder:text-muted outline-none focus:border-primary"
               value={continuationPrompt}
               onChange={(e) => setContinuationPrompt(e.target.value)}
               placeholder="e.g. Continue panning smoothly across the horizon, camera follows the subject moving forward..."
@@ -83,7 +83,7 @@ export function ExtendVideoDialog(p: {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-semibold text-slate-300">Additional Duration</span>
+            <span className="text-xs font-semibold text-muted">Additional Duration</span>
             <div className="flex gap-2">
               {([4, 6, 8] as const).map((sec) => (
                 <button
@@ -92,8 +92,8 @@ export function ExtendVideoDialog(p: {
                   onClick={() => setExtensionSec(sec)}
                   className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition-all ${
                     extensionSec === sec
-                      ? "border-indigo-400 bg-indigo-500/20 text-white shadow-sm"
-                      : "border-white/10 bg-white/[0.02] text-slate-400 hover:text-white"
+                      ? "border-primary bg-primary/20 text-white shadow-sm"
+                      : "border-line bg-raised text-muted hover:text-ink"
                   }`}
                 >
                   +{sec} Seconds

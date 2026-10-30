@@ -114,7 +114,7 @@ export function MobileEffectsSheet({
                 <span className="flex size-7 items-center justify-center rounded-full bg-raised/80">
                   {eff.id === "none" ? "⊘" : "✨"}
                 </span>
-                <span className="text-[10px] text-muted truncate max-w-full">{eff.label}</span>
+                <span className="text-2xs text-muted truncate max-w-full">{eff.label}</span>
               </button>
             );
           })}
@@ -130,7 +130,7 @@ export function MobileEffectsSheet({
             className="flex flex-col items-center justify-center gap-1 min-w-[65px] h-16 rounded-xl border border-line bg-surface p-1.5 transition-all shrink-0 active:scale-95"
           >
             <span className="text-sm font-semibold text-muted">None</span>
-            <span className="text-[10px] text-muted">Cut</span>
+            <span className="text-2xs text-muted">Cut</span>
           </button>
           {TRANSITION_TYPES.slice(0, 10).map((type) => {
             const tr = TRANSITIONS[type];
@@ -142,7 +142,7 @@ export function MobileEffectsSheet({
                 className="flex flex-col items-center justify-center gap-1 min-w-[65px] h-16 rounded-xl border border-line bg-surface p-1.5 transition-all shrink-0 hover:border-primary/50 active:scale-95"
               >
                 <span className="text-xs font-semibold text-ink">↔</span>
-                <span className="text-[10px] text-muted truncate max-w-full">{tr.label}</span>
+                <span className="text-2xs text-muted truncate max-w-full">{tr.label}</span>
               </button>
             );
           })}

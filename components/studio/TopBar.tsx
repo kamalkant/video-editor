@@ -141,7 +141,7 @@ export function TopBar(p: {
           <span className="text-base font-bold tracking-tight">
             ViPlay <span className="font-semibold text-muted text-xs">Studio</span>
           </span>
-          <span className="text-[0.625rem] text-muted max-md:hidden">Create • Generate • Edit • Compose</span>
+          <span className="text-2xs text-muted max-md:hidden">Create • Generate • Edit • Compose</span>
         </span>
         <span className="sr-only"> — new project</span>
       </Link>
@@ -150,14 +150,14 @@ export function TopBar(p: {
       <nav aria-label="Ecosystem Portals" className="flex items-center gap-1 bg-surface-raised border border-line rounded-lg p-0.5 text-xs max-sm:hidden">
         <Link
           href="/editor"
-          className="px-2 py-0.5 rounded-md bg-primary text-white font-medium text-[11px] shadow-xs"
+          className="px-2 py-0.5 rounded-md bg-primary text-white font-medium text-2xs shadow-xs"
           title="ViPlay Studio Editor"
         >
           Studio
         </Link>
         <Link
           href="/"
-          className="px-2 py-0.5 rounded-md text-muted hover:text-ink hover:bg-raised font-medium text-[11px] transition"
+          className="px-2 py-0.5 rounded-md text-muted hover:text-ink hover:bg-raised font-medium text-2xs transition"
           title="ViPlay 3D Website & Story"
         >
           Website
@@ -165,7 +165,7 @@ export function TopBar(p: {
         {isAdmin && (
           <a
             href={`${ACCOUNTS_URL}/admin`}
-            className="px-2 py-0.5 rounded-md text-purple-600 dark:text-purple-400 hover:bg-raised font-semibold text-[11px] transition"
+            className="px-2 py-0.5 rounded-md text-purple-600 dark:text-purple-400 hover:bg-raised font-semibold text-2xs transition"
             title="ViPlay Admin Suite"
           >
             Admin
@@ -244,7 +244,7 @@ export function TopBar(p: {
                 onTranscript={() => {}}
               />
             </span>
-            <kbd className="text-[0.6875rem] shrink-0">{mod} K</kbd>
+            <kbd className="text-2xs shrink-0">{mod} K</kbd>
           </div>
           {tip(
             `Search tools (${mod} K)`,
@@ -281,13 +281,14 @@ export function TopBar(p: {
                 : "Proxy Mode: Off. Click to enable 720p fast-seeking proxies for smooth editing.",
               <button
                 type="button"
-                className={`${iconBtn} ${p.proxyMode ? "bg-amber-500/20 text-amber-300 border border-amber-500/40" : ""}`}
+                className={`${iconBtn} gap-1 ${p.proxyMode ? "bg-warn-soft text-warn-ink" : ""}`}
                 onClick={p.onToggleProxy}
                 aria-pressed={p.proxyMode}
                 aria-label="Toggle proxy editing (720p)"
                 data-testid="topbar-proxy-toggle"
               >
-                <span className="text-[0.6875rem] font-bold tracking-tight">⚡ 720p</span>
+                <Icon name="speed" className="size-3.5" />
+                <span className="text-2xs font-bold tracking-tight">720p</span>
               </button>,
             )}
           <span aria-hidden="true" className="mx-1 h-6 w-px bg-line" />

@@ -83,7 +83,7 @@ export function SmartMixPanel(props: SmartMixPanelProps) {
             <h2 className="text-sm font-semibold text-ink leading-tight truncate">
               Smart Audio Mix
             </h2>
-            <span className="text-[10px] text-muted truncate">
+            <span className="text-2xs text-muted truncate">
               Intelligent Dialogue Ducking
             </span>
           </div>
@@ -106,7 +106,7 @@ export function SmartMixPanel(props: SmartMixPanelProps) {
           <div className="flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-xs font-semibold text-ink">Smart Dialogue Ducking</span>
-              <span className="text-[10px] text-muted">
+              <span className="text-2xs text-muted">
                 Automatically dips background sound under speech
               </span>
             </div>
@@ -119,7 +119,7 @@ export function SmartMixPanel(props: SmartMixPanelProps) {
           </div>
 
           {automatedClipCount > 0 && (
-            <div className="flex items-center gap-1.5 pt-1 border-t border-line/60 text-[10px] text-emerald-400 font-medium">
+            <div className="flex items-center gap-1.5 pt-1 border-t border-line/60 text-2xs text-emerald-400 font-medium">
               <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
               <span>Smart Mix active on {automatedClipCount} clip{automatedClipCount > 1 ? "s" : ""}</span>
             </div>
@@ -130,10 +130,10 @@ export function SmartMixPanel(props: SmartMixPanelProps) {
         <div className="rounded-xl border border-line bg-canvas/30 p-3 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink">Speech Priority Mode</span>
-            <span className="text-[10px] text-muted">During simultaneous dialogue</span>
+            <span className="text-2xs text-muted">During simultaneous dialogue</span>
           </div>
 
-          <div className="grid grid-cols-3 gap-1 text-[11px] font-medium">
+          <div className="grid grid-cols-3 gap-1 text-2xs font-medium">
             <button
               type="button"
               onClick={() => setPriority("both")}
@@ -223,7 +223,7 @@ export function SmartMixPanel(props: SmartMixPanelProps) {
 
           <div className="space-y-2 text-xs">
             <div className="space-y-1">
-              <label htmlFor="video-track-select" className="text-[10px] text-muted block uppercase tracking-wider font-semibold">
+              <label htmlFor="video-track-select" className="text-2xs text-muted block uppercase tracking-wider font-semibold">
                 Video Audio Source:
               </label>
               <select
@@ -242,7 +242,7 @@ export function SmartMixPanel(props: SmartMixPanelProps) {
             </div>
 
             <div className="space-y-1">
-              <label htmlFor="voice-track-select" className="text-[10px] text-muted block uppercase tracking-wider font-semibold">
+              <label htmlFor="voice-track-select" className="text-2xs text-muted block uppercase tracking-wider font-semibold">
                 Voiceover Audio Source:
               </label>
               <select
@@ -294,7 +294,7 @@ export function SmartMixPanel(props: SmartMixPanelProps) {
             </button>
           )}
 
-          <p className="text-[11px] text-muted text-center leading-tight pt-1">
+          <p className="text-2xs text-muted text-center leading-tight pt-1">
             Non-destructive: generates smooth volume automation curves without altering source files.
           </p>
         </div>

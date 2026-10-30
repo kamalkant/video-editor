@@ -398,7 +398,7 @@ export function TemplateCustomizerModal({
                       <span className="text-xs font-semibold text-ink">
                         {opt.title}
                       </span>
-                      <span className="text-[0.625rem] text-muted">
+                      <span className="text-2xs text-muted">
                         {opt.desc}
                       </span>
                     </button>
@@ -424,7 +424,7 @@ export function TemplateCustomizerModal({
                   <h4 className="text-xs font-semibold text-ink">
                     Smart Auto-Keying / Green Screen
                   </h4>
-                  <p className="text-[0.6875rem] text-muted">
+                  <p className="text-2xs text-muted">
                     Automatically removes background on presenter video using AI
                     cut-out.
                   </p>
@@ -453,7 +453,7 @@ export function TemplateCustomizerModal({
                   <label className="block text-xs font-bold uppercase tracking-wider text-muted">
                     Background Mode
                   </label>
-                  <p className="text-[0.6875rem] text-muted">
+                  <p className="text-2xs text-muted">
                     Switch between 60fps procedural animations or
                     high-definition broadcast video loops.
                   </p>
@@ -502,7 +502,7 @@ export function TemplateCustomizerModal({
                   </div>
                   <p className="mt-1 text-xs text-muted">
                     This template renders real-time procedural graphics engine{" "}
-                    <code className="rounded bg-canvas px-1 py-0.5 font-mono text-[0.6875rem] text-primary">
+                    <code className="rounded bg-canvas px-1 py-0.5 font-mono text-2xs text-primary">
                       {template.previewCanvasEngine}
                     </code>{" "}
                     with zero video decoding lag. Select any stock video below
@@ -543,7 +543,7 @@ export function TemplateCustomizerModal({
                             : "border-line bg-raised/40 hover:border-control"
                         }`}
                       >
-                        <div className="relative flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-black text-white shadow-inner font-mono text-[0.625rem] font-bold">
+                        <div className="relative flex h-12 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-black text-white shadow-inner font-mono text-2xs font-bold">
                           {clip.thumbUrl ? (
                             <img
                               src={clip.thumbUrl}
@@ -567,7 +567,7 @@ export function TemplateCustomizerModal({
                           <span className="truncate text-xs font-semibold text-ink">
                             {clip.title}
                           </span>
-                          <span className="text-[0.625rem] text-muted">
+                          <span className="text-2xs text-muted">
                             {clip.category} · 20s
                           </span>
                         </div>
@@ -593,7 +593,7 @@ export function TemplateCustomizerModal({
                   <label className="block text-xs font-bold uppercase tracking-wider text-muted">
                     Broadcast Theme Music
                   </label>
-                  <p className="text-[0.6875rem] text-muted">
+                  <p className="text-2xs text-muted">
                     Synchronized audio fanfare & background cues. Also
                     accessible in Studio left rail "Audio" panel.
                   </p>
@@ -659,13 +659,13 @@ export function TemplateCustomizerModal({
                           <span className="truncate text-xs font-semibold text-ink">
                             {track.title}
                           </span>
-                          <span className="text-[0.625rem] text-muted">
+                          <span className="text-2xs text-muted">
                             {track.category} · Mood: {track.mood} ·{" "}
                             {track.duration}s
                           </span>
                         </div>
                         {isSelected && (
-                          <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[0.625rem] font-bold text-primary">
+                          <span className="rounded-full bg-primary/20 px-2 py-0.5 text-2xs font-bold text-primary">
                             Selected
                           </span>
                         )}

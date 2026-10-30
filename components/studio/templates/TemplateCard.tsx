@@ -223,15 +223,15 @@ export function TemplateCard({
         {/* Top Badges */}
         <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
           <span
-            className={`rounded px-1.5 py-0.5 text-[0.625rem] font-bold tracking-wider uppercase shadow backdrop-blur-md ${
+            className={`rounded px-1.5 py-0.5 text-2xs font-bold tracking-wider uppercase shadow backdrop-blur-md ${
               template.resolution === "4K"
                 ? "bg-amber-500/90 text-black border border-amber-400"
-                : "bg-blue-600/90 text-white border border-blue-400"
+                : "bg-primary/90 text-white border border-primary"
             }`}
           >
             {template.resolution}
           </span>
-          <span className="rounded bg-black/60 px-1.5 py-0.5 text-[0.625rem] font-medium text-white/90 backdrop-blur-md border border-white/10">
+          <span className="rounded bg-black/60 px-1.5 py-0.5 text-2xs font-medium text-white/90 backdrop-blur-md border border-white/10">
             {template.aspectRatio}
           </span>
 
@@ -240,12 +240,12 @@ export function TemplateCard({
         {/* your own template (bottom left: the top right is the hover "Use Template" button) */}
         {template.custom && (
           <span className="absolute bottom-2 left-2 z-10 flex items-center gap-1">
-            <span data-testid="custom-badge" className="rounded bg-fuchsia-600/90 px-1.5 py-0.5 text-[0.625rem] font-bold uppercase tracking-wider text-white shadow">
+            <span data-testid="custom-badge" className="rounded bg-fuchsia-600/90 px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wider text-white shadow">
               Custom
             </span>
             {/* its files were deleted from My Assets: the pane offers to replace them */}
             {(template.custom.missing?.video || template.custom.missing?.audio) && (
-              <span data-testid="missing-badge" className="rounded bg-red-600/90 px-1.5 py-0.5 text-[0.625rem] font-bold text-white shadow" title="A file of this template was deleted from My Assets. Select the template to replace it.">
+              <span data-testid="missing-badge" className="rounded bg-red-600/90 px-1.5 py-0.5 text-2xs font-bold text-white shadow" title="A file of this template was deleted from My Assets. Select the template to replace it.">
                 {template.custom.missing.video ? "Video missing" : "Sound missing"}
               </span>
             )}
@@ -253,7 +253,7 @@ export function TemplateCard({
         )}
 
         {/* Duration Badge */}
-        <div className="absolute bottom-2 right-2 z-10 rounded bg-black/75 px-1.5 py-0.5 text-[0.6875rem] font-semibold text-white backdrop-blur-md border border-white/10">
+        <div className="absolute bottom-2 right-2 z-10 rounded bg-black/75 px-1.5 py-0.5 text-2xs font-semibold text-white backdrop-blur-md border border-white/10">
           {formatTime(template.duration)}
         </div>
 
@@ -264,7 +264,7 @@ export function TemplateCard({
             e.stopPropagation();
             onUse();
           }}
-          className={`absolute top-2 right-2 z-20 flex items-center gap-1 rounded-lg bg-primary/95 px-2.5 py-1 text-[0.6875rem] font-bold text-white shadow-xl backdrop-blur-sm transition-all duration-200 hover:bg-primary hover:scale-105 active:scale-95 ${
+          className={`absolute top-2 right-2 z-20 flex items-center gap-1 rounded-lg bg-primary/95 px-2.5 py-1 text-2xs font-bold text-white shadow-xl backdrop-blur-sm transition-all duration-200 hover:bg-primary hover:scale-105 active:scale-95 ${
             // (always clickable: a pointer over it is hovering the card anyway; keyboard focus shows it too)
             isHovered ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1 focus-visible:opacity-100 focus-visible:translate-y-0"
           }`}
@@ -313,7 +313,7 @@ export function TemplateCard({
           )}
           <span className="flex shrink-0 items-center gap-1.5">
             {isSelected && (
-              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-[0.625rem] text-white">
+              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary text-2xs text-white">
                 ✓
               </span>
             )}

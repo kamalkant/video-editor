@@ -214,7 +214,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
             <h2 className="text-sm font-semibold text-ink leading-tight truncate">
               Motion Tracking & Censor
             </h2>
-            <span className="text-[10px] text-muted truncate">
+            <span className="text-2xs text-muted truncate">
               {keyframeCount > 0
                 ? `✓ Locked (${keyframeCount} frames)`
                 : isTracking
@@ -254,7 +254,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
                 style={{ width: `${trackingProgress.percent}%` }}
               />
             </div>
-            <div className="flex items-center justify-between text-[10px] text-muted font-mono">
+            <div className="flex items-center justify-between text-2xs text-muted font-mono">
               <span>Frame {trackingProgress.frame} / {trackingProgress.total}</span>
               <span>Time: {formatTime(trackingProgress.time)}</span>
             </div>
@@ -279,21 +279,21 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
               <button
                 type="button"
                 onClick={() => onRecoverTarget("keep")}
-                className="rounded bg-amber-500 text-white font-medium py-1 text-[10px] hover:bg-amber-600 transition-colors shadow-xs"
+                className="rounded bg-amber-500 text-white font-medium py-1 text-2xs hover:bg-amber-600 transition-colors shadow-xs"
               >
                 Auto-Hold
               </button>
               <button
                 type="button"
                 onClick={() => onRecoverTarget("reposition")}
-                className="rounded bg-surface border border-line py-1 text-[10px] font-medium hover:bg-raised transition-colors"
+                className="rounded bg-surface border border-line py-1 text-2xs font-medium hover:bg-raised transition-colors"
               >
                 Reposition
               </button>
               <button
                 type="button"
                 onClick={() => onRecoverTarget("stop")}
-                className="rounded bg-surface border border-line py-1 text-[10px] font-medium hover:bg-raised transition-colors"
+                className="rounded bg-surface border border-line py-1 text-2xs font-medium hover:bg-raised transition-colors"
               >
                 Stop Here
               </button>
@@ -307,12 +307,12 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
         <div className="rounded-xl border border-line bg-canvas/30 p-3 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink flex items-center gap-1.5">
-              <span className="flex size-4 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white leading-none">
+              <span className="flex size-4 items-center justify-center rounded-full bg-sky-500 text-2xs font-bold text-white leading-none">
                 1
               </span>
               Target Object
             </span>
-            <span className="text-[10px] text-muted">
+            <span className="text-2xs text-muted">
               Drag box on video
             </span>
           </div>
@@ -369,7 +369,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
         <div className="rounded-xl border border-line bg-canvas/30 p-3 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink flex items-center gap-1.5">
-              <span className="flex size-4 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white leading-none">
+              <span className="flex size-4 items-center justify-center rounded-full bg-sky-500 text-2xs font-bold text-white leading-none">
                 2
               </span>
               Effect to Apply
@@ -462,13 +462,13 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
 
               {/* Coverage Margin */}
               <div className="space-y-1.5 pt-1 border-t border-line/60">
-                <div className="flex items-center justify-between text-[10px]">
+                <div className="flex items-center justify-between text-2xs">
                   <span className="font-semibold uppercase tracking-wider text-muted">
                     Coverage Margin
                   </span>
                   <span className="text-sky-400 font-medium">Full face guarantee</span>
                 </div>
-                <div className="grid grid-cols-3 gap-1 text-[10px]">
+                <div className="grid grid-cols-3 gap-1 text-2xs">
                   {COVERAGE_MARGINS.map((m) => (
                     <button
                       key={m.value}
@@ -492,7 +492,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
           {/* SUB-VIEW B: ATTACH OBJECT / LAYER */}
           {effectTab === "attach" && (
             <div className="space-y-3 pt-1">
-              <span className="text-[11px] text-muted leading-tight block">
+              <span className="text-2xs text-muted leading-tight block">
                 Create new element or link existing timeline clip to follow this motion track:
               </span>
 
@@ -536,7 +536,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
               {/* Link Existing Clip */}
               {timelineClips.length > 0 && (
                 <div className="pt-1 space-y-1.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted block">
+                  <span className="text-2xs font-semibold uppercase tracking-wider text-muted block">
                     Or Link Timeline Clip:
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -578,7 +578,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
               {/* Attached Clips List */}
               {clipAttachments.length > 0 && (
                 <div className="space-y-1.5 pt-1 border-t border-line/60">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted block">
+                  <span className="text-2xs font-semibold uppercase tracking-wider text-muted block">
                     Attached ({clipAttachments.length})
                   </span>
                   {clipAttachments.map((att) => {
@@ -670,13 +670,13 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
         <div className="rounded-xl border border-line bg-canvas/30 p-3 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink flex items-center gap-1.5">
-              <span className="flex size-4 items-center justify-center rounded-full bg-sky-500 text-[10px] font-bold text-white leading-none">
+              <span className="flex size-4 items-center justify-center rounded-full bg-sky-500 text-2xs font-bold text-white leading-none">
                 3
               </span>
               Tracking Range & Execution
             </span>
             {keyframeCount > 0 && (
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-2xs font-semibold text-emerald-400">
                 ✓ {keyframeCount} kfs
               </span>
             )}
@@ -684,7 +684,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
 
           {/* Range Mode Selector */}
           <div className="space-y-2">
-            <div className="grid grid-cols-3 gap-1 text-[11px] font-medium">
+            <div className="grid grid-cols-3 gap-1 text-2xs font-medium">
               <button
                 type="button"
                 onClick={() => setRangeMode("duration")}
@@ -730,9 +730,9 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
             {/* Sub-controls for "From Playhead" Mode */}
             {rangeMode === "duration" && (
               <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between text-[11px]">
+                <div className="flex items-center justify-between text-2xs">
                   <span className="text-muted">Duration presets:</span>
-                  <span className="text-[10px] text-sky-400 font-medium">
+                  <span className="text-2xs text-sky-400 font-medium">
                     from {startSec.toFixed(1)}s
                   </span>
                 </div>
@@ -769,7 +769,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
 
                 {presetSec !== "end" && (
                   <div className="flex items-center justify-between gap-2 pt-1">
-                    <span className="text-[11px] text-muted">Custom seconds:</span>
+                    <span className="text-2xs text-muted">Custom seconds:</span>
                     <div className="flex items-center gap-1">
                       <input
                         type="number"
@@ -784,7 +784,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
                         }}
                         className="field h-6 w-16 text-center text-xs px-1 rounded bg-surface border-line"
                       />
-                      <span className="text-[10px] text-muted">sec</span>
+                      <span className="text-2xs text-muted">sec</span>
                     </div>
                   </div>
                 )}
@@ -795,7 +795,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
             {rangeMode === "custom" && (
               <div className="space-y-2 pt-1 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted text-[11px]">Start:</span>
+                  <span className="text-muted text-2xs">Start:</span>
                   <div className="flex items-center gap-1.5">
                     <input
                       type="number"
@@ -806,11 +806,11 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
                       onChange={(e) => setCustomStart(Math.max(0, parseFloat(e.target.value) || 0))}
                       className="field h-6 w-16 text-center text-xs px-1 rounded bg-surface border-line"
                     />
-                    <span className="text-[10px] text-muted">s</span>
+                    <span className="text-2xs text-muted">s</span>
                     <button
                       type="button"
                       onClick={() => setCustomStart(Math.round(currentTime * 10) / 10)}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-line bg-surface text-muted hover:text-ink hover:border-sky-500/50"
+                      className="text-2xs px-1.5 py-0.5 rounded border border-line bg-surface text-muted hover:text-ink hover:border-sky-500/50"
                       title="Set start to current playhead"
                     >
                       Playhead
@@ -819,7 +819,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted text-[11px]">End:</span>
+                  <span className="text-muted text-2xs">End:</span>
                   <div className="flex items-center gap-1.5">
                     <input
                       type="number"
@@ -830,11 +830,11 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
                       onChange={(e) => setCustomEnd(Math.min(duration, parseFloat(e.target.value) || duration))}
                       className="field h-6 w-16 text-center text-xs px-1 rounded bg-surface border-line"
                     />
-                    <span className="text-[10px] text-muted">s</span>
+                    <span className="text-2xs text-muted">s</span>
                     <button
                       type="button"
                       onClick={() => setCustomEnd(Math.round(currentTime * 10) / 10)}
-                      className="text-[10px] px-1.5 py-0.5 rounded border border-line bg-surface text-muted hover:text-ink hover:border-sky-500/50"
+                      className="text-2xs px-1.5 py-0.5 rounded border border-line bg-surface text-muted hover:text-ink hover:border-sky-500/50"
                       title="Set end to current playhead"
                     >
                       Playhead
@@ -864,7 +864,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
                 />
               </div>
 
-              <div className="flex items-center justify-between text-[10px] text-muted">
+              <div className="flex items-center justify-between text-2xs text-muted">
                 <span>0.0s</span>
                 <span className="font-semibold text-sky-400">
                   {startSec.toFixed(1)}s → {endSec.toFixed(1)}s ({activeDuration.toFixed(1)}s)
@@ -927,7 +927,7 @@ export function MotionTrackingPanel(props: MotionTrackingPanelProps) {
                 Track {rangeMode === "full" ? "Full Clip" : `${activeDuration.toFixed(1)}s Range`}
               </button>
             )}
-            <p className="text-[11px] text-muted text-center leading-tight">
+            <p className="text-2xs text-muted text-center leading-tight">
               {rangeMode === "full"
                 ? "Tracks automatically across the entire video clip with subpixel precision."
                 : `Tracks only for ${activeDuration.toFixed(1)}s. Effect is active strictly during tracked range.`}

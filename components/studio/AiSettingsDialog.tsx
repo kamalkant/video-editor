@@ -49,7 +49,7 @@ function ProviderCard({ p, s, onStatus }: { p: Provider; s: ProviderStatus | und
           {p.name}
         </h3>
         {!p.ready && <span className="soon">Soon</span>}
-        <span className={`rounded px-1.5 py-px text-[0.6875rem] font-medium ${status.cls}`} data-testid="ai-provider-status">
+        <span className={`rounded px-1.5 py-px text-2xs font-medium ${status.cls}`} data-testid="ai-provider-status">
           {status.text}
         </span>
         {has && (
@@ -137,13 +137,13 @@ export function AiSettingsDialog({ open, onClose }: { open: boolean; onClose: ()
         {status &&
           PROVIDER_GROUPS.map((g) => (
             <section key={g.id} aria-label={g.label} className="flex flex-col gap-2">
-              <h3 className="mt-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">{g.label}</h3>
+              <h3 className="mt-1 text-2xs font-semibold uppercase tracking-wide text-muted">{g.label}</h3>
               {PROVIDERS.filter((p) => p.group === g.id).map((p) => (
                 <ProviderCard key={p.id} p={p} s={status.find((x) => x.id === p.id)} onStatus={setStatus} />
               ))}
             </section>
           ))}
-        <p className="flex items-start gap-1.5 text-[0.6875rem] text-muted">
+        <p className="flex items-start gap-1.5 text-2xs text-muted">
           <Icon name="lock" className="mt-px size-3.5 shrink-0" />
           Keys are kept on this computer only (in the editor&apos;s storage folder, readable by you only), are never shown again in full, and go only to their own service. They can be changed only on this computer.
         </p>

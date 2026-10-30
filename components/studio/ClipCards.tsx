@@ -156,7 +156,7 @@ function KeyframeBar({ clip, mv, mp }: { clip: MotionClip; mv: ReturnType<typeof
           <Icon name="chevronRight" className="size-4" />
         </button>
         <span
-          className="flex items-center gap-1 shrink-0 text-right text-[0.6875rem] text-muted ml-auto font-mono"
+          className="flex items-center gap-1 shrink-0 text-right text-2xs text-muted ml-auto font-mono"
           data-testid="keyframe-count"
           title={`${keys.length} keyframe${keys.length === 1 ? "" : "s"} on clip`}
         >
@@ -164,10 +164,10 @@ function KeyframeBar({ clip, mv, mp }: { clip: MotionClip; mv: ReturnType<typeof
           <span>{keys.length}</span>
         </span>
       </div>
-      {!mv.onClip && <p className="text-[0.6875rem] text-muted">Move the playhead onto this clip to change it.</p>}
-      {keys.length > 0 && mv.onClip && !cur && <p className="text-[0.6875rem] text-muted">Change the place, size, angle or opacity here to add a keyframe at the playhead.</p>}
+      {!mv.onClip && <p className="text-2xs text-muted">Move the playhead onto this clip to change it.</p>}
+      {keys.length > 0 && mv.onClip && !cur && <p className="text-2xs text-muted">Change the place, size, angle or opacity here to add a keyframe at the playhead.</p>}
       {cur && hasNext && (
-        <div role="radiogroup" aria-label="Move to the next keyframe" className="flex items-center gap-1 text-[0.6875rem]">
+        <div role="radiogroup" aria-label="Move to the next keyframe" className="flex items-center gap-1 text-2xs">
           <span className="text-muted">Next move</span>
           {(["smooth", "linear"] as const).map((e) => (
             <button key={e} type="button" role="radio" aria-checked={(cur.ease ?? "smooth") === e} onClick={() => mp.onKeyframe?.({ kind: "ease", index: i, ease: e })} className="rounded border border-line px-1.5 py-0.5 aria-checked:border-primary aria-checked:bg-primary-soft">
@@ -231,7 +231,7 @@ function TransformFields({
           {(t.x !== 0 || t.y !== 0) && (
             <button
               type="button"
-              className="text-[0.6875rem] text-link underline"
+              className="text-2xs text-link underline"
               onClick={() => onChange({ ...t, x: 0, y: 0 })}
               title="Center position"
             >
@@ -272,7 +272,7 @@ function TransformFields({
         <div className="grid grid-cols-3 gap-1 pt-0.5">
           <button
             type="button"
-            className="btn btn-secondary min-h-6 px-1 text-[0.6875rem]"
+            className="btn btn-secondary min-h-6 px-1 text-2xs"
             onClick={() => onChange({ ...t, x: -0.3 })}
             title="Align left"
           >
@@ -280,7 +280,7 @@ function TransformFields({
           </button>
           <button
             type="button"
-            className="btn btn-secondary min-h-6 px-1 text-[0.6875rem]"
+            className="btn btn-secondary min-h-6 px-1 text-2xs"
             onClick={() => onChange({ ...t, x: 0, y: 0 })}
             title="Center horizontally and vertically"
           >
@@ -288,7 +288,7 @@ function TransformFields({
           </button>
           <button
             type="button"
-            className="btn btn-secondary min-h-6 px-1 text-[0.6875rem]"
+            className="btn btn-secondary min-h-6 px-1 text-2xs"
             onClick={() => onChange({ ...t, x: 0.3 })}
             title="Align right"
           >
@@ -304,7 +304,7 @@ function TransformFields({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                className="btn btn-secondary min-h-6 px-1.5 text-[0.6875rem]"
+                className="btn btn-secondary min-h-6 px-1.5 text-2xs"
                 title="Turn 90° counter-clockwise"
                 onClick={() => {
                   const cur = t.rotation ?? 0;
@@ -316,7 +316,7 @@ function TransformFields({
               </button>
               <button
                 type="button"
-                className="btn btn-secondary min-h-6 px-1.5 text-[0.6875rem]"
+                className="btn btn-secondary min-h-6 px-1.5 text-2xs"
                 title="Turn 90° clockwise"
                 onClick={() => {
                   const cur = t.rotation ?? 0;
@@ -329,7 +329,7 @@ function TransformFields({
               {t.rotation ? (
                 <button
                   type="button"
-                  className="ml-1 text-[0.6875rem] text-link underline"
+                  className="ml-1 text-2xs text-link underline"
                   title="Reset rotation to 0°"
                   onClick={() => onChange({ ...t, rotation: undefined })}
                 >
@@ -359,7 +359,7 @@ function TransformFields({
             {(t.skewX || t.skewY) ? (
               <button
                 type="button"
-                className="text-[0.6875rem] text-link underline"
+                className="text-2xs text-link underline"
                 onClick={() => onChange({ ...t, skewX: undefined, skewY: undefined })}
                 title="Reset slant & skew"
               >
@@ -481,7 +481,7 @@ function SpeedField({
             type="button"
             aria-pressed={Math.abs(speed - v) < 1e-6}
             onClick={() => onChange(v)}
-            className="flex min-h-7 flex-1 items-center justify-center rounded-md border border-line text-[0.6875rem] hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft"
+            className="flex min-h-7 flex-1 items-center justify-center rounded-md border border-line text-2xs hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft"
           >
             {v}×
           </button>
@@ -956,7 +956,7 @@ function ElementCard({
             onBlur={() => setEmojiDraft(null)}
             aria-describedby="element-emoji-help"
           />
-          <span id="element-emoji-help" className="text-[0.6875rem] text-muted">
+          <span id="element-emoji-help" className="text-2xs text-muted">
             Type or paste one. Ctrl ⌘ Space opens every emoji.
           </span>
         </label>
@@ -1486,7 +1486,7 @@ export function ClipPropsCard({
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink">Smart Dialogue Ducking</span>
             {(clip as { volumeAutomation?: unknown[] }).volumeAutomation?.length ? (
-              <span className="text-[10px] text-emerald-400 font-medium">
+              <span className="text-2xs text-emerald-400 font-medium">
                 Active ({(clip as { volumeAutomation?: unknown[] }).volumeAutomation!.length} keyframes)
               </span>
             ) : null}
@@ -1501,14 +1501,14 @@ export function ClipPropsCard({
                 <Icon name="volume" className="size-3.5 text-sky-400" />
                 <span>Smart Mix / Ducking Settings</span>
               </span>
-              <span className="text-[10px] text-muted">Configure →</span>
+              <span className="text-2xs text-muted">Configure →</span>
             </button>
           )}
           {(clip as { volumeAutomation?: unknown[] }).volumeAutomation?.length ? (
             <button
               type="button"
               onClick={() => onPatch({ volumeAutomation: undefined }, "clip:clearAutomation")}
-              className="text-[10px] text-muted hover:text-red-400 self-end transition-colors"
+              className="text-2xs text-muted hover:text-red-400 self-end transition-colors"
             >
               Clear Clip Automation
             </button>
@@ -1882,7 +1882,7 @@ export function ClipInspector(
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-ink">Smart Dialogue Ducking</span>
             {(clip as { volumeAutomation?: unknown[] }).volumeAutomation?.length ? (
-              <span className="text-[10px] text-emerald-400 font-medium">
+              <span className="text-2xs text-emerald-400 font-medium">
                 Active ({(clip as { volumeAutomation?: unknown[] }).volumeAutomation!.length} keyframes)
               </span>
             ) : null}
@@ -1896,13 +1896,13 @@ export function ClipInspector(
               <Icon name="volume" className="size-3.5 text-sky-400" />
               <span>Smart Audio Mix Settings</span>
             </span>
-            <span className="text-[10px] text-muted">Open →</span>
+            <span className="text-2xs text-muted">Open →</span>
           </button>
           {(clip as { volumeAutomation?: unknown[] }).volumeAutomation?.length ? (
             <button
               type="button"
               onClick={() => onPatch({ volumeAutomation: undefined }, "clip:clearAutomation")}
-              className="text-[10px] text-muted hover:text-red-400 self-end transition-colors"
+              className="text-2xs text-muted hover:text-red-400 self-end transition-colors"
             >
               Clear Clip Automation
             </button>
@@ -1927,7 +1927,7 @@ export function ClipInspector(
           />
           <p
             id="rev-help"
-            className="text-[0.6875rem] text-muted"
+            className="text-2xs text-muted"
             data-testid="reverse-status"
           >
             {reverse?.error ??
@@ -1949,7 +1949,7 @@ export function ClipInspector(
           />
           <p
             id="stab-help"
-            className="text-[0.6875rem] text-muted"
+            className="text-2xs text-muted"
             data-testid="stabilize-status"
           >
             {stabilize?.blocked ??
@@ -2037,9 +2037,9 @@ export function ClipInspector(
           </button>
         </header>
         {(clip as any).generation && (
-          <div className="border-b border-indigo-500/30 bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/60 px-3 py-2 text-xs">
+          <div className="border-b border-primary bg-gradient-to-r from-indigo-950/60 via-purple-950/40 to-slate-900/60 px-3 py-2 text-xs">
             <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 font-medium text-indigo-300">
+              <span className="flex items-center gap-1.5 font-medium text-link">
                 <span className={`size-2 rounded-full ${(clip as any).generation.status === "generating" ? "bg-indigo-400 animate-pulse" : (clip as any).generation.status === "failed" ? "bg-rose-400" : "bg-emerald-400"}`} />
                 AI {(clip as any).generation.mediaType === "video" ? "Veo Video" : (clip as any).generation.mediaType === "image" ? "Imagen" : "Voiceover"}
               </span>
@@ -2047,7 +2047,7 @@ export function ClipInspector(
                 {(clip as any).generation.status === "generating" ? `${Math.round((clip as any).generation.progress ?? 0)}%` : (clip as any).generation.status}
               </span>
             </div>
-            <p className="mt-1 line-clamp-2 text-[0.6875rem] italic text-slate-300">
+            <p className="mt-1 line-clamp-2 text-2xs italic text-slate-300">
               &quot;{(clip as any).generation.prompt}&quot;
             </p>
           </div>
@@ -2074,7 +2074,7 @@ export function ClipInspector(
                 title={TAB_INFO[t].hint}
                 onClick={() => p.onTab(t)}
                 onKeyDown={(e) => onKey(e, i)}
-                className={`relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1.5 text-[0.625rem] leading-tight ${on ? "font-semibold text-ink" : "text-muted hover:text-ink"}`}
+                className={`relative flex min-w-0 flex-1 flex-col items-center gap-0.5 px-0.5 py-1.5 text-2xs leading-tight ${on ? "font-semibold text-ink" : "text-muted hover:text-ink"}`}
               >
                 <Icon
                   name={TAB_INFO[t].icon}
@@ -2192,7 +2192,7 @@ export function ProjectCard({
             { value: "fill", label: "Fill", title: "Fill height to cover canvas without blank space" },
           ]}
         />
-        <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted cursor-pointer hover:text-ink select-none mt-0.5">
+        <label className="flex items-center gap-1.5 text-2xs text-muted cursor-pointer hover:text-ink select-none mt-0.5">
           <input
             type="checkbox"
             checked={applyToAll}
@@ -2247,12 +2247,12 @@ export function ProjectCard({
               <span>Smart Audio Mix / Ducking</span>
             </span>
             {smartMixActive ? (
-              <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+              <span className="text-2xs text-emerald-400 font-semibold flex items-center gap-1">
                 <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 Active
               </span>
             ) : (
-              <span className="text-[10px] text-muted">Configure →</span>
+              <span className="text-2xs text-muted">Configure →</span>
             )}
           </button>
         </div>

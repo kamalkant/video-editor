@@ -223,7 +223,7 @@ export function AiToolsPanel({ onClose, target, onTool, whyNot, onSettings }: { 
               <Icon name="chevronRight" className="size-4" />
             </button>
           </form>
-          <button type="button" onClick={onClose} className="col-start-2 row-start-1 flex size-8 items-center justify-center rounded-md text-muted hover:bg-raised hover:text-ink @xl:col-start-3" aria-label="Close AI Tools" title="Back to the inspector">
+          <button type="button" onClick={onClose} className="col-start-2 row-start-1 flex size-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink @xl:col-start-3" aria-label="Close AI Tools" title="Back to the inspector">
             <Icon name="close" className="size-4" />
           </button>
         </div>
@@ -264,13 +264,13 @@ export function AiToolsPanel({ onClose, target, onTool, whyNot, onSettings }: { 
                     >
                       <span className={`relative flex aspect-[16/9] items-center justify-center bg-gradient-to-br ${t.art}`}>
                         <Icon name={t.icon} className="size-7 text-white/90 drop-shadow" strokeWidth={1.5} />
-                        {ready && feat?.beta && <span className="absolute left-1.5 top-1.5 rounded bg-amber-500/95 px-1.5 py-px text-[0.625rem] font-semibold text-black">Beta</span>}
+                        {ready && feat?.beta && <span className="absolute left-1.5 top-1.5 rounded bg-amber-500/95 px-1.5 py-px text-2xs font-semibold text-black">Beta</span>}
                         {!ready && <span className="soon absolute right-1.5 top-1.5">{feat?.status === "later" ? "Later" : "Soon"}</span>}
-                        {ready && (t.id === "grok" ? <span className="absolute right-1.5 top-1.5 rounded bg-black/90 px-1.5 py-px text-[0.625rem] font-semibold text-white border border-white/20">xAI Grok</span> : GEMINI_TOOLS.has(t.id) ? <GeminiBadge className="absolute right-1.5 top-1.5 !bg-white/90 !text-indigo-700" /> : <span className="absolute right-1.5 top-1.5 rounded bg-emerald-500/90 px-1.5 py-px text-[0.625rem] font-semibold text-white">Ready</span>)}
+                        {ready && (t.id === "grok" ? <span className="absolute right-1.5 top-1.5 rounded bg-black/90 px-1.5 py-px text-2xs font-semibold text-white border border-line">xAI Grok</span> : GEMINI_TOOLS.has(t.id) ? <GeminiBadge className="absolute right-1.5 top-1.5 !bg-white/90 !text-link" /> : <span className="absolute right-1.5 top-1.5 rounded bg-emerald-500/90 px-1.5 py-px text-2xs font-semibold text-white">Ready</span>)}
                       </span>
                       <span className="flex flex-col gap-0.5 px-1.5 py-1.5">
                         <span className="text-xs font-medium leading-tight group-hover:text-ink">{t.name}</span>
-                        <span className="text-[0.6875rem] leading-snug text-muted">{t.detail}</span>
+                        <span className="text-2xs leading-snug text-muted">{t.detail}</span>
                       </span>
                     </button>
                   </li>

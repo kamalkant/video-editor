@@ -222,7 +222,7 @@ export function MobileEditSheet({
   return (
     <div className="flex flex-col gap-2">
       {tools.targetInfo && (
-        <div className="text-[11px] text-muted truncate px-1">
+        <div className="text-2xs text-muted truncate px-1">
           Editing: <span className="font-semibold text-ink">{tools.targetInfo.name}</span>
         </div>
       )}
@@ -243,7 +243,7 @@ export function MobileEditSheet({
             }`}
           >
             <Icon name={btn.icon} className="size-4 shrink-0" />
-            <span className="text-[10px] font-medium leading-none truncate max-w-full">
+            <span className="text-2xs font-medium leading-none truncate max-w-full">
               {btn.label}
             </span>
           </button>

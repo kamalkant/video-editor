@@ -84,8 +84,8 @@ export function ExportMenu({
         <div role="menu" aria-label="Export options" className="absolute right-0 top-full z-50 mt-1 max-h-[80dvh] w-80 overflow-y-auto rounded-lg border border-control bg-surface p-1 shadow-2xl" onKeyDown={onKey}>
           {onVideo && (
             <>
-              <p className="px-3 pb-0.5 pt-1.5 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">
-                Video (MP4) <span className="ml-1 rounded bg-primary px-1 py-px text-[0.5625rem] text-white">Recommended</span>
+              <p className="px-3 pb-0.5 pt-1.5 text-2xs font-semibold uppercase tracking-wide text-muted">
+                Video (MP4) <span className="ml-1 rounded bg-primary px-1 py-px text-2xs text-white">Recommended</span>
               </p>
               {[
                 { id: "project" as const, label: "MP4 · project size", detail: "H.264 + sound. Plays everywhere" },
@@ -112,7 +112,7 @@ export function ExportMenu({
                   <span className="text-xs text-muted">{videoDisabled ?? x.detail}</span>
                 </button>
               ))}
-              <p className="px-3 pb-0.5 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">See-through video (alpha)</p>
+              <p className="px-3 pb-0.5 pt-2 text-2xs font-semibold uppercase tracking-wide text-muted">See-through video (alpha)</p>
             </>
           )}
           {EXPORT_PRESETS.map((x, j) => (

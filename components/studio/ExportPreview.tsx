@@ -443,7 +443,7 @@ export function ExportPreview({
           >
             <Icon name={playing ? "pause" : "play"} className="size-4" />
           </button>
-          <span className="pointer-events-none absolute left-1.5 top-1.5 whitespace-nowrap rounded-md border border-white/10 bg-black/80 px-1.5 py-0.5 text-[0.5625rem] font-semibold text-white/90">{playing ? "● Playing" : "Export preview"}</span>
+          <span className="pointer-events-none absolute left-1.5 top-1.5 whitespace-nowrap rounded-md border border-white/10 bg-black/80 px-1.5 py-0.5 text-2xs font-semibold text-white/90">{playing ? "● Playing" : "Export preview"}</span>
           <span className="pointer-events-none absolute bottom-1 left-1 rounded border border-white/10 bg-black/80 px-1 text-[0.5rem] font-bold uppercase tracking-wider text-white/90">
             {doc.canvas.width}×{doc.canvas.height}
           </span>
@@ -460,7 +460,7 @@ export function ExportPreview({
           aria-label="Time in the preview"
           className="min-w-0 flex-1 accent-[var(--color-primary)]"
         />
-        <span className="shrink-0 text-[0.6875rem] tabular-nums text-muted">
+        <span className="shrink-0 text-2xs tabular-nums text-muted">
           {formatTime(t)} / {formatTime(D)}
         </span>
         <button type="button" onClick={() => setMuted((v) => !v)} aria-pressed={muted} aria-label={muted ? "Turn the preview's sound on" : "Turn the preview's sound off"} className="flex size-6 shrink-0 items-center justify-center rounded text-muted hover:text-ink">

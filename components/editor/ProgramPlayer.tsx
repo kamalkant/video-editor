@@ -1589,10 +1589,10 @@ export function ProgramPlayer(p: {
           {zoomMenu && <ContextMenu x={zoomMenu.x} y={zoomMenu.y} width={190} label="Zoom size" items={zoomItems} onClose={closeZoomMenu} />}
         </div>
         <span id="program-caption" data-testid="program-caption" className="ml-auto flex items-center gap-1.5 truncate text-xs tabular-nums text-muted shrink-0" aria-live="off">
-          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-raised px-1.5 py-0.5 text-[0.6875rem] font-medium text-muted">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded bg-raised px-1.5 py-0.5 text-2xs font-medium text-muted">
             <Icon name="film" className="size-3 text-primary" /> Program
           </span>
-          <span className="hidden sm:inline text-[0.6875rem] text-muted">
+          <span className="hidden sm:inline text-2xs text-muted">
             {doc.canvas.width} × {doc.canvas.height}
           </span>
         </span>
@@ -1726,7 +1726,7 @@ export function ProgramPlayer(p: {
                       data-edge="move"
                       onPointerDown={onPatchPointer}
                     >
-                      <span className="pointer-events-none absolute -top-5 left-0 whitespace-nowrap rounded bg-amber-300 px-1 text-[0.625rem] font-semibold text-black">{b.mode === "remove" ? "Remove" : b.mode === "blur" ? "Blur" : "Cover"}</span>
+                      <span className="pointer-events-none absolute -top-5 left-0 whitespace-nowrap rounded bg-amber-300 px-1 text-2xs font-semibold text-black">{b.mode === "remove" ? "Remove" : b.mode === "blur" ? "Blur" : "Cover"}</span>
                       {on &&
                         (["lt", "rt", "lb", "rb"] as const).map((ed) => (
                           <span
@@ -2082,7 +2082,7 @@ export function ProgramPlayer(p: {
 
                       {/* Label Badge */}
                       <span
-                        className="pointer-events-none absolute whitespace-nowrap rounded px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-xs flex items-center gap-1 select-none z-30"
+                        className="pointer-events-none absolute whitespace-nowrap rounded px-1.5 py-0.5 text-2xs font-semibold text-white shadow-xs flex items-center gap-1 select-none z-30"
                         style={{
                           backgroundColor: tp.color || "#3b82f6",
                           left: `${ptX}%`,
@@ -2153,7 +2153,7 @@ export function ProgramPlayer(p: {
                     <button
                       type="button"
                       onClick={p.onCancelTracking}
-                      className="ml-1 rounded-full bg-red-500/80 hover:bg-red-500 px-2 py-0.5 text-[11px] font-semibold text-white transition-colors"
+                      className="ml-1 rounded-full bg-red-500/80 hover:bg-red-500 px-2 py-0.5 text-2xs font-semibold text-white transition-colors"
                     >
                       Cancel
                     </button>
@@ -2445,7 +2445,7 @@ export function ProgramPlayer(p: {
                 {ctrlHeld && (
                   <div
                     data-testid="ctrl-modifier-hint"
-                    className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 z-35 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-black/85 backdrop-blur-md px-3 py-0.5 text-[11px] font-medium text-white shadow-xl border border-white/15 select-none animate-in fade-in duration-150"
+                    className="pointer-events-none absolute -bottom-7 left-1/2 -translate-x-1/2 z-35 flex items-center gap-1.5 whitespace-nowrap rounded-full bg-black/85 backdrop-blur-md px-3 py-0.5 text-2xs font-medium text-white shadow-xl border border-white/15 select-none animate-in fade-in duration-150"
                   >
                     <span className="size-1.5 rounded-full bg-sky-400" />
                     <span>Corners: <strong className="text-sky-300 font-semibold">Perspective</strong> · Sides: <strong className="text-amber-300 font-semibold">Skew</strong></span>
@@ -2489,7 +2489,7 @@ export function ProgramPlayer(p: {
               <span
                 data-testid="moving-coord-pill"
                 aria-live="polite"
-                className="pointer-events-none absolute z-20 -translate-x-1/2 rounded bg-black/85 px-2 py-0.5 text-[0.6875rem] font-medium tabular-nums text-white shadow border border-white/10"
+                className="pointer-events-none absolute z-20 -translate-x-1/2 rounded bg-black/85 px-2 py-0.5 text-2xs font-medium tabular-nums text-white shadow border border-white/10"
                 style={{ left: pct(selRect.x + selRect.w / 2, PW), top: `calc(${pct(selRect.y, PH)} - 24px)` }}
               >
                 X: {movingPos.x}% · Y: {movingPos.y}%
@@ -2560,7 +2560,7 @@ export function ProgramPlayer(p: {
                     ) : (
                       <Icon name="library" className="size-6 text-white" />
                     )}
-                    <span className="absolute bottom-1 right-1 rounded bg-black/75 px-1 py-0.5 font-mono text-[9px] text-white">
+                    <span className="absolute bottom-1 right-1 rounded bg-black/75 px-1 py-0.5 font-mono text-2xs text-white">
                       {memeDragged.duration.toFixed(1)}s
                     </span>
                   </div>
@@ -2571,7 +2571,7 @@ export function ProgramPlayer(p: {
                 ) : null}
 
                 {/* Floating pill badge with label */}
-                <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 px-2 py-0.5 text-[0.6875rem] font-medium text-white shadow border border-white/10">
+                <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-black/85 px-2 py-0.5 text-2xs font-medium text-white shadow border border-white/10">
                   {elementDragged?.emoji ? `${elementDragged.emoji} ` : ""}{textDragged?.label || elementDragged?.label || memeDragged?.title || dragged?.fileName || "Drop here"}
                 </span>
               </div>

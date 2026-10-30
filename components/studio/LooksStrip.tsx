@@ -78,10 +78,10 @@ export function LooksStrip({ color, thumb, onChange, onAll }: { color: ColorAdju
     <div className="flex flex-col gap-2" data-testid="looks">
       {(mine.length > 0 || graded) && (
         <div className="flex flex-col gap-1" data-testid="my-looks">
-          <span className="text-[0.6875rem] font-semibold text-muted">My looks</span>
+          <span className="text-2xs font-semibold text-muted">My looks</span>
           <div className="flex flex-wrap gap-1">
             {mine.map((l) => (
-              <span key={l.id} className="inline-flex items-center rounded-md border border-line text-[0.6875rem]">
+              <span key={l.id} className="inline-flex items-center rounded-md border border-line text-2xs">
                 <button type="button" className="px-2 py-0.5 hover:text-primary" onClick={() => onChange(l.color, "clip:my-look")} title="Use this look on the clip">
                   {l.name}
                 </button>
@@ -91,7 +91,7 @@ export function LooksStrip({ color, thumb, onChange, onAll }: { color: ColorAdju
               </span>
             ))}
             {graded && (
-              <button type="button" className="rounded-md border border-dashed border-control px-2 py-0.5 text-[0.6875rem] text-muted hover:text-ink" onClick={saveCurrent}>
+              <button type="button" className="rounded-md border border-dashed border-control px-2 py-0.5 text-2xs text-muted hover:text-ink" onClick={saveCurrent}>
                 + Save this look
               </button>
             )}
@@ -103,7 +103,7 @@ export function LooksStrip({ color, thumb, onChange, onAll }: { color: ColorAdju
           const on = (c.look ?? null) === id;
           return (
             <li key={id ?? "none"}>
-              <button type="button" role="radio" aria-checked={on} onClick={() => set({ look: id ?? undefined, vignette: undefined })} className={`flex w-full flex-col gap-0.5 rounded-md border p-1 text-[0.625rem] ${on ? "border-primary bg-primary-soft" : "border-line hover:border-control"}`}>
+              <button type="button" role="radio" aria-checked={on} onClick={() => set({ look: id ?? undefined, vignette: undefined })} className={`flex w-full flex-col gap-0.5 rounded-md border p-1 text-2xs ${on ? "border-primary bg-primary-soft" : "border-line hover:border-control"}`}>
                 <LookThumb src={thumb} look={id} />
                 {id ? LOOKS[id].label : "None"}
               </button>

@@ -115,7 +115,7 @@ export function NotificationBell({ className }: { className?: string }) {
         <Icon name="bell" className="size-5" />
         {unreadCount > 0 && (
           <span
-            className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-xs animate-pulse"
+            className="absolute -top-1 -right-1 flex h-4 min-w-[16px] px-1 items-center justify-center rounded-full bg-red-500 text-2xs font-bold text-white shadow-xs animate-pulse"
             data-testid="notification-unread-badge"
           >
             {unreadCount > 99 ? "99+" : unreadCount}
@@ -133,7 +133,7 @@ export function NotificationBell({ className }: { className?: string }) {
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm text-ink">Notifications</span>
               {unreadCount > 0 && (
-                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[11px] font-medium text-primary">
+                <span className="rounded-full bg-primary/20 px-2 py-0.5 text-2xs font-medium text-primary">
                   {unreadCount} new
                 </span>
               )}
@@ -158,7 +158,7 @@ export function NotificationBell({ className }: { className?: string }) {
                   <Icon name="bell" className="size-5 opacity-40" />
                 </div>
                 <p className="text-xs font-medium text-ink">All caught up!</p>
-                <p className="text-[11px] text-muted mt-0.5">No notifications right now.</p>
+                <p className="text-2xs text-muted mt-0.5">No notifications right now.</p>
               </div>
             ) : (
               notifications.map((n) => (
@@ -191,7 +191,7 @@ export function NotificationBell({ className }: { className?: string }) {
                       <p className={`text-xs ${!n.is_read ? "font-bold text-ink" : "font-medium text-ink/90"}`}>
                         {n.title}
                       </p>
-                      <span className="text-[10px] text-muted shrink-0">
+                      <span className="text-2xs text-muted shrink-0">
                         {formatRelativeTime(n.created_at)}
                       </span>
                     </div>

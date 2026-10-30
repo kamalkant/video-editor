@@ -52,7 +52,7 @@ function UploadBadge({ id, compact }: { id: string; compact?: boolean }) {
         <Icon name="laptop" className="size-2.5" />
       </span>
     ) : (
-      <span className="pointer-events-none absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white" title="Kept on this computer: sent to the server only when the export or an AI tool needs it" data-testid="asset-local">
+      <span className="pointer-events-none absolute bottom-1 left-1 flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-2xs font-semibold text-white" title="Kept on this computer: sent to the server only when the export or an AI tool needs it" data-testid="asset-local">
         <Icon name="laptop" className="size-3" /> On this computer
       </span>
     );
@@ -60,7 +60,7 @@ function UploadBadge({ id, compact }: { id: string; compact?: boolean }) {
   if (compact)
     return <span className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-primary" style={{ width: `${Math.max(8, Math.round(it.progress * 100))}%` }} title="Uploading" data-testid="asset-uploading" />;
   return (
-    <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[0.625rem] font-semibold text-white" data-testid="asset-uploading">
+    <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-2xs font-semibold text-white" data-testid="asset-uploading">
       {it.state === "failed" ? "Upload stopped" : `Uploading ${Math.round(it.progress * 100)}%`}
     </span>
   );
@@ -513,7 +513,7 @@ export function MediaPanel(p: {
           <p
             aria-hidden="true"
             data-testid="record-tip"
-            className="pointer-events-none absolute inset-x-0 top-full z-50 mt-1.5 rounded-md border border-control bg-surface px-2 py-1 text-[0.6875rem] leading-snug text-ink shadow-lg"
+            className="pointer-events-none absolute inset-x-0 top-full z-50 mt-1.5 rounded-md border border-control bg-surface px-2 py-1 text-2xs leading-snug text-ink shadow-lg"
           >
             <strong>{RECORD[recHint][2]}</strong> · {RECORD[recHint][3]}
           </p>
@@ -533,7 +533,7 @@ export function MediaPanel(p: {
               Assets
             </h3>
             {sortedAssets && sortedAssets.length > 0 && (
-              <span className="rounded-full bg-raised px-1.0 py-0.2 text-[0.625rem] font-medium text-muted">
+              <span className="rounded-full bg-raised px-1.0 py-0.2 text-2xs font-medium text-muted">
                 {sortedAssets.length}
               </span>
             )}
@@ -569,7 +569,7 @@ export function MediaPanel(p: {
             <select
               value={sort}
               onChange={(e) => changeSort(e.target.value as AssetSort)}
-              className="field h-6 min-h-0 w-auto py-0 pl-1 pr-2 text-[0.6875rem] text-ink bg-raised cursor-pointer shrink-0"
+              className="field h-6 min-h-0 w-auto py-0 pl-1 pr-2 text-2xs text-ink bg-raised cursor-pointer shrink-0"
               aria-label="Sort assets"
             >
               <option value="date-desc">Newest</option>
@@ -807,7 +807,7 @@ export function MediaPanel(p: {
                       {/* just the picture, with its details on it: length · size bottom left, what it is bottom right;
                           the name on hover (and in the tip) */}
                       <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/75 via-black/35 to-transparent px-1.5 pb-1 pt-4">
-                        <span className="min-w-0 truncate text-[0.5625rem] font-medium tabular-nums text-white" data-preserve-white>
+                        <span className="min-w-0 truncate text-2xs font-medium tabular-nums text-white" data-preserve-white>
                           {[
                             kind !== "image" && a.info.duration > 0 ? formatTime(a.info.duration) : null,
                             a.info.size ? formatBytes(a.info.size) : null,
@@ -825,7 +825,7 @@ export function MediaPanel(p: {
                         </span>
                       </span>
                       <span
-                        className="pointer-events-none absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/70 to-transparent pb-3 pl-7 pr-8 pt-1.5 text-left text-[0.625rem] font-medium text-white opacity-0 transition-opacity group-hover/asset:opacity-100 group-focus-within/asset:opacity-100"
+                        className="pointer-events-none absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/70 to-transparent pb-3 pl-7 pr-8 pt-1.5 text-left text-2xs font-medium text-white opacity-0 transition-opacity group-hover/asset:opacity-100 group-focus-within/asset:opacity-100"
                         data-preserve-white
                       >
                         {a.fileName}
@@ -856,7 +856,7 @@ export function MediaPanel(p: {
             data-testid="assets-list"
           >
             {/* Table Header */}
-            <div className="flex items-center gap-1.5 border-b border-line px-1.5 py-1 text-[0.625rem] font-semibold text-muted">
+            <div className="flex items-center gap-1.5 border-b border-line px-1.5 py-1 text-2xs font-semibold text-muted">
               <span className="w-3.5 shrink-0" />
               <span className="w-8 shrink-0">Item</span>
               <span className="min-w-0 flex-1">Name</span>
@@ -933,7 +933,7 @@ export function MediaPanel(p: {
                     {/* Name */}
                     <div className="flex min-w-0 flex-1 items-center gap-1">
                       <span
-                        className="truncate text-[0.6875rem] font-medium text-ink"
+                        className="truncate text-2xs font-medium text-ink"
                         title={`${a.fileName}${a.info.size ? ` · ${formatBytes(a.info.size)}` : ""}`}
                       >
                         {a.fileName}
@@ -953,7 +953,7 @@ export function MediaPanel(p: {
                     </div>
 
                     {/* Duration */}
-                    <span className="w-10 shrink-0 text-right text-[0.625rem] text-muted">
+                    <span className="w-10 shrink-0 text-right text-2xs text-muted">
                       {kind !== "image" && a.info.duration > 0
                         ? formatTime(a.info.duration)
                         : "—"}

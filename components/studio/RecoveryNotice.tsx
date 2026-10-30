@@ -25,7 +25,7 @@ export function RecoveryNotice({
 
       <div className="flex-1 space-y-1">
         <div className="text-xs font-bold text-ink">Newer Recovery Version Found</div>
-        <p className="text-[11px] text-muted leading-relaxed">
+        <p className="text-2xs text-muted leading-relaxed">
           We found an uncommitted recovery snapshot from{" "}
           <span className="font-semibold text-ink">{formatAgo(recovery.savedAt)}</span> for{" "}
           <span className="font-semibold text-ink">“{recovery.projectName}”</span>. Would you like to restore it?

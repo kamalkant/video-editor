@@ -295,7 +295,7 @@ function RecordStudio({ initialMode, maxSeconds, onAdd, onBusy }: { initialMode:
         {hasScreen && <Switch label="Include tab / computer sound" checked={systemAudio} onCheckedChange={setSystemAudio} disabled={busy} />}
         {hasCamera && <Switch label="Mirror my camera (preview)" checked={mirror} onCheckedChange={setMirror} />}
         {mode === "screenCamera" && <Switch label="Camera as a round bubble" checked={bubble} onCheckedChange={setBubble} />}
-        {(rec.phase === "ready" || rec.phase === "idle") && (hasScreen || hasCamera) && <p className="-mt-1 text-[0.6875rem] text-muted">Changed a device? Click “{hasScreen ? "Change screen" : "Turn on camera"}” again.</p>}
+        {(rec.phase === "ready" || rec.phase === "idle") && (hasScreen || hasCamera) && <p className="-mt-1 text-2xs text-muted">Changed a device? Click “{hasScreen ? "Change screen" : "Turn on camera"}” again.</p>}
         {hasCamera && (
           <label className="flex flex-col gap-1">
             <span className="text-xs font-medium text-muted">Script (read-along, optional)</span>
@@ -308,7 +308,7 @@ function RecordStudio({ initialMode, maxSeconds, onAdd, onBusy }: { initialMode:
             <input type="range" min={0.3} max={3} step={0.1} value={scrollSpeed} onChange={(e) => setScrollSpeed(Number(e.target.value))} className="w-32 accent-[var(--color-primary)]" aria-label="Script scroll speed" />
           </label>
         )}
-        <p className="text-[0.6875rem] text-muted">Everything stays on this computer. Recordings are saved to My Assets.</p>
+        <p className="text-2xs text-muted">Everything stays on this computer. Recordings are saved to My Assets.</p>
       </aside>
     </div>
   );

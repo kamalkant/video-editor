@@ -57,7 +57,7 @@ export function ContextMenu({ x, y, items, onClose, label, width = 216 }: { x: n
         it === "separator" ? (
           <div key={i} role="separator" className="my-1 h-px bg-line/60" />
         ) : "heading" in it ? (
-          <div key={i} role="presentation" className="px-2.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+          <div key={i} role="presentation" className="px-2.5 pb-1 pt-1.5 text-2xs font-semibold uppercase tracking-wider text-muted">
             {it.heading}
           </div>
         ) : (
@@ -84,7 +84,7 @@ export function ContextMenu({ x, y, items, onClose, label, width = 216 }: { x: n
               ))}
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate leading-tight text-ink">{it.label}</span>
-              {it.detail && <span className="truncate text-[11px] leading-none text-muted">{it.detail}</span>}
+              {it.detail && <span className="truncate text-2xs leading-none text-muted">{it.detail}</span>}
             </span>
             {it.shortcut && (
               <kbd className="ml-auto shrink-0 border-0 bg-transparent p-0 min-w-0 font-sans text-xs tracking-tight leading-none text-muted shadow-none">

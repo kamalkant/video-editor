@@ -38,7 +38,7 @@ export function LogoControls({ wm, onChange, colors = [], duration = 0 }: { wm: 
   const D = Math.max(0.5, duration);
   const from = Math.min(D, wm.from ?? 0);
   const to = Math.min(D, Math.max(from, wm.to ?? D));
-  const h3 = "text-[0.6875rem] font-semibold uppercase tracking-wide text-muted";
+  const h3 = "text-2xs font-semibold uppercase tracking-wide text-muted";
   return (
     <>
       <div role="group" aria-label="Logo corner" className="grid grid-cols-2 gap-1">
@@ -48,13 +48,13 @@ export function LogoControls({ wm, onChange, colors = [], duration = 0 }: { wm: 
             type="button"
             aria-pressed={!placed && wm.corner === c.id}
             onClick={() => onChange({ ...wm, corner: c.id, x: undefined, y: undefined })}
-            className="min-h-7 rounded-md border border-line text-[0.6875rem] hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft"
+            className="min-h-7 rounded-md border border-line text-2xs hover:border-control aria-pressed:border-primary aria-pressed:bg-primary-soft"
           >
             {c.label}
           </button>
         ))}
       </div>
-      {placed && <p className="text-[0.6875rem] text-muted">Placed by hand on the preview. A corner button puts it back in a corner.</p>}
+      {placed && <p className="text-2xs text-muted">Placed by hand on the preview. A corner button puts it back in a corner.</p>}
       <LabeledSlider label="Logo size" value={Math.round(wm.size * 100)} min={4} max={40} step={1} unit={{ short: "%", spoken: "percent of the width" }} valueText={(v) => `${v} percent of the width`} onChange={(v) => onChange({ ...wm, size: v / 100 }, "logo:size")} />
       <LabeledSlider label="Logo opacity" value={Math.round(wm.opacity * 100)} min={10} max={100} step={5} unit={{ short: "%", spoken: "percent" }} valueText={(v) => `${v} percent`} onChange={(v) => onChange({ ...wm, opacity: v / 100 }, "logo:opacity")} />
 
@@ -129,7 +129,7 @@ export function BrandPanel(p: {
   const wm = p.watermark;
   if (!b) return <p className="text-xs text-muted">{p.api.error ?? "Loading the Brand Kit…"}</p>;
   const section = "flex flex-col gap-2";
-  const h3 = "text-[0.6875rem] font-semibold uppercase tracking-wide text-muted";
+  const h3 = "text-2xs font-semibold uppercase tracking-wide text-muted";
   return (
     <div className="flex flex-col gap-4" data-testid="brand-panel">
       <p className="text-xs text-muted">Your logo, colors and fonts, ready in every project.</p>
@@ -195,10 +195,10 @@ export function BrandPanel(p: {
             {wm && (
               <>
                 <LogoControls wm={wm} onChange={(w, g) => p.onWatermark(w, g)} colors={b.colors} duration={p.duration} />
-                <p className="text-[0.6875rem] text-muted">Tip: click the logo on the preview to drag it anywhere or resize it.</p>
+                <p className="text-2xs text-muted">Tip: click the logo on the preview to drag it anywhere or resize it.</p>
               </>
             )}
-            {logoMeta && <p className="truncate text-[0.6875rem] text-muted">{logoMeta.fileName}</p>}
+            {logoMeta && <p className="truncate text-2xs text-muted">{logoMeta.fileName}</p>}
           </>
         )}
       </section>
@@ -225,7 +225,7 @@ export function BrandPanel(p: {
             </button>
           </div>
         )}
-        <p className="text-[0.6875rem] text-muted">One click to use them next to the color pickers: text, the logo box, backgrounds, borders.</p>
+        <p className="text-2xs text-muted">One click to use them next to the color pickers: text, the logo box, backgrounds, borders.</p>
       </section>
 
       <section aria-label="Fonts" className={section}>
@@ -266,7 +266,7 @@ export function BrandPanel(p: {
             }
           }}
         />
-        <p className="text-[0.6875rem] text-muted">Pick them in the Text card (Font). Exports use them too.</p>
+        <p className="text-2xs text-muted">Pick them in the Text card (Font). Exports use them too.</p>
       </section>
 
       <section aria-label="Intro and outro" className={section}>

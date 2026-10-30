@@ -66,7 +66,7 @@ export function MobileTopBar({
           />
         )}
         {saveState === "saved" && (
-          <span className="text-[10px] text-muted/70 shrink-0 hidden sm:inline" title="All changes saved">
+          <span className="text-2xs text-muted/70 shrink-0 hidden sm:inline" title="All changes saved">
             ✓
           </span>
         )}

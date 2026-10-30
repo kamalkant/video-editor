@@ -102,7 +102,7 @@ export function MobileProjectSheet({
         {/* Current Project Actions */}
         {currentId && (
           <div className="my-3 rounded-2xl border border-line/60 bg-surface-raised/60 p-3">
-            <div className="text-[11px] font-medium text-muted uppercase tracking-wider mb-1">
+            <div className="text-2xs font-medium text-muted uppercase tracking-wider mb-1">
               Active Project
             </div>
             {editingName ? (
@@ -192,14 +192,14 @@ export function MobileProjectSheet({
 
         {/* Project List */}
         <div className="flex items-center justify-between pb-1.5 pt-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <span className="text-2xs font-semibold uppercase tracking-wider text-muted">
             Recent Projects
           </span>
           {onRefresh && (
             <button
               type="button"
               onClick={onRefresh}
-              className="text-[11px] text-primary hover:underline"
+              className="text-2xs text-primary hover:underline"
             >
               Refresh
             </button>
@@ -246,7 +246,7 @@ export function MobileProjectSheet({
                       <Icon name="film" className="size-5 text-muted/60" />
                     )}
                     {proj.duration > 0 && (
-                      <span className="absolute bottom-0.5 right-0.5 rounded bg-black/80 px-1 py-0.2 text-[9px] font-semibold text-white">
+                      <span className="absolute bottom-0.5 right-0.5 rounded bg-black/80 px-1 py-0.2 text-2xs font-semibold text-white">
                         {formatTime(proj.duration)}
                       </span>
                     )}
@@ -257,7 +257,7 @@ export function MobileProjectSheet({
                     <span className="truncate text-xs font-semibold text-ink">
                       {proj.name}
                     </span>
-                    <span className="text-[10px] text-muted">
+                    <span className="text-2xs text-muted">
                       Edited {formatAgo(proj.updatedAt)}
                       {proj.clips > 0 ? ` · ${proj.clips} ${proj.clips === 1 ? "clip" : "clips"}` : ""}
                     </span>
@@ -265,7 +265,7 @@ export function MobileProjectSheet({
 
                   {/* Current indicator */}
                   {isCurrent && (
-                    <span className="rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-semibold text-primary shrink-0">
+                    <span className="rounded-full bg-primary/20 px-2 py-0.5 text-2xs font-semibold text-primary shrink-0">
                       Active
                     </span>
                   )}

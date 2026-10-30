@@ -220,8 +220,8 @@ export function UniversalAiTooltip({
       data-testid="universal-ai-card"
       className={`relative w-full rounded-[22px] border p-3.5 sm:p-4 shadow-2xl transition-all select-none font-sans ${
         isDark
-          ? "border-slate-700/80 bg-slate-900/98 text-slate-100 shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
-          : "border-slate-200/90 bg-white text-slate-800 shadow-[0_16px_48px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.04)]"
+          ? "border-line bg-surface text-ink shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
+          : "border-line bg-white text-ink shadow-[0_16px_48px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.04)]"
       }`}
       style={{ width: cardWidth }}
     >
@@ -239,23 +239,23 @@ export function UniversalAiTooltip({
           <div className="flex items-center gap-1.5 cursor-pointer hover:opacity-85 transition-opacity">
             <h2
               className={`text-[0.9375rem] font-semibold tracking-tight ${
-                isDark ? "text-slate-100" : "text-slate-900"
+                isDark ? "text-ink" : "text-ink"
               }`}
             >
               Generate with Gemini
             </h2>
             <Icon
               name="chevronDown"
-              className={`size-3.5 ${isDark ? "text-slate-400" : "text-slate-600"}`}
+              className={`size-3.5 ${isDark ? "text-muted" : "text-muted"}`}
             />
           </div>
 
           {target?.targetDescription && (
             <span
-              className={`ml-1.5 hidden rounded-md px-2 py-0.5 text-[0.6875rem] font-medium sm:inline ${
+              className={`ml-1.5 hidden rounded-md px-2 py-0.5 text-2xs font-medium sm:inline ${
                 isDark
-                  ? "border border-slate-700/60 bg-slate-800 text-slate-300"
-                  : "bg-slate-100 text-slate-500"
+                  ? "border border-line bg-raised text-muted"
+                  : "bg-raised text-muted"
               }`}
             >
               {target.targetDescription}
@@ -273,8 +273,8 @@ export function UniversalAiTooltip({
             title={isDark ? "Switch to light theme" : "Switch to dark theme"}
             className={`rounded-lg p-1.5 transition-colors cursor-pointer ${
               isDark
-                ? "text-slate-400 hover:bg-slate-800 hover:text-amber-300"
-                : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                ? "text-muted hover:bg-hover hover:text-amber-300"
+                : "text-muted hover:bg-hover hover:text-ink"
             }`}
           >
             <Icon name={isDark ? "sun" : "moon"} className="size-4" />
@@ -287,8 +287,8 @@ export function UniversalAiTooltip({
             aria-label="Close"
             className={`rounded-lg p-1.5 transition-colors cursor-pointer ${
               isDark
-                ? "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                : "text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                ? "text-muted hover:bg-hover hover:text-ink"
+                : "text-muted hover:bg-hover hover:text-muted"
             }`}
             title="Close (Esc)"
           >
@@ -305,8 +305,8 @@ export function UniversalAiTooltip({
             onClick={() => setActiveMenu(activeMenu === "attach" ? null : "attach")}
             className={`relative flex size-[66px] flex-col items-center justify-center rounded-2xl border transition-all cursor-pointer group ${
               isDark
-                ? "border-slate-700 bg-slate-800/80 hover:border-slate-600 hover:bg-slate-800"
-                : "border-slate-200 bg-slate-50/70 hover:bg-slate-100/80"
+                ? "border-line bg-raised hover:border-line hover:bg-hover"
+                : "border-line bg-raised hover:bg-hover"
             }`}
             title={referenceImage ? "Attachment options (Click to change)" : "Attach reference image for Image-to-Video"}
           >
@@ -320,7 +320,7 @@ export function UniversalAiTooltip({
                     setReferenceImage(null);
                     setReferenceAssetId(null);
                   }}
-                  className="absolute top-1 right-1 flex size-4.5 items-center justify-center rounded-full bg-slate-900/85 text-white hover:bg-slate-900 shadow-xs"
+                  className="absolute top-1 right-1 flex size-4.5 items-center justify-center rounded-full bg-surface/85 text-white hover:bg-hover shadow-xs"
                   title="Remove image"
                 >
                   <Icon name="close" className="size-3" />
@@ -330,12 +330,12 @@ export function UniversalAiTooltip({
               <div className="relative flex items-center justify-center">
                 <Icon
                   name="image"
-                  className={`size-6 ${isDark ? "text-slate-300" : "text-slate-800"}`}
+                  className={`size-6 ${isDark ? "text-muted" : "text-ink"}`}
                   strokeWidth={1.8}
                 />
                 <span
-                  className={`absolute -top-1.5 -right-2 text-[0.75rem] font-bold leading-none ${
-                    isDark ? "text-slate-300" : "text-slate-800"
+                  className={`absolute -top-1.5 -right-2 text-xs font-bold leading-none ${
+                    isDark ? "text-muted" : "text-ink"
                   }`}
                 >
                   +
@@ -356,8 +356,8 @@ export function UniversalAiTooltip({
             <div
               className={`absolute top-full left-0 mt-1.5 z-40 w-64 rounded-xl border p-1.5 shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-100 ${
                 isDark
-                  ? "border-slate-700 bg-slate-900/98 text-slate-100"
-                  : "border-slate-200 bg-white text-slate-800"
+                  ? "border-line bg-surface text-ink"
+                  : "border-line bg-white text-ink"
               }`}
             >
               {/* Option 1: Upload from computer */}
@@ -368,10 +368,10 @@ export function UniversalAiTooltip({
                   fileInputRef.current?.click();
                 }}
                 className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
-                  isDark ? "text-slate-200 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
+                  isDark ? "text-ink hover:bg-hover" : "text-ink hover:bg-hover"
                 }`}
               >
-                <Icon name="upload" className="size-4 text-blue-500" />
+                <Icon name="upload" className="size-4 text-link" />
                 <span>Upload from computer</span>
               </button>
 
@@ -381,7 +381,7 @@ export function UniversalAiTooltip({
                   type="button"
                   onClick={() => setShowAssetPicker((prev) => !prev)}
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
-                    isDark ? "text-slate-200 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
+                    isDark ? "text-ink hover:bg-hover" : "text-ink hover:bg-hover"
                   }`}
                 >
                   <span className="flex items-center gap-2.5">
@@ -390,14 +390,14 @@ export function UniversalAiTooltip({
                   </span>
                   <Icon
                     name={showAssetPicker ? "chevronDown" : "chevronRight"}
-                    className="size-3 text-slate-400"
+                    className="size-3 text-muted"
                   />
                 </button>
 
                 {showAssetPicker && (
                   <div
                     className={`mt-1 max-h-40 overflow-y-auto rounded-lg border p-1.5 ${
-                      isDark ? "border-slate-800 bg-slate-850" : "border-slate-100 bg-slate-50"
+                      isDark ? "border-line bg-surface" : "border-line bg-raised"
                     }`}
                   >
                     {attachableAssets.length > 0 ? (
@@ -414,10 +414,10 @@ export function UniversalAiTooltip({
                             }}
                             className={`group relative aspect-video overflow-hidden rounded-md border transition-all cursor-pointer ${
                               referenceAssetId === asset.id
-                                ? "border-blue-500 ring-2 ring-blue-500/30"
+                                ? "border-primary ring-2 ring-primary"
                                 : isDark
-                                  ? "border-slate-700 hover:border-slate-500"
-                                  : "border-slate-200 hover:border-slate-400"
+                                  ? "border-line hover:border-line"
+                                  : "border-line hover:border-line"
                             }`}
                             title={asset.fileName || "Asset"}
                           >
@@ -430,7 +430,7 @@ export function UniversalAiTooltip({
                         ))}
                       </div>
                     ) : (
-                      <div className="p-2 text-center text-[11px] text-slate-400">
+                      <div className="p-2 text-center text-2xs text-muted">
                         No project images or videos yet
                       </div>
                     )}
@@ -447,7 +447,7 @@ export function UniversalAiTooltip({
                     openStockAction();
                   }}
                   className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
-                    isDark ? "text-slate-200 hover:bg-slate-800" : "text-slate-700 hover:bg-slate-50"
+                    isDark ? "text-ink hover:bg-hover" : "text-ink hover:bg-hover"
                   }`}
                 >
                   <Icon name="search" className="size-4 text-emerald-500" />
@@ -466,8 +466,8 @@ export function UniversalAiTooltip({
                   }}
                   className={`mt-1 flex w-full items-center gap-2.5 rounded-lg border-t px-3 py-2 text-xs font-medium text-rose-500 transition-colors cursor-pointer ${
                     isDark
-                      ? "border-slate-800 hover:bg-slate-800/80"
-                      : "border-slate-100 hover:bg-slate-50"
+                      ? "border-line hover:bg-hover"
+                      : "border-line hover:bg-hover"
                   }`}
                 >
                   <Icon name="close" className="size-4 text-rose-500" />
@@ -482,8 +482,8 @@ export function UniversalAiTooltip({
         <div
           className={`relative flex min-h-[66px] flex-1 flex-col justify-between rounded-2xl border p-2.5 pb-5.5 transition-all shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)] ${
             isDark
-              ? "border-slate-700 bg-slate-800/80 text-slate-100 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20"
-              : "border-slate-200 bg-white text-slate-800 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100/80"
+              ? "border-line bg-raised text-ink focus-within:border-primary focus-within:ring-2 focus-within:ring-primary"
+              : "border-line bg-white text-ink focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/30"
           }`}
         >
           <textarea
@@ -498,13 +498,13 @@ export function UniversalAiTooltip({
                   ? "Crisp 3D render of a modern cozy studio workstation, octane render 8k"
                   : "Welcome back everyone. Today we dive into the future of video creation."
             }
-            className={`w-full resize-none border-0 bg-transparent p-0 text-xs sm:text-[0.8125rem] placeholder:text-slate-400 focus:outline-none focus:ring-0 leading-relaxed font-normal ${
-              isDark ? "text-slate-100" : "text-slate-800"
+            className={`w-full resize-none border-0 bg-transparent p-0 text-xs sm:text-[0.8125rem] placeholder:text-muted focus:outline-none focus:ring-0 leading-relaxed font-normal ${
+              isDark ? "text-ink" : "text-ink"
             }`}
           />
 
           {/* Character counter (72/500 style) */}
-          <span className="pointer-events-none absolute bottom-1.5 right-3 text-[11px] font-medium text-slate-400 select-none tabular-nums">
+          <span className="pointer-events-none absolute bottom-1.5 right-3 text-2xs font-medium text-muted select-none tabular-nums">
             {prompt.length ? `${prompt.length}/500` : "72/500"}
           </span>
         </div>
@@ -522,25 +522,25 @@ export function UniversalAiTooltip({
               className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-xs font-medium transition-colors cursor-pointer select-none ${
                 activeMenu === "mode"
                   ? isDark
-                    ? "border-blue-500/50 bg-blue-600/20 text-blue-400"
-                    : "border-blue-300 bg-blue-50/70 text-blue-700"
+                    ? "border-primary bg-primary/20 text-link"
+                    : "border-blue-300 bg-primary-soft/70 text-link"
                   : isDark
-                    ? "border-transparent bg-slate-800 text-slate-200 hover:bg-slate-750"
-                    : "border-transparent bg-slate-100 text-slate-800 hover:bg-slate-200/80"
+                    ? "border-transparent bg-raised text-ink hover:bg-hover"
+                    : "border-transparent bg-raised text-ink hover:bg-hover"
               }`}
             >
               <Icon
                 name={mediaType === "video" ? "video" : mediaType === "image" ? "image" : "mic"}
-                className={`size-3.5 ${isDark ? "text-slate-300" : "text-slate-700"}`}
+                className={`size-3.5 ${isDark ? "text-muted" : "text-ink"}`}
               />
               <span className="capitalize">{mediaType === "video" ? "Video" : mediaType === "image" ? "Image" : "Audio"}</span>
-              <Icon name="chevronDown" className="size-3 text-slate-400" />
+              <Icon name="chevronDown" className="size-3 text-muted" />
             </button>
 
             {activeMenu === "mode" && (
               <div
                 className={`absolute top-full left-0 mt-1.5 z-30 min-w-[150px] rounded-xl border p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100 ${
-                  isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-white text-slate-700"
+                  isDark ? "border-line bg-surface text-ink" : "border-line bg-white text-ink"
                 }`}
               >
                 <button
@@ -552,18 +552,18 @@ export function UniversalAiTooltip({
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                     mediaType === "video"
                       ? isDark
-                        ? "bg-blue-600/30 text-blue-400"
-                        : "bg-blue-50 text-blue-700"
+                        ? "bg-primary/30 text-link"
+                        : "bg-primary-soft text-link"
                       : isDark
-                        ? "text-slate-300 hover:bg-slate-800"
-                        : "text-slate-700 hover:bg-slate-50"
+                        ? "text-muted hover:bg-hover"
+                        : "text-ink hover:bg-hover"
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Icon name="video" className="size-3.5" />
                     <span>AI Video</span>
                   </span>
-                  {mediaType === "video" && <span className="text-blue-500 font-bold">✓</span>}
+                  {mediaType === "video" && <span className="text-link font-bold">✓</span>}
                 </button>
 
                 <button
@@ -575,18 +575,18 @@ export function UniversalAiTooltip({
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                     mediaType === "image"
                       ? isDark
-                        ? "bg-blue-600/30 text-blue-400"
-                        : "bg-blue-50 text-blue-700"
+                        ? "bg-primary/30 text-link"
+                        : "bg-primary-soft text-link"
                       : isDark
-                        ? "text-slate-300 hover:bg-slate-800"
-                        : "text-slate-700 hover:bg-slate-50"
+                        ? "text-muted hover:bg-hover"
+                        : "text-ink hover:bg-hover"
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Icon name="image" className="size-3.5" />
                     <span>AI Image</span>
                   </span>
-                  {mediaType === "image" && <span className="text-blue-500 font-bold">✓</span>}
+                  {mediaType === "image" && <span className="text-link font-bold">✓</span>}
                 </button>
 
                 <button
@@ -598,18 +598,18 @@ export function UniversalAiTooltip({
                   className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                     mediaType === "audio"
                       ? isDark
-                        ? "bg-blue-600/30 text-blue-400"
-                        : "bg-blue-50 text-blue-700"
+                        ? "bg-primary/30 text-link"
+                        : "bg-primary-soft text-link"
                       : isDark
-                        ? "text-slate-300 hover:bg-slate-800"
-                        : "text-slate-700 hover:bg-slate-50"
+                        ? "text-muted hover:bg-hover"
+                        : "text-ink hover:bg-hover"
                   }`}
                 >
                   <span className="flex items-center gap-2">
                     <Icon name="mic" className="size-3.5" />
                     <span>Voice / Speech</span>
                   </span>
-                  {mediaType === "audio" && <span className="text-blue-500 font-bold">✓</span>}
+                  {mediaType === "audio" && <span className="text-link font-bold">✓</span>}
                 </button>
               </div>
             )}
@@ -624,24 +624,24 @@ export function UniversalAiTooltip({
                 className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-xs font-medium transition-colors cursor-pointer select-none ${
                   activeMenu === "aspect"
                     ? isDark
-                      ? "border-blue-500/50 bg-blue-600/20 text-blue-400"
-                      : "border-blue-300 bg-blue-50/70 text-blue-700"
+                      ? "border-primary bg-primary/20 text-link"
+                      : "border-blue-300 bg-primary-soft/70 text-link"
                     : isDark
-                      ? "border-transparent bg-slate-800 text-slate-200 hover:bg-slate-750"
-                      : "border-transparent bg-slate-100 text-slate-800 hover:bg-slate-200/80"
+                      ? "border-transparent bg-raised text-ink hover:bg-hover"
+                      : "border-transparent bg-raised text-ink hover:bg-hover"
                 }`}
               >
                 <span className="size-3.5 rounded-[2px] border border-current flex items-center justify-center text-[7px] font-bold">
                   □
                 </span>
                 <span>{aspect}</span>
-                <Icon name="chevronDown" className="size-3 text-slate-400" />
+                <Icon name="chevronDown" className="size-3 text-muted" />
               </button>
 
               {activeMenu === "aspect" && (
                 <div
                   className={`absolute top-full left-0 mt-1.5 z-30 min-w-[120px] rounded-xl border p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100 ${
-                    isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-white text-slate-700"
+                    isDark ? "border-line bg-surface text-ink" : "border-line bg-white text-ink"
                   }`}
                 >
                   {(["16:9", "9:16", "1:1"] as const).map((r) => (
@@ -655,15 +655,15 @@ export function UniversalAiTooltip({
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                         aspect === r
                           ? isDark
-                            ? "bg-blue-600/30 text-blue-400"
-                            : "bg-blue-50 text-blue-700"
+                            ? "bg-primary/30 text-link"
+                            : "bg-primary-soft text-link"
                           : isDark
-                            ? "text-slate-300 hover:bg-slate-800"
-                            : "text-slate-700 hover:bg-slate-50"
+                            ? "text-muted hover:bg-hover"
+                            : "text-ink hover:bg-hover"
                       }`}
                     >
                       <span>{r}</span>
-                      {aspect === r && <span className="text-blue-500 font-bold">✓</span>}
+                      {aspect === r && <span className="text-link font-bold">✓</span>}
                     </button>
                   ))}
                 </div>
@@ -680,22 +680,22 @@ export function UniversalAiTooltip({
                 className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-xs font-medium transition-colors cursor-pointer select-none ${
                   activeMenu === "resolution"
                     ? isDark
-                      ? "border-blue-500/50 bg-blue-600/20 text-blue-400"
-                      : "border-blue-300 bg-blue-50/70 text-blue-700"
+                      ? "border-primary bg-primary/20 text-link"
+                      : "border-blue-300 bg-primary-soft/70 text-link"
                     : isDark
-                      ? "border-transparent bg-slate-800 text-slate-200 hover:bg-slate-750"
-                      : "border-transparent bg-slate-100 text-slate-800 hover:bg-slate-200/80"
+                      ? "border-transparent bg-raised text-ink hover:bg-hover"
+                      : "border-transparent bg-raised text-ink hover:bg-hover"
                 }`}
               >
-                <Icon name="monitor" className={`size-3.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} />
+                <Icon name="monitor" className={`size-3.5 ${isDark ? "text-muted" : "text-ink"}`} />
                 <span>{videoResolution}</span>
-                <Icon name="chevronDown" className="size-3 text-slate-400" />
+                <Icon name="chevronDown" className="size-3 text-muted" />
               </button>
 
               {activeMenu === "resolution" && (
                 <div
                   className={`absolute top-full left-0 mt-1.5 z-30 min-w-[120px] rounded-xl border p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100 ${
-                    isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-white text-slate-700"
+                    isDark ? "border-line bg-surface text-ink" : "border-line bg-white text-ink"
                   }`}
                 >
                   {(["1080p", "720p"] as const).map((res) => (
@@ -709,15 +709,15 @@ export function UniversalAiTooltip({
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                         videoResolution === res
                           ? isDark
-                            ? "bg-blue-600/30 text-blue-400"
-                            : "bg-blue-50 text-blue-700"
+                            ? "bg-primary/30 text-link"
+                            : "bg-primary-soft text-link"
                           : isDark
-                            ? "text-slate-300 hover:bg-slate-800"
-                            : "text-slate-700 hover:bg-slate-50"
+                            ? "text-muted hover:bg-hover"
+                            : "text-ink hover:bg-hover"
                       }`}
                     >
                       <span>{res}</span>
-                      {videoResolution === res && <span className="text-blue-500 font-bold">✓</span>}
+                      {videoResolution === res && <span className="text-link font-bold">✓</span>}
                     </button>
                   ))}
                 </div>
@@ -734,22 +734,22 @@ export function UniversalAiTooltip({
                 className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-xs font-medium transition-colors cursor-pointer select-none ${
                   activeMenu === "duration"
                     ? isDark
-                      ? "border-blue-500/50 bg-blue-600/20 text-blue-400"
-                      : "border-blue-300 bg-blue-50/70 text-blue-700"
+                      ? "border-primary bg-primary/20 text-link"
+                      : "border-blue-300 bg-primary-soft/70 text-link"
                     : isDark
-                      ? "border-transparent bg-slate-800 text-slate-200 hover:bg-slate-750"
-                      : "border-transparent bg-slate-100 text-slate-800 hover:bg-slate-200/80"
+                      ? "border-transparent bg-raised text-ink hover:bg-hover"
+                      : "border-transparent bg-raised text-ink hover:bg-hover"
                 }`}
               >
-                <Icon name="clock" className={`size-3.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} />
+                <Icon name="clock" className={`size-3.5 ${isDark ? "text-muted" : "text-ink"}`} />
                 <span>{videoDuration}s</span>
-                <Icon name="chevronDown" className="size-3 text-slate-400" />
+                <Icon name="chevronDown" className="size-3 text-muted" />
               </button>
 
               {activeMenu === "duration" && (
                 <div
                   className={`absolute top-full left-0 mt-1.5 z-30 min-w-[110px] rounded-xl border p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100 ${
-                    isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-white text-slate-700"
+                    isDark ? "border-line bg-surface text-ink" : "border-line bg-white text-ink"
                   }`}
                 >
                   {([4, 6, 8, 10] as const).map((secs) => (
@@ -763,15 +763,15 @@ export function UniversalAiTooltip({
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                         videoDuration === secs
                           ? isDark
-                            ? "bg-blue-600/30 text-blue-400"
-                            : "bg-blue-50 text-blue-700"
+                            ? "bg-primary/30 text-link"
+                            : "bg-primary-soft text-link"
                           : isDark
-                            ? "text-slate-300 hover:bg-slate-800"
-                            : "text-slate-700 hover:bg-slate-50"
+                            ? "text-muted hover:bg-hover"
+                            : "text-ink hover:bg-hover"
                       }`}
                     >
                       <span>{secs}s</span>
-                      {videoDuration === secs && <span className="text-blue-500 font-bold">✓</span>}
+                      {videoDuration === secs && <span className="text-link font-bold">✓</span>}
                     </button>
                   ))}
                 </div>
@@ -788,21 +788,21 @@ export function UniversalAiTooltip({
                 className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-xs font-medium transition-colors cursor-pointer select-none ${
                   activeMenu === "style"
                     ? isDark
-                      ? "border-blue-500/50 bg-blue-600/20 text-blue-400"
-                      : "border-blue-300 bg-blue-50/70 text-blue-700"
+                      ? "border-primary bg-primary/20 text-link"
+                      : "border-blue-300 bg-primary-soft/70 text-link"
                     : isDark
-                      ? "border-transparent bg-slate-800 text-slate-200 hover:bg-slate-750"
-                      : "border-transparent bg-slate-100 text-slate-800 hover:bg-slate-200/80"
+                      ? "border-transparent bg-raised text-ink hover:bg-hover"
+                      : "border-transparent bg-raised text-ink hover:bg-hover"
                 }`}
               >
                 <span>{imageStyle}</span>
-                <Icon name="chevronDown" className="size-3 text-slate-400" />
+                <Icon name="chevronDown" className="size-3 text-muted" />
               </button>
 
               {activeMenu === "style" && (
                 <div
                   className={`absolute top-full left-0 mt-1.5 z-30 min-w-[130px] rounded-xl border p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100 ${
-                    isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-white text-slate-700"
+                    isDark ? "border-line bg-surface text-ink" : "border-line bg-white text-ink"
                   }`}
                 >
                   {(["Cinematic", "Realistic", "Anime", "3D Render"] as const).map((st) => (
@@ -816,15 +816,15 @@ export function UniversalAiTooltip({
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                         imageStyle === st
                           ? isDark
-                            ? "bg-blue-600/30 text-blue-400"
-                            : "bg-blue-50 text-blue-700"
+                            ? "bg-primary/30 text-link"
+                            : "bg-primary-soft text-link"
                           : isDark
-                            ? "text-slate-300 hover:bg-slate-800"
-                            : "text-slate-700 hover:bg-slate-50"
+                            ? "text-muted hover:bg-hover"
+                            : "text-ink hover:bg-hover"
                       }`}
                     >
                       <span>{st}</span>
-                      {imageStyle === st && <span className="text-blue-500 font-bold">✓</span>}
+                      {imageStyle === st && <span className="text-link font-bold">✓</span>}
                     </button>
                   ))}
                 </div>
@@ -841,22 +841,22 @@ export function UniversalAiTooltip({
                 className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-xs font-medium transition-colors cursor-pointer select-none ${
                   activeMenu === "voice"
                     ? isDark
-                      ? "border-blue-500/50 bg-blue-600/20 text-blue-400"
-                      : "border-blue-300 bg-blue-50/70 text-blue-700"
+                      ? "border-primary bg-primary/20 text-link"
+                      : "border-blue-300 bg-primary-soft/70 text-link"
                     : isDark
-                      ? "border-transparent bg-slate-800 text-slate-200 hover:bg-slate-750"
-                      : "border-transparent bg-slate-100 text-slate-800 hover:bg-slate-200/80"
+                      ? "border-transparent bg-raised text-ink hover:bg-hover"
+                      : "border-transparent bg-raised text-ink hover:bg-hover"
                 }`}
               >
-                <Icon name="mic" className={`size-3.5 ${isDark ? "text-slate-300" : "text-slate-700"}`} />
+                <Icon name="mic" className={`size-3.5 ${isDark ? "text-muted" : "text-ink"}`} />
                 <span>Voice: {voice}</span>
-                <Icon name="chevronDown" className="size-3 text-slate-400" />
+                <Icon name="chevronDown" className="size-3 text-muted" />
               </button>
 
               {activeMenu === "voice" && (
                 <div
                   className={`absolute top-full left-0 mt-1.5 z-30 max-h-48 overflow-y-auto min-w-[160px] rounded-xl border p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100 ${
-                    isDark ? "border-slate-700 bg-slate-900 text-slate-100" : "border-slate-200 bg-white text-slate-700"
+                    isDark ? "border-line bg-surface text-ink" : "border-line bg-white text-ink"
                   }`}
                 >
                   {GEMINI_VOICES.map((v) => (
@@ -870,17 +870,17 @@ export function UniversalAiTooltip({
                       className={`flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
                         voice === v.name
                           ? isDark
-                            ? "bg-blue-600/30 text-blue-400"
-                            : "bg-blue-50 text-blue-700"
+                            ? "bg-primary/30 text-link"
+                            : "bg-primary-soft text-link"
                           : isDark
-                            ? "text-slate-300 hover:bg-slate-800"
-                            : "text-slate-700 hover:bg-slate-50"
+                            ? "text-muted hover:bg-hover"
+                            : "text-ink hover:bg-hover"
                       }`}
                     >
                       <span>
                         {v.name} ({v.character})
                       </span>
-                      {voice === v.name && <span className="text-blue-500 font-bold">✓</span>}
+                      {voice === v.name && <span className="text-link font-bold">✓</span>}
                     </button>
                   ))}
                 </div>
@@ -897,10 +897,10 @@ export function UniversalAiTooltip({
                 onClick={() => setHasAudio(true)}
                 className={`p-1 sm:p-1.5 rounded-lg transition-all cursor-pointer ${
                   hasAudio
-                    ? "bg-blue-600 text-white shadow-xs"
+                    ? "bg-primary text-white shadow-xs"
                     : isDark
-                      ? "bg-slate-800 text-slate-400 hover:bg-slate-750 hover:text-slate-200"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
+                      ? "bg-raised text-muted hover:bg-hover hover:text-ink"
+                      : "bg-raised text-muted hover:bg-hover"
                 }`}
                 title="Generate with audio"
                 aria-label="Sound on"
@@ -914,10 +914,10 @@ export function UniversalAiTooltip({
                 onClick={() => setHasAudio(false)}
                 className={`p-1 sm:p-1.5 rounded-lg transition-all cursor-pointer ${
                   !hasAudio
-                    ? "bg-blue-600 text-white shadow-xs"
+                    ? "bg-primary text-white shadow-xs"
                     : isDark
-                      ? "bg-slate-800 text-slate-400 hover:bg-slate-750 hover:text-slate-200"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
+                      ? "bg-raised text-muted hover:bg-hover hover:text-ink"
+                      : "bg-raised text-muted hover:bg-hover"
                 }`}
                 title="Mute audio"
                 aria-label="Sound off"
@@ -934,7 +934,7 @@ export function UniversalAiTooltip({
           aria-label="Generate to Timeline"
           title="Generate to Timeline (⌘↵)"
           onClick={handleSubmitting}
-          className="shrink-0 flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-xs font-semibold px-3.5 py-1.5 shadow-md shadow-blue-500/25 transition-all cursor-pointer"
+          className="shrink-0 flex items-center justify-center gap-1.5 rounded-xl bg-primary hover:bg-primary-hover active:scale-[0.98] text-white text-xs font-semibold px-3.5 py-1.5 shadow-md shadow-blue-500/25 transition-all cursor-pointer"
         >
           <svg className="size-3.5 fill-white text-white" viewBox="0 0 24 24">
             <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />

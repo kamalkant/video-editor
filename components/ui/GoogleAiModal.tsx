@@ -53,7 +53,7 @@ export function GoogleAiModal({
       ref={ref}
       aria-labelledby={titleId}
       data-testid={testId}
-      className={`VDO-dialog m-auto max-h-[min(94dvh,58rem)] w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#090d16] p-0 text-slate-100 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.8)] backdrop-blur-2xl open:flex ${maxW}`}
+      className={`VDO-dialog m-auto max-h-[min(94dvh,58rem)] w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-2xl bg-dialog-bg p-0 text-ink shadow-[var(--shadow-float)] open:flex ${maxW}`}
       onClose={onClose}
       onCancel={(e) => {
         e.preventDefault();
@@ -61,17 +61,17 @@ export function GoogleAiModal({
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      {/* Google 4-color ambient aurora top light bar */}
-      <div className="relative h-1 w-full overflow-hidden bg-gradient-to-r from-blue-500 via-indigo-500 via-purple-500 via-pink-500 to-amber-400">
+      {/* the AI accent bar (it shimmers while busy) */}
+      <div className="relative h-0.5 w-full overflow-hidden bg-gradient-to-r from-primary via-ai to-primary">
         {busy && (
           <div className="absolute inset-0 h-full w-full animate-[shimmer_1.8s_infinite] bg-gradient-to-r from-transparent via-white/80 to-transparent" />
         )}
       </div>
 
       {/* Header */}
-      <header className="relative flex items-start justify-between gap-3 border-b border-white/10 px-5 py-3.5 bg-white/[0.02]">
+      <header className="relative flex items-start justify-between gap-3 border-b border-line px-5 py-3.5 bg-dialog-header">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-500 via-indigo-500 to-fuchsia-500 text-white shadow-md shadow-indigo-500/20">
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-ai text-white">
             {/* Google Gemini 4-pointed Sparkle */}
             <svg viewBox="0 0 24 24" className="size-4 fill-current">
               <path d="M12 0C12 6.627 6.627 12 0 12c6.627 0 12 5.627 12 12 0-6.627 5.627-12 12-12-6.627 0-12-5.627-12-12z" />
@@ -81,14 +81,14 @@ export function GoogleAiModal({
             <div className="flex flex-wrap items-center gap-2">
               <h2
                 id={titleId}
-                className="text-base font-semibold tracking-tight text-white flex items-center gap-2"
+                className="text-base font-semibold tracking-tight text-ink flex items-center gap-2"
               >
                 {title}
               </h2>
               {badge}
             </div>
             {subtitle && (
-              <p className="text-xs text-slate-400 mt-0.5 leading-snug">
+              <p className="text-xs text-muted mt-0.5 leading-snug">
                 {subtitle}
               </p>
             )}
@@ -98,7 +98,7 @@ export function GoogleAiModal({
         <button
           type="button"
           onClick={onClose}
-          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-white/10 hover:text-white transition-colors"
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-ink transition-colors"
           aria-label="Close"
         >
           <Icon name="close" className="size-4" />
@@ -107,20 +107,20 @@ export function GoogleAiModal({
 
       {/* Status bar if busy */}
       {busy && busyLabel && (
-        <div className="flex items-center gap-2 bg-gradient-to-r from-blue-950/40 via-purple-950/40 to-slate-900/40 border-b border-indigo-500/20 px-5 py-2 text-xs text-indigo-300">
-          <span className="size-3.5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+        <div className="flex items-center gap-2 bg-ai-soft border-b border-line px-5 py-2 text-xs text-ink">
+          <span className="size-3.5 animate-spin rounded-full border-2 border-ai border-t-transparent" />
           <span>{busyLabel}</span>
         </div>
       )}
 
       {/* Body */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed text-slate-200">
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm leading-relaxed text-ink">
         {open && children}
       </div>
 
       {/* Footer */}
       {footer && (
-        <footer className="border-t border-white/10 bg-white/[0.02] px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+        <footer className="border-t border-line bg-dialog-header px-5 py-3 flex flex-wrap items-center justify-between gap-3">
           {footer}
         </footer>
       )}

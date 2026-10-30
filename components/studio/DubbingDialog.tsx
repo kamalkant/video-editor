@@ -114,7 +114,7 @@ export function DubbingDialog(p: {
       ) : (
         <div className="flex flex-col gap-3 text-xs">
           <div className="grid grid-cols-2 gap-2">
-            <label className="flex flex-col gap-1 text-slate-300">
+            <label className="flex flex-col gap-1 text-muted">
               Spoken now
               <select className="field" value={from} onChange={(e) => setFrom(e.target.value as SubLanguage)}>
                 {SUB_LANGUAGES.map((l) => (
@@ -124,7 +124,7 @@ export function DubbingDialog(p: {
                 ))}
               </select>
             </label>
-            <label className="flex flex-col gap-1 text-slate-300">
+            <label className="flex flex-col gap-1 text-muted">
               Dub into
               <select className="field" value={to} onChange={(e) => setTo(e.target.value as SubLanguage)}>
                 {SUB_LANGUAGES.filter((l) => l.id !== "auto").map((l) => (
@@ -134,7 +134,7 @@ export function DubbingDialog(p: {
                 ))}
               </select>
             </label>
-            <label className="col-span-2 flex flex-col gap-1 text-slate-300">
+            <label className="col-span-2 flex flex-col gap-1 text-muted">
               Voice
               <select className="field" value={voice} onChange={(e) => setVoice(e.target.value)}>
                 {GEMINI_VOICES.map((v) => (
@@ -145,13 +145,13 @@ export function DubbingDialog(p: {
               </select>
             </label>
           </div>
-          <label className="flex items-center gap-2 text-slate-300">
+          <label className="flex items-center gap-2 text-muted">
             <input type="checkbox" checked={duck} onChange={(e) => setDuck(e.target.checked)} /> Keep the original voice quietly underneath
           </label>
-          <label className="flex items-center gap-2 text-slate-300">
+          <label className="flex items-center gap-2 text-muted">
             <input type="checkbox" checked={subtitles} onChange={(e) => setSubtitles(e.target.checked)} /> Also add {languageLabel(to)} subtitles
           </label>
-          <p className="text-slate-400">
+          <p className="text-muted">
             Sends the clip&apos;s sound and the words to Google Gemini. About {money(costOf.subtitles(seconds) + costOf.voice(Math.round(seconds * 15)))} for{" "}
             {Math.round(seconds)} s; up to {MAX_DUB_LINES} lines per run.
           </p>

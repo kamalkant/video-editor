@@ -6,13 +6,13 @@ import { EXPORT_FORMATS, type ExportFormat } from "@/lib/export/presets";
 
 function FormatDocIcon({ badge, color }: { badge: string; color: string }) {
   const colorMap: Record<string, { bg: string; text: string }> = {
-    blue: { bg: "bg-blue-600", text: "text-white" },
+    blue: { bg: "bg-primary", text: "text-white" },
     purple: { bg: "bg-purple-600", text: "text-white" },
     amber: { bg: "bg-amber-600", text: "text-white" },
     emerald: { bg: "bg-emerald-600", text: "text-white" },
-    slate: { bg: "bg-slate-700", text: "text-white" },
+    slate: { bg: "bg-raised", text: "text-white" },
     pink: { bg: "bg-pink-600", text: "text-white" },
-    indigo: { bg: "bg-indigo-600", text: "text-white" },
+    indigo: { bg: "bg-primary", text: "text-white" },
     sky: { bg: "bg-sky-600", text: "text-white" },
     rose: { bg: "bg-rose-600", text: "text-white" },
     violet: { bg: "bg-violet-600", text: "text-white" },
@@ -20,10 +20,10 @@ function FormatDocIcon({ badge, color }: { badge: string; color: string }) {
   };
   const c = colorMap[color] || colorMap.blue;
   return (
-    <div className="relative flex flex-col items-center justify-between w-7 h-9 shrink-0 rounded bg-white shadow-xs border border-slate-200 overflow-hidden">
-      <div className="absolute top-0 right-0 w-2 h-2 bg-slate-100 border-b border-l border-slate-200 rounded-bl-xs" />
-      <div className="w-2.5 h-0.5 bg-slate-200 mt-2 rounded-full" />
-      <div className="w-3.5 h-0.5 bg-slate-200 mt-0.5 rounded-full" />
+    <div className="relative flex flex-col items-center justify-between w-7 h-9 shrink-0 rounded bg-white shadow-xs border border-line overflow-hidden">
+      <div className="absolute top-0 right-0 w-2 h-2 bg-raised border-b border-l border-line rounded-bl-xs" />
+      <div className="w-2.5 h-0.5 bg-hover mt-2 rounded-full" />
+      <div className="w-3.5 h-0.5 bg-hover mt-0.5 rounded-full" />
       <div className={`w-full py-0.5 text-center text-[0.5rem] font-bold tracking-tight uppercase leading-none ${c.bg} ${c.text}`}>
         {badge}
       </div>
@@ -75,7 +75,7 @@ export function FormatPicker({
       <legend className="flex items-center gap-1.5 px-0.5 mb-1.5 text-xs font-semibold text-ink">
         <span>Formats</span>
         <span
-          className="inline-flex items-center justify-center size-3.5 rounded-full bg-surface-raised border border-line text-[0.5625rem] text-muted font-normal cursor-help"
+          className="inline-flex items-center justify-center size-3.5 rounded-full bg-surface-raised border border-line text-2xs text-muted font-normal cursor-help"
           title="Select the target container and video codec"
         >
           ?
@@ -108,7 +108,7 @@ export function FormatPicker({
               <input
                 type="radio"
                 name="export-format"
-                className="mt-0.5 size-3.5 shrink-0 text-primary border-slate-300 dark:border-slate-600 focus:ring-primary"
+                className="mt-0.5 size-3.5 shrink-0 text-primary border-line dark:border-line focus:ring-primary"
                 checked={on}
                 disabled={!!why}
                 onChange={() => onChange(f.id)}
@@ -124,11 +124,11 @@ export function FormatPicker({
                     </span>
                   )}
                 </div>
-                <p id={`fmt-${f.id}`} className="mt-0.5 text-[0.6875rem] text-muted leading-tight line-clamp-2">
+                <p id={`fmt-${f.id}`} className="mt-0.5 text-2xs text-muted leading-tight line-clamp-2">
                   {why ?? detailOf(f)}
                 </p>
                 {size && (
-                  <span className="mt-0.5 inline-block text-[0.625rem] font-medium text-muted tabular-nums">
+                  <span className="mt-0.5 inline-block text-2xs font-medium text-muted tabular-nums">
                     Est. {size}
                   </span>
                 )}

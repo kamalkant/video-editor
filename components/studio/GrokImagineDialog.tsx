@@ -59,27 +59,27 @@ export function GrokImagineDialog({
       aria-modal="true"
       aria-labelledby="grok-title"
     >
-      <div className="relative flex w-full max-w-lg flex-col overflow-hidden rounded-xl border border-neutral-700 bg-neutral-900 shadow-2xl text-neutral-100">
+      <div className="relative flex w-full max-w-lg flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-2xl text-ink">
         {/* Header */}
-        <header className="flex items-center justify-between border-b border-neutral-800 px-5 py-4 bg-gradient-to-r from-neutral-900 via-neutral-800 to-black">
+        <header className="flex items-center justify-between border-b border-line px-5 py-4 bg-gradient-to-r from-neutral-900 via-neutral-800 to-black">
           <div className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-black border border-neutral-700 font-bold text-white shadow-inner">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-black border border-line font-bold text-white shadow-inner">
               𝕏
             </span>
             <div>
               <h2 id="grok-title" className="text-base font-bold flex items-center gap-2">
                 xAI Grok Imagine
-                <span className="rounded bg-neutral-800 px-2 py-0.5 text-[0.6875rem] font-semibold text-neutral-300 border border-neutral-700">
+                <span className="rounded bg-raised px-2 py-0.5 text-2xs font-semibold text-muted border border-line">
                   Ready
                 </span>
               </h2>
-              <p className="text-xs text-neutral-400">Generative visuals powered by Grok</p>
+              <p className="text-xs text-muted">Generative visuals powered by Grok</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-md text-neutral-400 hover:bg-neutral-800 hover:text-white"
+            className="flex size-8 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink"
             aria-label="Close"
           >
             <Icon name="close" className="size-4" />
@@ -96,12 +96,12 @@ export function GrokImagineDialog({
 
           {/* Mode & Aspect */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1 rounded-lg border border-neutral-800 bg-neutral-950 p-1">
+            <div className="flex items-center gap-1 rounded-lg border border-line bg-canvas p-1">
               <button
                 type="button"
                 onClick={() => setType("image")}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                  type === "image" ? "bg-neutral-800 text-white" : "text-neutral-400 hover:text-white"
+                  type === "image" ? "bg-raised text-ink" : "text-muted hover:text-ink"
                 }`}
               >
                 Picture
@@ -110,7 +110,7 @@ export function GrokImagineDialog({
                 type="button"
                 onClick={() => setType("video")}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                  type === "video" ? "bg-neutral-800 text-white" : "text-neutral-400 hover:text-white"
+                  type === "video" ? "bg-raised text-ink" : "text-muted hover:text-ink"
                 }`}
               >
                 Video Clip
@@ -125,8 +125,8 @@ export function GrokImagineDialog({
                   onClick={() => setAspect(r)}
                   className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors ${
                     aspect === r
-                      ? "border-neutral-500 bg-neutral-800 text-white"
-                      : "border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-white"
+                      ? "border-line bg-raised text-ink"
+                      : "border-line text-muted hover:border-line hover:text-ink"
                   }`}
                 >
                   {r}
@@ -137,7 +137,7 @@ export function GrokImagineDialog({
 
           {/* Prompt */}
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="grok-prompt" className="text-xs font-medium text-neutral-300">
+            <label htmlFor="grok-prompt" className="text-xs font-medium text-muted">
               Prompt description
             </label>
             <textarea
@@ -146,21 +146,21 @@ export function GrokImagineDialog({
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Describe your scene or motion in detail..."
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-950 p-3 text-xs text-neutral-100 placeholder:text-neutral-500 focus:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400"
+              className="w-full rounded-lg border border-line bg-canvas p-3 text-xs text-ink placeholder:text-muted focus:border-line focus:outline-none focus:ring-1 focus:ring-line"
               disabled={busy}
             />
           </div>
 
           {/* Prompt inspiration */}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[0.6875rem] font-medium text-neutral-400">Inspiration prompts:</span>
+            <span className="text-2xs font-medium text-muted">Inspiration prompts:</span>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTIONS.map((s, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => setPrompt(s)}
-                  className="rounded-full border border-neutral-800 bg-neutral-950 px-2.5 py-1 text-[0.6875rem] text-neutral-400 hover:border-neutral-600 hover:text-neutral-200 transition-colors text-left"
+                  className="rounded-full border border-line bg-canvas px-2.5 py-1 text-2xs text-muted hover:border-line hover:text-ink transition-colors text-left"
                 >
                   {s.slice(0, 36)}…
                 </button>
@@ -189,7 +189,7 @@ export function GrokImagineDialog({
                     onAddMedia(result);
                     onClose();
                   }}
-                  className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 shadow"
+                  className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-black hover:bg-hover shadow"
                 >
                   Add to Timeline
                 </button>
@@ -199,13 +199,13 @@ export function GrokImagineDialog({
         </div>
 
         {/* Footer */}
-        <footer className="flex items-center justify-between border-t border-neutral-800 bg-neutral-950 px-5 py-3">
-          <span className="text-[0.6875rem] text-neutral-400">Uses your xAI API key (or local simulation)</span>
+        <footer className="flex items-center justify-between border-t border-line bg-canvas px-5 py-3">
+          <span className="text-2xs text-muted">Uses your xAI API key (or local simulation)</span>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-neutral-800"
+              className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-muted hover:bg-hover"
               disabled={busy}
             >
               Cancel
@@ -214,7 +214,7 @@ export function GrokImagineDialog({
               type="button"
               onClick={generate}
               disabled={busy || !prompt.trim()}
-              className="flex items-center gap-1.5 rounded-md bg-white px-4 py-1.5 text-xs font-semibold text-black hover:bg-neutral-200 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md bg-white px-4 py-1.5 text-xs font-semibold text-black hover:bg-hover disabled:opacity-50"
             >
               {busy ? (
                 <>

@@ -52,9 +52,9 @@ export function StockMediaBrowser({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wider text-ink">Stock & Broadcast Media</h3>
-          <p className="text-[0.625rem] text-muted">Licensed studio backdrops, 3D loops & B-roll footage</p>
+          <p className="text-2xs text-muted">Licensed studio backdrops, 3D loops & B-roll footage</p>
         </div>
-        <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[0.625rem] font-semibold text-primary">
+        <span className="rounded bg-primary-soft px-1.5 py-0.5 text-2xs font-semibold text-primary">
           Free & Licensed
         </span>
       </div>
@@ -89,7 +89,7 @@ export function StockMediaBrowser({
             key={cat}
             type="button"
             onClick={() => setCategory(cat)}
-            className={`shrink-0 rounded-full px-2.5 py-0.5 text-[0.6875rem] font-medium transition-colors ${
+            className={`shrink-0 rounded-full px-2.5 py-0.5 text-2xs font-medium transition-colors ${
               category === cat
                 ? "bg-primary text-white font-bold"
                 : "bg-raised border border-line text-muted hover:text-ink"
@@ -122,10 +122,10 @@ export function StockMediaBrowser({
                   alt={item.title}
                   className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                 />
-                <span className="absolute top-1 left-1 rounded bg-black/70 px-1 py-0.2 text-[0.5625rem] font-bold text-white">
+                <span className="absolute top-1 left-1 rounded bg-black/70 px-1 py-0.2 text-2xs font-bold text-white">
                   {item.resolution}
                 </span>
-                <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-0.2 text-[0.5625rem] text-white">
+                <span className="absolute bottom-1 right-1 rounded bg-black/70 px-1 py-0.2 text-2xs text-white">
                   {formatTime(item.duration)}
                 </span>
 
@@ -134,24 +134,24 @@ export function StockMediaBrowser({
                   <button
                     type="button"
                     onClick={() => onReplaceBackground(item)}
-                    className="w-full rounded bg-primary py-1 text-[0.625rem] font-semibold text-white shadow hover:scale-105 active:scale-95"
+                    className="w-full rounded bg-primary py-1 text-2xs font-semibold text-white shadow hover:scale-105 active:scale-95"
                   >
                     Set Background
                   </button>
                   <button
                     type="button"
                     onClick={() => onAddToTimeline(item)}
-                    className="w-full rounded border border-white/20 bg-raised/80 py-1 text-[0.625rem] font-medium text-white hover:bg-hover active:scale-95"
+                    className="w-full rounded border border-white/20 bg-raised/80 py-1 text-2xs font-medium text-white hover:bg-hover active:scale-95"
                   >
                     + To Timeline
                   </button>
                 </div>
               </div>
               <div className="p-1.5">
-                <p className="truncate text-[0.6875rem] font-medium text-ink" title={item.title}>
+                <p className="truncate text-2xs font-medium text-ink" title={item.title}>
                   {item.title}
                 </p>
-                <p className="text-[0.5625rem] text-muted">{item.category}</p>
+                <p className="text-2xs text-muted">{item.category}</p>
               </div>
             </div>
           ))}

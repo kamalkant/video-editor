@@ -110,7 +110,7 @@ export function LabeledSlider(p: LabeledSliderProps) {
           {box}
         </div>
         {p.help && (
-          <p id={helpId} className="text-[0.6875rem] text-muted">
+          <p id={helpId} className="text-2xs text-muted">
             {p.help}
           </p>
         )}
@@ -161,7 +161,7 @@ export function LabeledSlider(p: LabeledSliderProps) {
         onChange={(e) => p.onChange(snap(Number(e.target.value), p.min, p.max, p.step, decimals))}
       />
       {(p.minLabel || p.maxLabel) && (
-        <div aria-hidden="true" className="relative -mt-1.5 flex justify-between text-[0.6875rem] text-muted">
+        <div aria-hidden="true" className="relative -mt-1.5 flex justify-between text-2xs text-muted">
           <span>{p.minLabel}</span>
           {p.bipolar && <span className="absolute left-1/2 -translate-x-1/2">0</span>}
           <span>{p.maxLabel}</span>

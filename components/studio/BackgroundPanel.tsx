@@ -45,7 +45,7 @@ export function BackgroundPanel(p: {
   const file = useRef<HTMLInputElement>(null);
   const pics = (p.assets ?? []).filter((a) => a.kind === "image" || (a.kind ?? "video") === "video");
 
-  const tile = (on: boolean) => `flex flex-col gap-1 rounded-lg border p-1 text-left text-[0.6875rem] ${on ? "border-primary ring-1 ring-primary" : "border-line hover:border-control"}`;
+  const tile = (on: boolean) => `flex flex-col gap-1 rounded-lg border p-1 text-left text-2xs ${on ? "border-primary ring-1 ring-primary" : "border-line hover:border-control"}`;
   return (
     <div className="flex flex-col gap-4" data-testid="background-panel">
       {p.onGenerate && (
@@ -87,7 +87,7 @@ export function BackgroundPanel(p: {
       )}
 
       <section aria-label="Canvas" className="flex flex-col gap-1.5">
-        <h3 className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Canvas</h3>
+        <h3 className="text-2xs font-semibold uppercase tracking-wide text-muted">Canvas</h3>
         <div className="grid grid-cols-2 gap-1.5">
           <button type="button" className={tile(!bd && p.canvas.background === "transparent")} onClick={() => p.onCanvas({ backdrop: undefined, background: "transparent" })}>
             <span className="block aspect-video w-full rounded-md bg-checker" />
@@ -104,7 +104,7 @@ export function BackgroundPanel(p: {
       </section>
 
       <section aria-label="Studio sets" className="flex flex-col gap-1.5">
-        <h3 className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Studio sets</h3>
+        <h3 className="text-2xs font-semibold uppercase tracking-wide text-muted">Studio sets</h3>
         <ul className="grid grid-cols-2 gap-1.5">
           {STUDIO_SETS.map((s) => {
             const b: Backdrop = { kind: "set", id: s.id };
@@ -121,7 +121,7 @@ export function BackgroundPanel(p: {
       </section>
 
       <section aria-label="Gradients" className="flex flex-col gap-1.5">
-        <h3 className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Gradients</h3>
+        <h3 className="text-2xs font-semibold uppercase tracking-wide text-muted">Gradients</h3>
         <ul className="grid grid-cols-3 gap-1.5">
           {GRADIENTS.map((g) => {
             const b: Backdrop = { kind: "gradient", from: g.from, to: g.to, angle: g.angle };
@@ -145,7 +145,7 @@ export function BackgroundPanel(p: {
       </section>
 
       <section aria-label="Your picture or video" className="flex flex-col gap-1.5">
-        <h3 className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted">Your picture or video</h3>
+        <h3 className="text-2xs font-semibold uppercase tracking-wide text-muted">Your picture or video</h3>
         <ul className="grid grid-cols-3 gap-1.5">
           {pics.slice(0, 18).map((a) => {
             const b: Backdrop = { kind: "media", mediaId: a.id };
@@ -196,7 +196,7 @@ export function BackgroundPanel(p: {
           No backdrop (back to the plain canvas)
         </button>
       )}
-      <p className="text-[0.6875rem] text-muted">
+      <p className="text-2xs text-muted">
         <span className="soon mr-1">Later</span> Generate a background from a description (needs a cloud AI service).{" "}
         <a href={`${ACCOUNTS_URL}/roadmap`} target="_blank" rel="noreferrer" className="text-link underline">
           See the plan

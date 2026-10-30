@@ -14,19 +14,19 @@
 }
 
 @theme {
-  /* dark "studio" theme, like the mockup (newplan.png) */
-  --color-app: #070b17; /* page behind the panels */
-  --color-ink: #e7ebf3;
-  --color-muted: #a3adc2; /* ≥6:1 on surface */
-  --color-canvas: #0c1222; /* sunken areas, hover */
-  --color-surface: #111a2e; /* panels and cards */
-  --color-raised: #18233b; /* inputs, tiles, secondary buttons */
-  --color-line: #222e48; /* decorative dividers only */
-  --color-control: #5a6b8f; /* control borders, ≥3:1 on surface */
-  --color-primary: #2563eb; /* primary buttons (white text 5.2:1), selected borders */
-  --color-primary-hover: #1d4ed8;
-  --color-primary-soft: #16264a;
-  --color-link: #8db6ff; /* blue text on dark (≥7:1) */
+  /* dark "studio" theme: graphite surfaces separated by tone, a violet-blue primary, cyan for AI (docs/design/editor-audit.md) */
+  --color-app: #08090b; /* page behind the panels: regions float on it, no outlines */
+  --color-ink: #eceef4;
+  --color-muted: #9ba2b4; /* ≥6.9:1 on surface */
+  --color-canvas: #0e0f13; /* sunken areas, hover */
+  --color-surface: #17181f; /* panels and cards (separated by tone, not borders) */
+  --color-raised: #20222b; /* inputs, tiles, secondary buttons */
+  --color-line: rgb(255 255 255 / 0.07); /* decorative dividers only */
+  --color-control: #646b80; /* control borders, ≥3:1 on surface */
+  --color-primary: #6355f5; /* primary buttons (white text 5:1), selected borders */
+  --color-primary-hover: #5446e6;
+  --color-primary-soft: #26214f;
+  --color-link: #a99fff; /* violet text on dark (≥7:1) */
   --color-on: #22c55e; /* switch ON, like the mockup */
   --color-key: #12af34; /* only for the key-color swatch */
   --color-success: #4ade80;
@@ -36,25 +36,25 @@
   --color-warn-ink: #fcd34d;
   --color-danger: #f87171;
   --color-danger-soft: #2e1519;
-  --color-stage: #0a0f1c; /* empty preview */
-  --color-preview: #05080f; /* around the video in the preview */
-  --color-preview-bar: #0b1222; /* the play bar under it */
+  --color-stage: #0d0e12; /* empty preview */
+  --color-preview: #060709; /* around the video in the preview */
+  --color-preview-bar: #121318; /* the play bar under it */
   --color-checker-a: #ffffff;
   --color-checker-b: #c3c8d1;
   --color-semi: #ff2bd6;
-  --color-track: #2b3856; /* slider track */
-  --color-hover: #213052; /* secondary button hover */
-  --color-disabled: #334155; /* disabled primary button */
+  --color-track: #2e313d; /* slider track */
+  --color-hover: #2a2d38; /* secondary button hover */
+  --color-disabled: #30333f; /* disabled primary button */
   --color-disabled-ink: #cbd5e1;
-  --color-soon: #24314f; /* "Soon" badge */
-  --color-backdrop: rgb(17 24 39 / 0.55); /* behind dialogs */
+  --color-soon: #2a2d38; /* "Soon" badge */
+  --color-backdrop: rgb(4 5 8 / 0.6); /* behind dialogs */
   /* dialog elevation and contrast tokens */
-  --color-dialog-bg: #151821;
-  --color-dialog-header: #1c202c;
-  --color-dialog-card: #0f1118;
-  --color-dialog-card-hover: #171b26;
-  --color-dialog-card-border: #283044;
-  --color-dialog-border: #3b455b;
+  --color-dialog-bg: #1a1b22;
+  --color-dialog-header: #1f2129;
+  --color-dialog-card: #15161c;
+  --color-dialog-card-hover: #1d1f27;
+  --color-dialog-card-border: rgb(255 255 255 / 0.07);
+  --color-dialog-border: rgb(255 255 255 / 0.09);
   /* timeline clip fills */
   --color-tl-video: transparent;
   --color-tl-image: #2a1a55;
@@ -64,9 +64,22 @@
   --color-scrollbar: rgb(163 173 194 / 0.28); /* thin scrollbars */
   --color-scrollbar-hover: rgb(163 173 194 / 0.55);
   --spacing-hit: 2.75rem; /* touch targets on phones; 2.25rem on desktop (below) */
+  /* names some components used without a definition: now they follow the theme */
+  --color-surface-raised: var(--color-raised);
+  --color-ink-muted: var(--color-muted);
+  --color-muted-strong: var(--color-ink);
+  --color-ai: #22d3ee; /* AI features: icons, badges, the busy bar */
+  --color-ai-soft: #0d2a31;
+  --color-overlay: #262833; /* menus, popovers, the floating toolbar */
   --radius-control: 0.5rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --shadow-float: 0 8px 24px rgb(2 4 12 / 0.45), 0 1px 2px rgb(2 4 12 / 0.4); /* navy, not grey: grey vanishes on dark */
+  --text-2xs: 0.6875rem; /* the smallest UI text: 11px */
+  --text-2xs--line-height: 1rem;
   --font-sans:
-    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
@@ -75,16 +88,16 @@
  * Only the tokens change; the video preview stays dark in both, like pro editors.
  */
 :root[data-theme="light"] {
-  --color-app: #e9edf4;
-  --color-ink: #0f172a;
-  --color-muted: #475569; /* ≥7:1 on white */
-  --color-canvas: #eef2f7;
+  --color-app: #eceef3;
+  --color-ink: #15171e;
+  --color-muted: #545b6d; /* ≥6.7:1 on white */
+  --color-canvas: #f3f4f7;
   --color-surface: #ffffff;
-  --color-raised: #f3f6fa;
-  --color-line: #d8dee8;
-  --color-control: #7c889e; /* ≥3:1 on white */
-  --color-primary-soft: #e1eaff;
-  --color-link: #1d4ed8;
+  --color-raised: #f2f3f7;
+  --color-line: rgb(15 23 42 / 0.08);
+  --color-control: #868da0; /* ≥3:1 on white */
+  --color-primary-soft: #ebe8ff;
+  --color-link: #4b3bd6;
   --color-on: #16a34a;
   --color-success: #15803d;
   --color-success-soft: #dcfce7;
@@ -93,28 +106,34 @@
   --color-warn-ink: #92400e;
   --color-danger: #dc2626;
   --color-danger-soft: #fee2e2;
-  --color-track: #cbd3df;
-  --color-hover: #e4eaf3;
-  --color-disabled: #cbd5e1;
-  --color-disabled-ink: #475569;
-  --color-soon: #e2e8f0;
-  --color-backdrop: rgb(15 23 42 / 0.35);
+  --color-track: #d9dce5;
+  --color-hover: #e7e9f0;
+  --color-disabled: #d6d9e2;
+  --color-disabled-ink: #545b6d;
+  --color-soon: #e7e9f0;
+  --color-backdrop: rgb(15 17 26 / 0.35);
   --color-dialog-bg: #ffffff;
-  --color-dialog-header: #f1f5f9;
-  --color-dialog-card: #f8fafc;
-  --color-dialog-card-hover: #f1f5f9;
-  --color-dialog-card-border: #cbd5e1;
-  --color-dialog-border: #94a3b8;
+  --color-dialog-header: #f5f6f9;
+  --color-dialog-card: #f7f8fa;
+  --color-dialog-card-hover: #eff1f5;
+  --color-dialog-card-border: rgb(15 23 42 / 0.08);
+  --color-dialog-border: rgb(15 23 42 / 0.1);
   --color-tl-video: transparent;
   --color-tl-image: #eadfff;
   --color-tl-text: #fdecc8;
   --color-tl-element: #fbdcec;
   --color-tl-audio: #d2f2ec;
-  --color-stage: #dfe4ec;
-  --color-preview: #d5dbe5;
+  --color-stage: #e2e4ea;
+  --color-preview: #d9dce3;
   --color-preview-bar: #ffffff;
   --color-scrollbar: rgb(71 85 105 / 0.3);
   --color-scrollbar-hover: rgb(71 85 105 / 0.55);
+  --color-primary: #5b4ce6;
+  --color-primary-hover: #4b3bd6;
+  --color-ai: #0e7490;
+  --color-ai-soft: #dff6fb;
+  --color-overlay: #ffffff;
+  --shadow-float: 0 8px 24px rgb(15 23 42 / 0.12), 0 1px 2px rgb(15 23 42 / 0.08);
   color-scheme: light;
 }
 /* focus ring on the preview area: the dark theme's white ring would vanish on the light grey */
@@ -126,16 +145,16 @@
     outline-color: var(--color-link);
   }
   :root[data-theme="system"] {
-    --color-app: #e9edf4;
-    --color-ink: #0f172a;
-    --color-muted: #475569; /* ≥7:1 on white */
-    --color-canvas: #eef2f7;
+    --color-app: #eceef3;
+    --color-ink: #15171e;
+    --color-muted: #545b6d; /* ≥6.7:1 on white */
+    --color-canvas: #f3f4f7;
     --color-surface: #ffffff;
-    --color-raised: #f3f6fa;
-    --color-line: #d8dee8;
-    --color-control: #7c889e; /* ≥3:1 on white */
-    --color-primary-soft: #e1eaff;
-    --color-link: #1d4ed8;
+    --color-raised: #f2f3f7;
+    --color-line: rgb(15 23 42 / 0.08);
+    --color-control: #868da0; /* ≥3:1 on white */
+    --color-primary-soft: #ebe8ff;
+    --color-link: #4b3bd6;
     --color-on: #16a34a;
     --color-success: #15803d;
     --color-success-soft: #dcfce7;
@@ -144,37 +163,43 @@
     --color-warn-ink: #92400e;
     --color-danger: #dc2626;
     --color-danger-soft: #fee2e2;
-    --color-track: #cbd3df;
-    --color-hover: #e4eaf3;
-    --color-disabled: #cbd5e1;
-    --color-disabled-ink: #475569;
-    --color-soon: #e2e8f0;
-    --color-backdrop: rgb(15 23 42 / 0.35);
+    --color-track: #d9dce5;
+    --color-hover: #e7e9f0;
+    --color-disabled: #d6d9e2;
+    --color-disabled-ink: #545b6d;
+    --color-soon: #e7e9f0;
+    --color-backdrop: rgb(15 17 26 / 0.35);
     --color-dialog-bg: #ffffff;
-    --color-dialog-header: #f1f5f9;
-    --color-dialog-card: #f8fafc;
-    --color-dialog-card-hover: #f1f5f9;
-    --color-dialog-card-border: #cbd5e1;
-    --color-dialog-border: #94a3b8;
+    --color-dialog-header: #f5f6f9;
+    --color-dialog-card: #f7f8fa;
+    --color-dialog-card-hover: #eff1f5;
+    --color-dialog-card-border: rgb(15 23 42 / 0.08);
+    --color-dialog-border: rgb(15 23 42 / 0.1);
     --color-tl-video: transparent;
     --color-tl-image: #eadfff;
     --color-tl-text: #fdecc8;
     --color-tl-element: #fbdcec;
     --color-tl-audio: #d2f2ec;
-    --color-stage: #dfe4ec;
-    --color-preview: #d5dbe5;
+    --color-stage: #e2e4ea;
+    --color-preview: #d9dce3;
     --color-preview-bar: #ffffff;
     --color-scrollbar: rgb(71 85 105 / 0.3);
     --color-scrollbar-hover: rgb(71 85 105 / 0.55);
+    --color-primary: #5b4ce6;
+    --color-primary-hover: #4b3bd6;
+    --color-ai: #0e7490;
+    --color-ai-soft: #dff6fb;
+    --color-overlay: #ffffff;
+    --shadow-float: 0 8px 24px rgb(15 23 42 / 0.12), 0 1px 2px rgb(15 23 42 / 0.08);
     color-scheme: light;
   }
 }
 
-/* In dark mode, selected project and media cards get a crisp 1px thin white border */
+/* In dark mode, selected project and media cards get a crisp 1px border in the primary colour */
 :root:not([data-theme="light"]) [data-project][data-selected="true"],
 :root:not([data-theme="light"]) [data-asset][data-selected="true"] {
   border-width: 1px !important;
-  border-color: rgba(255, 255, 255, 0.85) !important;
+  border-color: var(--color-primary) !important;
   box-shadow: none !important;
   outline: none !important;
 }
@@ -199,8 +224,8 @@
 }
 
 @utility bg-checker-dark {
-  background-color: #1b2233;
-  background-image: repeating-conic-gradient(#232c40 0 25%, transparent 0 50%);
+  background-color: #1a1b22;
+  background-image: repeating-conic-gradient(#24262f 0 25%, transparent 0 50%);
   background-size: 1.25rem 1.25rem;
 }
 
@@ -330,7 +355,7 @@
     border-radius: 9999px;
     background: #ffffff;
     border: 3px solid var(--color-primary);
-    box-shadow: 0 0 0 3px rgb(37 99 235 / 0.25);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
   }
   .range::-moz-range-track {
     height: 0.3rem;
@@ -383,10 +408,11 @@
     color: var(--color-disabled-ink);
     cursor: not-allowed;
   }
+  /* (no outline: the raised tone is the button's shape; a hairline keeps it visible on raised areas) */
   .btn-secondary {
     background: var(--color-raised);
     color: var(--color-ink);
-    border: 1px solid var(--color-control);
+    border: 1px solid var(--color-line);
   }
   .btn-secondary:hover {
     background: var(--color-hover);
@@ -398,8 +424,7 @@
   }
   .card {
     background: var(--color-surface);
-    border: 1px solid var(--color-line);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-lg);
     padding: 1rem;
   }
   .field {
@@ -443,10 +468,10 @@
     border-radius: 0.3rem;
   }
   /* a dark panel with a title bar (inspector cards, preview cards…) */
+  /* (no border: panels float on the darker app background, separated by tone and the gap between them) */
   .panel {
     background: var(--color-surface);
-    border: 1px solid var(--color-line);
-    border-radius: 0.75rem;
+    border-radius: var(--radius-lg);
   }
   .soon {
     font-size: 0.625rem;
@@ -471,7 +496,7 @@
     background: var(--color-danger-soft);
   }
   dialog.VDO-dialog::backdrop {
-    background: rgba(10, 15, 30, 0.78);
+    background: var(--color-backdrop);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }

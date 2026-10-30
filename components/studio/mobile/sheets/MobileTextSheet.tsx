@@ -138,7 +138,7 @@ export function MobileTextSheet({
             className="flex flex-col items-center justify-center gap-1 min-w-[70px] h-16 rounded-xl border border-primary/40 bg-primary/10 text-primary font-semibold hover:bg-primary/20 transition-all active:scale-95 shrink-0"
           >
             <Icon name="plus" className="size-4" />
-            <span className="text-[11px] leading-none">+ Add Text</span>
+            <span className="text-2xs leading-none">+ Add Text</span>
           </button>
 
           {Object.entries(TEXT_PRESETS).map(([id, preset]) => (
@@ -157,7 +157,7 @@ export function MobileTextSheet({
               className="flex flex-col items-center justify-center gap-1 min-w-[70px] h-16 rounded-xl border border-line bg-surface hover:border-primary/50 transition-all active:scale-95 shrink-0 p-1"
             >
               <span className="text-base font-bold text-ink">Aa</span>
-              <span className="text-[10px] text-muted font-medium truncate max-w-full">
+              <span className="text-2xs text-muted font-medium truncate max-w-full">
                 {preset.label}
               </span>
             </button>

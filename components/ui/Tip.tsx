@@ -32,7 +32,7 @@ export function Tip({
   return (
     <span className={`group/tip relative inline-flex ${className}`}>
       {cloneElement(children, { "aria-describedby": id })}
-      <span id={id} role="tooltip" className={`pointer-events-none absolute z-50 hidden w-max max-w-56 rounded-md border border-control bg-surface px-2 py-1 text-[0.6875rem] leading-snug font-normal text-ink shadow-lg ${off ? "" : "group-hover/tip:block group-has-[:focus-visible]/tip:block"} ${at} ${pos}`}>
+      <span id={id} role="tooltip" className={`pointer-events-none absolute z-50 hidden w-max max-w-56 rounded-md border border-control bg-surface px-2 py-1 text-2xs leading-snug font-normal text-ink shadow-lg ${off ? "" : "group-hover/tip:block group-has-[:focus-visible]/tip:block"} ${at} ${pos}`}>
         {text}
       </span>
     </span>

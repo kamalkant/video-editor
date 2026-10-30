@@ -205,7 +205,7 @@ export function SubtitlesPanel(p: {
           <h3 className="flex items-center gap-1.5 text-sm font-semibold">
             Make subtitles {!offline && <GeminiBadge />}
           </h3>
-          <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted cursor-pointer hover:text-ink">
+          <label className="flex items-center gap-1.5 text-2xs text-muted cursor-pointer hover:text-ink">
             <input type="checkbox" checked={offline} onChange={(e) => setOffline(e.target.checked)} className="rounded" />
             <span>Offline sample (Beta)</span>
           </label>
@@ -277,15 +277,15 @@ export function SubtitlesPanel(p: {
             <div key={t.id} className="flex flex-col gap-2 rounded-lg border border-line p-2.5">
               <button type="button" className="flex items-center justify-between gap-2 text-left" onClick={() => p.onSelectTrack(t.id)} title="Show on the timeline">
                 <span className="truncate text-xs font-medium">{t.name}</span>
-                <span className="shrink-0 text-[0.6875rem] text-muted">
+                <span className="shrink-0 text-2xs text-muted">
                   {t.captions.length} lines{t.hidden ? " · hidden" : ""}
                 </span>
               </button>
 
               {/* Styled Caption Presets for Reels & Shorts */}
               <div className="flex flex-col gap-1 rounded border border-line bg-surface/30 p-1.5">
-                <span className="text-[0.6875rem] font-semibold text-muted">Word-by-word look</span>
-                <div className="grid grid-cols-3 gap-1 text-[0.6875rem]">
+                <span className="text-2xs font-semibold text-muted">Word-by-word look</span>
+                <div className="grid grid-cols-3 gap-1 text-2xs">
                   {CAPTION_LOOKS.map((l) => (
                     <button
                       key={l.id}
@@ -325,7 +325,7 @@ export function SubtitlesPanel(p: {
               <div className="flex flex-col gap-1 border-t border-line/40 pt-2">
                 <button
                   type="button"
-                  className="flex items-center gap-1.5 text-[0.6875rem] font-medium text-muted hover:text-ink transition-colors text-left"
+                  className="flex items-center gap-1.5 text-2xs font-medium text-muted hover:text-ink transition-colors text-left"
                   onClick={() => setExpandedTrack((prev) => (prev === t.id ? null : t.id))}
                   aria-expanded={expandedTrack === t.id}
                 >
@@ -348,7 +348,7 @@ export function SubtitlesPanel(p: {
                         className="group flex cursor-pointer items-center justify-between gap-2 rounded px-1.5 py-1 hover:bg-raised transition-colors"
                         title="Click to jump playhead, right-click for options"
                       >
-                        <span className="shrink-0 font-mono text-[0.625rem] text-primary">{formatTime(c.start)}</span>
+                        <span className="shrink-0 font-mono text-2xs text-primary">{formatTime(c.start)}</span>
                         <span className="min-w-0 flex-1 truncate text-ink">{c.text}</span>
                       </div>
                     ))}
@@ -379,7 +379,7 @@ export function SubtitlesPanel(p: {
         <section className="flex flex-col gap-2 rounded-lg border border-line bg-canvas p-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-semibold text-ink">Edit Video by Transcript</h4>
-            <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[0.625rem] font-medium text-primary">Text-based edit</span>
+            <span className="rounded bg-primary-soft px-1.5 py-0.5 text-2xs font-medium text-primary">Text-based edit</span>
           </div>
           <p className="text-xs text-muted">
             Delete spoken words or cut hesitation like &ldquo;um&rdquo; and &ldquo;uh&rdquo; to slice the video directly.
@@ -424,9 +424,9 @@ export function SubtitlesPanel(p: {
         )}
         {chapters.length ? (
           <>
-            <pre className="max-h-40 overflow-auto rounded-md border border-line bg-canvas p-2 text-[0.6875rem] leading-relaxed whitespace-pre-wrap">{yt.text}</pre>
+            <pre className="max-h-40 overflow-auto rounded-md border border-line bg-canvas p-2 text-2xs leading-relaxed whitespace-pre-wrap">{yt.text}</pre>
             {yt.problems.map((msg) => (
-              <p key={msg} className="text-[0.6875rem] text-amber-500">
+              <p key={msg} className="text-2xs text-amber-500">
                 {msg}
               </p>
             ))}

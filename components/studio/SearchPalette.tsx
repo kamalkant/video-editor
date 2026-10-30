@@ -156,7 +156,7 @@ function Body({
                 {h && (
                   <div
                     role="presentation"
-                    className="px-2.5 pb-1 pt-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted"
+                    className="px-2.5 pb-1 pt-2 text-2xs font-semibold uppercase tracking-wide text-muted"
                   >
                     {h}
                   </div>
@@ -186,7 +186,7 @@ function Body({
                     )}
                   </span>
                   {typed && (
-                    <span className="shrink-0 text-[0.6875rem] text-muted">
+                    <span className="shrink-0 text-2xs text-muted">
                       {c.group}
                     </span>
                   )}
@@ -197,7 +197,7 @@ function Body({
           })}
         </ul>
       )}
-      <p className="flex gap-3 border-t border-line px-3 py-1.5 text-[0.6875rem] text-muted max-sm:hidden">
+      <p className="flex gap-3 border-t border-line px-3 py-1.5 text-2xs text-muted max-sm:hidden">
         <span>↑ ↓ to move</span>
         <span>Enter to use</span>
         <span>Esc to close</span>

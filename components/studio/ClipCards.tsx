@@ -1775,7 +1775,8 @@ export function ClipInspector(
   return (
     <section
       aria-labelledby="clip-card-title"
-      className="panel flex min-h-0 flex-col overflow-hidden"
+      // (overflow-clip, not hidden: hidden makes this its own scroll box and the sticky header scrolled away)
+      className="panel flex min-h-0 flex-col overflow-clip"
       data-testid="clip-inspector"
     >
       {/* the header and the tabs stay in sight while the settings scroll */}

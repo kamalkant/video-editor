@@ -66,7 +66,7 @@ export type MobileStudioLayoutProps = {
   onAutoSubtitles?: () => void;
   onGenerateScript?: () => void;
   onSetAspectRatio?: (ratio: "16:9" | "9:16" | "1:1" | "4:5" | "21:9") => void;
-  onOpenPanel?: (panel: "library" | "media" | "templates" | "brand" | "background" | "subtitles") => void;
+  onOpenPanel?: (panel: "library" | "media" | "templates" | "brand" | "background" | "subtitles" | "elements") => void;
   onPatchClip?: (clipId: string, patch: any) => void;
 };
 
@@ -253,7 +253,7 @@ export function MobileStudioLayout({
             onApplyTransition={onApplyTransition}
             onRemoveTransition={onRemoveTransition}
             onApplyEffect={onApplyEffect}
-            onOpenElements={() => onOpenPanel("library")}
+            onOpenElements={() => onOpenPanel("elements")}
             onOpenAiTools={() => setActiveTab("ai")}
           />
         )}

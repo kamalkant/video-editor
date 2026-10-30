@@ -320,7 +320,7 @@ export function UniversalAiTooltip({
                     setReferenceImage(null);
                     setReferenceAssetId(null);
                   }}
-                  className="absolute top-1 right-1 flex size-4.5 items-center justify-center rounded-full bg-surface/85 text-white hover:bg-hover shadow-xs"
+                  className="absolute top-1 right-1 flex size-4.5 items-center justify-center rounded-full bg-surface/85 text-ink hover:bg-hover shadow-xs"
                   title="Remove image"
                 >
                   <Icon name="close" className="size-3" />

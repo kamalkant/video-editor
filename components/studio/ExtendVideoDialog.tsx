@@ -92,7 +92,7 @@ export function ExtendVideoDialog(p: {
                   onClick={() => setExtensionSec(sec)}
                   className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition-all ${
                     extensionSec === sec
-                      ? "border-primary bg-primary/20 text-white shadow-sm"
+                      ? "border-primary bg-primary/20 text-ink shadow-sm"
                       : "border-line bg-raised text-muted hover:text-ink"
                   }`}
                 >

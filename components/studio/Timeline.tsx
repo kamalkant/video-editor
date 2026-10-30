@@ -3290,7 +3290,7 @@ export function Timeline(p: TimelineProps) {
                               <button
                                 type="button"
                                 data-testid="insert-blank"
-                                aria-label="Add a blank scene or right-click to generate with AI"
+                                aria-label="Add a blank scene at the end of Video 1"
                                 title="Click to add blank scene • Right-click to generate with AI"
                                 onPointerDown={(e) => e.stopPropagation()}
                                 onClick={() => p.onInsertBlank!(n)}
@@ -4029,6 +4029,15 @@ function ClipBlock(p: {
           className={`pointer-events-none absolute left-4 right-4 top-0.5 z-[5] truncate text-2xs font-medium leading-tight ${isLight ? "text-teal-950" : "text-white/85"}`}
         >
           {label}
+        </span>
+      )}
+      {/* a text or element clip shows its words / name (as in Clipchamp), not only its length */}
+      {(c.type === "text" || c.type === "element") && p.width > 48 && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-4 right-4 top-1/2 z-[5] -translate-y-1/2 truncate text-2xs font-medium leading-tight text-ink"
+        >
+          {label.replace(/\s+/g, " ")}
         </span>
       )}
       {/* a sound still uploading has no waveform yet, a video no frame yet: a shimmer says it's coming */}

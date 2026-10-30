@@ -1532,6 +1532,27 @@ export function ProgramPlayer(p: {
       onPointerDown={(e) => e.stopPropagation()}
       className="flex shrink-0 items-center gap-1.5"
     >
+      {/* what dragging the box's handles does: move & size, slant (skew), or move one corner (perspective) */}
+      <span className="flex items-center gap-0.5 rounded-md bg-raised p-0.5">
+        {(
+          [
+            ["transform", "Transform", "Move, size and turn"],
+            ["skew", "Skew", "Slant it: drag a side"],
+            ["perspective", "Perspective", "Move one corner on its own"],
+          ] as const
+        ).map(([m, label, tip]) => (
+          <button
+            key={m}
+            type="button"
+            aria-pressed={tmode === m}
+            title={tip}
+            onClick={() => setTmode(m)}
+            className={`h-6 rounded px-2 text-2xs font-medium transition-colors ${tmode === m ? "bg-primary text-white" : "text-muted hover:text-ink"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </span>
       {hasShapeMod && (
         <button
           type="button"
@@ -2205,6 +2226,7 @@ export function ProgramPlayer(p: {
               <div
                 data-testid="selection-box"
                 data-mode={tmode}
+                data-rotation={Math.round(selRect.rot ?? 0)}
                 role="group"
                 tabIndex={0}
                 aria-label={`${selName} selected. ${selLocked ? "Its track is locked." : selLayer.clip.type === "text" ? "Drag to move, drag a corner or a side to resize, drag rotation handle or corners to turn. Arrow keys move it, plus and minus resize, [ and ] turn." : selLayer.clip.type === "element" ? "Drag to move, drag a corner to resize, drag a side to stretch, drag rotation handle or corners to turn. Arrow keys move it, plus and minus resize, [ and ] turn." : "Drag to move, drag a corner or a side to resize, drag rotation handle or corners to turn. Arrow keys move it, plus and minus resize, [ and ] turn."}`}

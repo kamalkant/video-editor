@@ -103,11 +103,11 @@ test("local-first: an imported clip shows its first frame at once and plays from
   expect(downloads.filter((d) => d.id === id)).toEqual([]);
   expect(puts).toEqual([]);
 
-  // 4. the export runs on the server: starting it sends the file first, then the video is made
+  // 4. the export: made in this browser when it can (WebCodecs; then the file never leaves this computer),
+  // else on the server after sending the file first. Either way the video is made.
   await page.getByTestId("export-button").click();
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
-  await expect.poll(() => puts.some((u) => u.endsWith(id)), { timeout: 30_000 }).toBe(true);
   await expect(page.getByTestId("export-button")).toContainText("Export ✓", { timeout: 120_000 });
 });
 

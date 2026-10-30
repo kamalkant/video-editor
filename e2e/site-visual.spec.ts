@@ -4,6 +4,10 @@ import { expect, test, type Page } from "@playwright/test";
 // what it downloads up front, reduced motion, and how many videos play at once.
 test.use({ storageState: { cookies: [], origins: [] } });
 
+// The website moved to viplay.in (its own app); here "/" opens the editor (next.config.ts redirects). These
+// checks belong with the website now.
+test.skip(true, "the marketing website is viplay.in now, not this app");
+
 const playingVideos = (page: Page) => page.evaluate(() => [...document.querySelectorAll("video")].filter((v) => !v.paused && !v.ended).length);
 
 for (const width of [390, 768, 1440]) {

@@ -130,7 +130,7 @@ export function SmartCropDialog(p: {
                   onClick={() => setFormat(f.id)}
                   className={`flex flex-col items-start rounded-xl border p-3 text-left transition-all ${
                     active
-                      ? "border-primary bg-primary/15 text-white shadow-md ring-1 ring-primary"
+                      ? "border-primary bg-primary/15 text-ink shadow-md ring-1 ring-primary"
                       : "border-line bg-raised text-muted hover:border-line hover:bg-hover"
                   }`}
                 >
@@ -158,7 +158,7 @@ export function SmartCropDialog(p: {
                 onClick={() => setFocus(st.id)}
                 className={`rounded-xl border p-2 text-center transition-all ${
                   focus === st.id
-                    ? "border-primary bg-primary/20 text-white font-semibold shadow-sm"
+                    ? "border-primary bg-primary/20 text-ink font-semibold shadow-sm"
                     : "border-line bg-raised text-muted hover:text-ink"
                 }`}
               >

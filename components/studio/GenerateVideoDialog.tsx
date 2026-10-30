@@ -237,7 +237,7 @@ function Body(p: Parameters<typeof GenerateVideoDialog>[0]) {
                     onClick={() => setMotionStrength(lvl)}
                     className={`rounded px-2 py-0.5 text-2xs font-medium capitalize transition-all ${
                       motionStrength === lvl
-                        ? "bg-purple-600 text-white"
+                        ? "bg-purple-600 text-ink"
                         : "bg-raised text-muted hover:text-ink"
                     }`}
                   >
@@ -367,10 +367,12 @@ function Body(p: Parameters<typeof GenerateVideoDialog>[0]) {
                 <button
                   key={s}
                   type="button"
+                  aria-pressed={len === s}
+                  aria-label={`${s} seconds`}
                   onClick={() => setSeconds(s)}
                   className={`flex-1 rounded-xl border py-2 text-xs font-medium transition-all ${
                     len === s
-                      ? "border-primary bg-primary-soft text-white shadow-sm"
+                      ? "border-primary bg-primary-soft text-ink shadow-sm"
                       : "border-line bg-surface/40 text-muted hover:text-ink"
                   }`}
                 >

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { makeBlackBgClip, makeSyntheticClip } from "../tests/fixtures";
 
@@ -34,6 +34,16 @@ export default function globalSetup() {
   if (!existsSync(join(FIX, "clip.mkv")))
     execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=s=640x360:r=25:d=2", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", join(FIX, "clip.mkv")]);
   writeFileSync(join(FIX, "broken.mov"), "this is not a video either\n");
+  // a font file for the Brand Kit (any TrueType font: the kit names it after the file)
+  if (!existsSync(join(FIX, "Georgia.ttf"))) {
+    const font = [
+      "/System/Library/Fonts/Supplemental/Georgia.ttf",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+      "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+      "C:\\Windows\\Fonts\\georgia.ttf",
+    ].find((f) => existsSync(f));
+    if (font) copyFileSync(font, join(FIX, "Georgia.ttf"));
+  }
   // a website-like picture for the "Image" preview background
   if (!existsSync(join(FIX, "site.png")))
     execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=s=1280x720", "-frames:v", "1", join(FIX, "site.png")]);

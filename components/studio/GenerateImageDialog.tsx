@@ -158,10 +158,11 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
               <button
                 key={q}
                 type="button"
+                aria-pressed={active}
                 onClick={() => setQuality(q)}
                 className={`rounded-lg border px-2.5 py-1 text-xs transition-all ${
                   active
-                    ? "border-primary bg-primary/20 font-semibold text-white shadow-sm"
+                    ? "border-primary bg-primary/20 font-semibold text-ink shadow-sm"
                     : "border-line bg-raised text-muted hover:text-ink"
                 }`}
               >
@@ -215,7 +216,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
                     type="button"
                     onClick={() => setChipTab(t)}
                     className={`rounded px-2 py-0.5 capitalize transition-colors ${
-                      chipTab === t ? "bg-raised text-white font-medium" : "text-muted hover:text-ink"
+                      chipTab === t ? "bg-raised text-ink font-medium" : "text-muted hover:text-ink"
                     }`}
                   >
                     {t}
@@ -321,7 +322,7 @@ function Body(p: Parameters<typeof GenerateImageDialog>[0]) {
                   </button>
                   <button
                     type="button"
-                    className="rounded-xl border border-line bg-raised px-3 py-2 text-xs font-semibold text-white hover:bg-hover transition-all flex items-center justify-center gap-1.5"
+                    className="rounded-xl border border-line bg-raised px-3 py-2 text-xs font-semibold text-ink hover:bg-hover transition-all flex items-center justify-center gap-1.5"
                     onClick={() => p.onAddToTimeline(made)}
                   >
                     <Icon name="plus" className="size-3.5" />

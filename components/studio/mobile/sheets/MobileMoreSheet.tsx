@@ -6,7 +6,7 @@ import type { TimelineDoc } from "@/lib/edit/doc";
 export type MobileMoreSheetProps = {
   doc: TimelineDoc;
   onSetAspectRatio?: (ratio: "16:9" | "9:16" | "1:1" | "4:5" | "21:9") => void;
-  onOpenPanel: (panel: "library" | "media" | "templates" | "brand" | "background" | "subtitles") => void;
+  onOpenPanel: (panel: "library" | "media" | "templates" | "brand" | "background" | "subtitles" | "elements") => void;
 };
 
 const ASPECT_RATIOS: { id: "16:9" | "9:16" | "1:1" | "4:5" | "21:9"; label: string; desc: string }[] = [
@@ -17,8 +17,9 @@ const ASPECT_RATIOS: { id: "16:9" | "9:16" | "1:1" | "4:5" | "21:9"; label: stri
   { id: "21:9", label: "21:9", desc: "Cinema" },
 ];
 
-const MORE_TOOLS: { id: "library" | "media" | "templates" | "brand" | "background" | "subtitles"; label: string; icon: IconName }[] = [
+const MORE_TOOLS: { id: "library" | "media" | "templates" | "brand" | "background" | "subtitles" | "elements"; label: string; icon: IconName }[] = [
   { id: "media", label: "My Assets", icon: "media" },
+  { id: "elements", label: "Elements & Stickers", icon: "elements" },
   { id: "library", label: "Stock Library", icon: "library" },
   { id: "templates", label: "Templates", icon: "templates" },
   { id: "brand", label: "Brand Kit", icon: "brand" },

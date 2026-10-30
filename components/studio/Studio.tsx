@@ -830,6 +830,8 @@ function StudioInner(props: Props) {
   );
   /** The left panel last open (Ctrl+Alt+1 brings it back). */
   const lastLeft = useRef<SidePanel | null>(null);
+  /** Phones: a panel opened from the More / Text sheets, shown full screen over the editor. */
+  const [mobileSheet, setMobileSheet] = useState(false);
   const [phoneTab, setPhoneTab] = useState<PanelId>(
     hasClips ? "edit" : "media",
   );
@@ -4829,36 +4831,8 @@ function StudioInner(props: Props) {
         case "ArrowUp":
         case "ArrowDown": {
           if (onControl) return;
-          if (
-            selected &&
-            !selected.track.locked &&
-            (selected.clip.type === "text" ||
-              selected.clip.type === "element" ||
-              selected.clip.type === "image" ||
-              selected.clip.type === "video")
-          ) {
-            e.preventDefault();
-            const step = e.shiftKey ? 0.05 : 0.005;
-            const c = selected.clip;
-            const t = clock.get();
-            const start = clipStart(doc, c.id);
-            const t0 = hasKeys(c)
-              ? transformAt(c as MotionClip, t - start)
-              : c.transform;
-            let next: Partial<Transform> | null = null;
-            if (e.key === "ArrowLeft") next = { x: t0.x - step };
-            else if (e.key === "ArrowRight") next = { x: t0.x + step };
-            else if (e.key === "ArrowUp") next = { y: t0.y - step };
-            else if (e.key === "ArrowDown") next = { y: t0.y + step };
-            if (next) {
-              editAtPlayhead(
-                c.id,
-                { transform: next },
-                `preview:nudge:${c.id}`,
-              );
-            }
-            return;
-          }
+          // (the selected clip moves with the arrows when its box on the preview has the focus: ProgramPlayer
+          // nudge; anywhere else the arrows step frames, as in every editor)
           if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
             e.preventDefault();
             pl?.pause();
@@ -10172,6 +10146,20 @@ function StudioInner(props: Props) {
 
   if (isMobile) {
     return (
+      <>
+      {mobileSheet && side && (
+        <div role="dialog" aria-modal="true" aria-labelledby="side-title" className="anim-rise fixed inset-0 z-50 flex flex-col bg-surface">
+          <button
+            type="button"
+            onClick={() => setMobileSheet(false)}
+            aria-label="Close panel"
+            className="absolute right-2 top-1.5 z-10 flex size-9 items-center justify-center rounded-md text-muted hover:bg-hover hover:text-ink"
+          >
+            <Icon name="close" className="size-4" />
+          </button>
+          <div className="min-h-0 flex-1 overflow-y-auto">{side}</div>
+        </div>
+      )}
       <MobileStudioLayout
         doc={doc}
         clock={clock}
@@ -10247,7 +10235,7 @@ function StudioInner(props: Props) {
         }}
         onRemoveBackground={(clipId) => {
           setSelectedId(clipId);
-          setInspTab("removal");
+          setInspTab("background");
         }}
         onAutoSubtitles={() => {
           showPanel("subtitles");
@@ -10272,7 +10260,9 @@ function StudioInner(props: Props) {
           if (panel === "templates") {
             setWorkspaceView("templates");
           } else {
-            showPanel(panel as SidePanel);
+            // (phones: the panel opens as a full-screen sheet over the editor; it showed nothing before)
+            setPhoneTab(panel as SidePanel);
+            setMobileSheet(true);
           }
         }}
         onPatchClip={(clipId, patch) => {
@@ -10282,6 +10272,7 @@ function StudioInner(props: Props) {
           );
         }}
       />
+      </>
     );
   }
 

@@ -24,6 +24,30 @@ async function downloadBytes(page: Page, href: string): Promise<Buffer> {
   return Buffer.from(b64, "base64");
 }
 
+/** A saved project: projects are kept in this browser (IndexedDB, lib/storage/db), the server only knows synced ones. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function savedProject(page: Page, id: string | null): Promise<any> {
+  const local = await page.evaluate(
+    (pid) =>
+      new Promise((resolve) => {
+        const req = indexedDB.open("VDO_local_first_db");
+        req.onerror = () => resolve(null);
+        req.onsuccess = () => {
+          try {
+            const get = req.result.transaction("projects", "readonly").objectStore("projects").get(pid as string);
+            get.onsuccess = () => resolve(get.result ?? null);
+            get.onerror = () => resolve(null);
+          } catch {
+            resolve(null);
+          }
+        };
+      }),
+    id,
+  );
+  if (local) return local;
+  return (await page.request.get(`/api/projects/${id}`)).json();
+}
+
 /** The clip's Transform numbers (folded under "Advanced position & size" until opened). */
 async function transformPanel(page: Page): Promise<Locator> {
   const panel = page.getByTestId("transform-panel");
@@ -157,6 +181,8 @@ test.describe.serial("one-screen studio", () => {
     await upload(page);
     // the new clip plays in the program view with its background kept
     await expect(page.getByTestId("program-caption")).toBeVisible();
+    // (removal is on the clip's Cutout tab; a new clip opens on Adjust)
+    await inspTab(page, "Cutout");
     await expect(page.getByTestId("remove-found")).toBeVisible();
     // a project is made for the new video and saved
     await expect(page).toHaveURL(/\?p=[0-9a-f-]{36}$/);
@@ -521,7 +547,7 @@ test("clicking the logo starts over with default settings", async ({
   await expect(
     page.getByRole("heading", { name: "No video loaded" }),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/editor$/);
   await expect(page.getByRole("button", { name: "Undo" })).toBeDisabled();
   expect(
     await page.evaluate(() => localStorage.getItem("VDO:v2:last")),
@@ -554,8 +580,7 @@ test("background removal can be switched off and on", async ({ page }) => {
   await expect(
     page
       .getByRole("dialog")
-      .getByTestId("export-formats")
-      .getByRole("group", { name: "See-through video (alpha)" }),
+      .getByTestId("export-formats"),
   ).toContainText("Turn on Background removal");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toBeHidden();
@@ -578,8 +603,10 @@ test("one preview: Result and Original (no side by side), and picking works on t
   const stage = page.getByTestId("preview-stage");
   const b = (await stage.boundingBox())!;
   expect(b.width / b.height).toBeCloseTo(1280 / 720, 1);
-  await expect(page.getByTestId("exact-frame")).toBeVisible();
-  const img = (await page.getByTestId("exact-frame").boundingBox())!;
+  // (a file kept on this computer shows the result live on the GPU; the server's exact frame is for uploaded ones)
+  const result = page.getByTestId("live-canvas");
+  await expect(result).toBeVisible();
+  const img = (await result.boundingBox())!;
   expect(Math.abs(img.x - b.x)).toBeLessThan(2); // the result fills the preview
   await page.getByRole("radio", { name: "Original" }).check({ force: true });
   await expect(page.getByTestId("preview-caption")).toContainText(
@@ -655,6 +682,7 @@ test("a fire-on-black clip starts in Black background mode and the black turns s
 }) => {
   await page.goto("/");
   await upload(page, "fire.mp4");
+  await inspTab(page, "Cutout");
   // it keeps its background until you say "Remove it" (then the Black background button is the pressed one)
   await expect(
     page.getByRole("switch", { name: "Background removal" }),
@@ -704,6 +732,7 @@ test("a clip without a green screen says so (a warning icon with its tip, next t
 }) => {
   await page.goto("/");
   await upload(page, "grey.mp4");
+  await inspTab(page, "Cutout");
   const hint = page.getByTestId("no-key-hint");
   await expect(hint).toHaveAccessibleName(
     "No green or blue background found: use AI Removal",
@@ -719,6 +748,7 @@ test("background type: clicking the already-highlighted type switches removal on
 }) => {
   await page.goto("/");
   await upload(page);
+  await inspTab(page, "Cutout");
   const sw = page.getByRole("switch", { name: "Background removal" });
   await expect(sw).toHaveAttribute("aria-checked", "false");
   const green = page.getByRole("button", {
@@ -847,6 +877,7 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
   );
   // (after opening a project nothing is selected: the clip's settings show once it's clicked)
   await selectFirstVideo(page);
+  await inspTab(page, "Cutout");
   await expect(
     page.getByRole("textbox", { name: "Edge softness", includeHidden: true }),
   ).toHaveValue("0.21");
@@ -854,7 +885,7 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
   // New project → empty editor; the old one is in Projects and opens again
   await openPanel(page, "Projects");
   await page.getByRole("button", { name: "New project" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/editor$/);
   await expect(
     page.getByRole("heading", { name: "No video loaded" }),
   ).toBeVisible();
@@ -862,6 +893,7 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
   await page.getByRole("button", { name: "Open News anchor intro" }).click();
   await expect(page).toHaveURL(url);
   await selectFirstVideo(page);
+  await inspTab(page, "Cutout");
   await expect(
     page.getByRole("textbox", { name: "Edge softness", includeHidden: true }),
   ).toHaveValue("0.21");
@@ -1595,7 +1627,7 @@ test("AI Tools: every tool is shown; ready ones work on the clip; Text to Speech
   ).toHaveCount(1);
   await page
     .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "AI Tools" })
+    .getByRole("button", { name: "AI", exact: true })
     .click();
   const panel = page.getByTestId("ai-tools");
   await expect(panel).toBeVisible();
@@ -1635,7 +1667,7 @@ test("AI Tools: every tool is shown; ready ones work on the clip; Text to Speech
   // Remove Silences opens its dialog
   await page
     .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "AI Tools" })
+    .getByRole("button", { name: "AI", exact: true })
     .click();
   await panel.locator('[data-tool="silences"]').click();
   await expect(
@@ -1849,7 +1881,7 @@ test("Easy: Replace background with a studio set, and an MP4 at Shorts size", as
   ).toBe("1080,1920");
   // the project itself is still 1280 × 720
   const pid = new URL(page.url()).searchParams.get("p")!;
-  const proj = await (await page.request.get(`/api/projects/${pid}`)).json();
+  const proj = await savedProject(page, pid);
   expect([
     proj.project?.doc?.canvas?.width ?? proj.doc?.canvas?.width,
     proj.project?.doc?.canvas?.height ?? proj.doc?.canvas?.height,
@@ -1929,7 +1961,8 @@ test("preview ratio can be switched or typed; tracks can be renamed and the name
   await page.getByRole("radio", { name: "Program" }).check({ force: true });
   const ratio = page.getByRole("button", { name: /^Aspect ratio/ });
   await ratio.click();
-  await page.getByRole("button", { name: "9:16", exact: true }).click();
+  // (the preview's ratio menu; the clip's crop has its own 9:16 button)
+  await page.getByTitle("9:16 · Reels, Shorts, Stories").click();
   await expect(page.getByTestId("program-caption")).toContainText(
     "1080 × 1920",
   );
@@ -2321,7 +2354,7 @@ test("Medium: Brand Kit logo shows on the preview; a font and brand colors are r
   ).toBeVisible();
   await panel
     .getByTestId("brand-font-input")
-    .setInputFiles("/System/Library/Fonts/Supplemental/Georgia.ttf");
+    .setInputFiles(join(FIX, "Georgia.ttf"));
   await expect(panel.getByText("Georgia", { exact: true })).toBeVisible({
     timeout: 20_000,
   });
@@ -2346,7 +2379,7 @@ test("Medium: Brand Kit logo shows on the preview; a font and brand colors are r
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   expect(proj.doc.watermark.corner).toBe("bl");
   // clean up the shared Brand Kit for other tests
   const kit = await (await page.request.get("/api/brand")).json();
@@ -2363,6 +2396,7 @@ test("Medium: a template makes a new project; the music library adds starter sou
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Templates", exact: true })
     .click();
+  await page.getByRole("button", { name: "Browse all templates" }).click();
   await page
     .getByTestId("template-hub")
     .getByRole("button", { name: "Use template Breaking news", exact: true })
@@ -2665,14 +2699,14 @@ test("Gemini pictures (pretend Gemini): a background behind everything, a pictur
   // Background panel → Describe a background
   await openPanel(page, "Background");
   await page.getByTestId("describe-background").click();
-  const dlg = page.getByRole("dialog", { name: /Generate background/ });
+  const dlg = page.getByRole("dialog", { name: /Background Studio/ });
   await dlg
-    .getByRole("textbox", { name: /Describe it/ })
+    .getByRole("textbox", { name: /Visual Prompt/ })
     .fill("a modern news studio");
   await expect(dlg.getByTestId("generate-image-button")).toContainText(
     "~$0.10",
   );
-  await dlg.getByRole("radio", { name: /Quick/ }).click();
+  await dlg.getByRole("button", { name: /^Quick/ }).click();
   await expect(dlg.getByTestId("generate-image-button")).toContainText(
     "~$0.03",
   );
@@ -2680,13 +2714,13 @@ test("Gemini pictures (pretend Gemini): a background behind everything, a pictur
   await expect(dlg.getByTestId("generated-image")).toBeVisible({
     timeout: 30_000,
   });
-  await dlg.getByRole("button", { name: "Use as background" }).click();
+  await dlg.getByRole("button", { name: "Set as Background" }).click();
   await expect(dlg).toBeHidden();
   await expect(page.getByTestId("save-state")).toHaveText("✓ Saved", {
     timeout: 15_000,
   });
   const pid = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${pid}`)).json();
+  const proj = await savedProject(page, pid);
   expect(proj.doc.canvas.backdrop.kind).toBe("media");
   const assets = await (await page.request.get("/api/videos")).json();
   const made = (assets.videos ?? assets).find(
@@ -2696,16 +2730,16 @@ test("Gemini pictures (pretend Gemini): a background behind everything, a pictur
   // AI Tools → Generate Image → Add to timeline
   await page
     .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "AI Tools" })
+    .getByRole("button", { name: "AI", exact: true })
     .click();
   await page.getByTestId("ai-tools").locator('[data-tool="gen-image"]').click();
-  const img = page.getByRole("dialog", { name: /Generate image/ });
+  const img = page.getByRole("dialog", { name: /Image Studio/ });
   await img
-    .getByRole("textbox", { name: /Describe it/ })
+    .getByRole("textbox", { name: /Visual Prompt/ })
     .fill("a map of India");
   await img.getByTestId("generate-image-button").click();
   await img
-    .getByRole("button", { name: "Add to timeline" })
+    .getByRole("button", { name: "Add to Timeline" })
     .click({ timeout: 30_000 });
   await expect(
     page.getByTestId("lane-overlay").getByTestId("timeline-clip").first(),
@@ -2731,42 +2765,41 @@ test("Gemini voice and Veo video (pretend Gemini): a voiceover, and a generated 
     .getByTestId("audio-library")
     .getByRole("button", { name: "Text to speech" })
     .click();
-  const tts = page.getByRole("dialog", { name: "Text to Speech" });
-  await tts.getByRole("radio", { name: /Gemini voices/ }).click();
+  // (the Voiceover Studio: Gemini voices, a persona, the script, Generate, then Insert)
+  const tts = page.getByRole("dialog", { name: /Voiceover Studio/ });
+  await tts.getByRole("radio", { name: /Gemini Neural Voices/ }).click();
+  await tts.getByRole("button", { name: /Puck/ }).first().click();
   await tts
-    .getByRole("combobox", { name: "Gemini voice" })
-    .selectOption("Puck");
-  await tts
-    .getByRole("textbox", { name: "Script" })
+    .getByRole("textbox", { name: "Voiceover Script" })
     .fill("Breaking news from the city.");
-  await tts.getByRole("button", { name: /Make voice/ }).click();
+  await tts.getByRole("button", { name: /Generate Voiceover/ }).click();
   await expect(tts.getByTestId("tts-result")).toBeVisible({ timeout: 30_000 });
-  await tts.getByRole("button", { name: "Add to timeline" }).click();
+  await tts.getByRole("button", { name: /Insert onto Timeline/ }).click();
   await expect(
     page.getByTestId("lane-audio").getByTestId("timeline-clip").first(),
   ).toHaveAttribute("title", /Voice \(Puck\) - Breaking news/);
   // AI Tools → Generate Video: price on the button, progress, then the clip
   await page
     .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "AI Tools" })
+    .getByRole("button", { name: "AI", exact: true })
     .click();
   await page.getByTestId("ai-tools").locator('[data-tool="gen-video"]').click();
-  const veo = page.getByRole("dialog", { name: /Generate video/ });
+  const veo = page.getByRole("dialog", { name: /Veo Studio/ });
   await veo
-    .getByRole("textbox", { name: "Describe the video" })
+    .getByRole("textbox", { name: "Describe the video scene" })
     .fill("a sunset over the sea");
   await expect(veo.getByTestId("generate-video-button")).toContainText(
     "~$0.80",
   );
   await veo.getByRole("radio", { name: /Lite/ }).click();
-  await veo.getByRole("combobox", { name: "Length" }).selectOption("4");
+  await veo.getByRole("button", { name: "4 seconds" }).click();
   await expect(veo.getByTestId("generate-video-button")).toContainText(
     "~$0.20",
   );
   await veo.getByTestId("generate-video-button").click();
   await expect(veo.getByTestId("veo-working")).toBeVisible();
   await expect(veo.getByTestId("veo-ready")).toBeVisible({ timeout: 60_000 });
-  await veo.getByRole("button", { name: "Add to the end of Video 1" }).click();
+  await veo.getByRole("button", { name: /Add to End of Video 1/ }).click();
   await expect(
     page.getByTestId("lane-main").getByTestId("timeline-clip"),
   ).toHaveCount(2);
@@ -2785,7 +2818,7 @@ test("AI settings: add, switch off and remove an API key; the Gemini features fo
   ).toHaveCount(1);
   await page
     .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "AI Tools" })
+    .getByRole("button", { name: "AI", exact: true })
     .click();
   await page.getByTestId("ai-settings-button").click();
   const dlg = page.getByRole("dialog", { name: "API keys" });
@@ -2813,7 +2846,7 @@ test("AI settings: add, switch off and remove an API key; the Gemini features fo
   );
   await page.keyboard.press("Escape");
   await page.getByTestId("ai-tools").locator('[data-tool="gen-image"]').click();
-  const img = page.getByRole("dialog", { name: /Generate image/ });
+  const img = page.getByRole("dialog", { name: /Image Studio/ });
   await expect(img.getByTestId("gemini-key-card")).toContainText(
     "Gemini is switched off",
   );
@@ -2834,7 +2867,7 @@ test("AI settings: add, switch off and remove an API key; the Gemini features fo
   await page.getByTestId("ai-tools").locator('[data-tool="gen-video"]').click();
   await expect(
     page
-      .getByRole("dialog", { name: /Generate video/ })
+      .getByRole("dialog", { name: /Veo Studio/ })
       .getByTestId("gemini-key-card"),
   ).toContainText("Add your Gemini key");
   await page.keyboard.press("Escape");
@@ -3133,7 +3166,7 @@ test("Logo: a picture dropped on the preview lands logo-sized, where it was drop
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   type C = {
     type: string;
     start?: number;
@@ -3193,7 +3226,7 @@ test("Brand Kit logo: click it on the preview and drag it anywhere (saved); a co
       timeout: 15_000,
     });
     const id = new URL(page.url()).searchParams.get("p");
-    return (await (await page.request.get(`/api/projects/${id}`)).json()).doc
+    return (await savedProject(page, id)).doc
       .watermark;
   };
   await expect.poll(async () => (await saved())?.x).toBe(0.5);
@@ -3322,26 +3355,24 @@ test("timeline: dragging a file shows a shadow where it lands; dragging a Video 
   await expect(main.nth(0)).toHaveAttribute("title", /grey/);
 });
 
-test("timeline follows the playing playhead smoothly (no page jumps); scrolling yourself stops it; the rail starts Media, Projects, Brand Kit", async ({
+test("timeline follows the playing playhead smoothly (no page jumps); scrolling yourself stops it; the rail lists what you add", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(
     page.getByRole("navigation", { name: "Panels" }).getByRole("button"),
   ).toHaveText([
+    // (what you add to the video; projects are in the project menu, settings on the right)
     /Media/,
-    /Projects/,
-    /Brand Kit/,
-    /Edit/,
-    /Background/,
-    /AI Tools/,
-    /Elements/,
     /Text/,
-    /Effects/,
-    /Transitions/,
+    /Elements/,
     /Audio/,
-    /Subtitles/,
+    /Captions/,
+    /Transitions/,
+    /Effects/,
     /Templates/,
+    /Brand Kit/,
+    /^AI$/,
   ]);
   await upload(page);
   const main = page.getByTestId("lane-main").getByTestId("timeline-clip");
@@ -3473,7 +3504,7 @@ test("keyframes: ◆ at the playhead; a change later adds one and the clip glide
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   const saved = proj.doc.tracks
     .flatMap(
       (t: {
@@ -3574,7 +3605,7 @@ test("Brand Kit logo: a box in a brand color, rounded corners, a part of the vid
       timeout: 15_000,
     });
     const id = new URL(page.url()).searchParams.get("p");
-    return (await (await page.request.get(`/api/projects/${id}`)).json()).doc
+    return (await savedProject(page, id)).doc
       .watermark;
   };
   await expect.poll(async () => (await saved())?.plate?.pad).toBe(0.15);
@@ -3621,7 +3652,7 @@ test("Text: more styles (with effects and new animations); Transitions: wipes, c
   const card = page.getByRole("region", { name: "Text", exact: true });
   await expect(
     card.getByRole("textbox", { name: "Text", exact: true }),
-  ).toHaveValue("SUBSCRIBE");
+  ).toHaveText("SUBSCRIBE");
   await expect(card.getByRole("combobox", { name: "Comes in" })).toHaveValue(
     "pop",
   );
@@ -3654,7 +3685,7 @@ test("Text: more styles (with effects and new animations); Transitions: wipes, c
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   expect(JSON.stringify(proj.doc)).toContain('"wipeLeft"');
   expect(JSON.stringify(proj.doc)).toContain('"typewriter"');
 });
@@ -3690,7 +3721,7 @@ test("an empty timeline: the first thing dropped starts at 0", async ({
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   const clip = proj.doc.tracks.flatMap(
     (t: { clips: { start?: number }[] }) => t.clips,
   )[0];
@@ -3772,7 +3803,7 @@ test("top bar: no second panel menu; ⌘K Search tools runs tools and opens pane
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   expect(proj.doc.canvas).toMatchObject({ width: 1080, height: 1920, fps: 25 });
 
   // AI status: test mode here; a click opens API keys (the key itself is never on the page)
@@ -3794,9 +3825,12 @@ test("focus mode hides the side panels for a big preview; F, Esc and the rail br
   const inspector = page.getByRole("complementary", { name: "Inspector" });
   await expect(inspector).toBeVisible();
   const w0 = (await stage.boundingBox())!.width;
-  const btn = page.getByTestId("focus-mode");
-  await btn.click();
-  await expect(btn).toHaveAttribute("aria-pressed", "true");
+  // focus mode is in the top bar's ⋯ menu (what isn't needed all the time)
+  const focusItem = async () => {
+    await page.getByRole("button", { name: "More", exact: true }).click();
+    return page.getByRole("menu", { name: "More" }).getByRole("menuitemradio", { name: /^Focus mode/ });
+  };
+  await (await focusItem()).click();
   await expect(inspector).toHaveCount(0);
   await expect(page.locator("#side-title")).toHaveCount(0);
   await expect
@@ -3814,7 +3848,6 @@ test("focus mode hides the side panels for a big preview; F, Esc and the rail br
   await expect(list).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(list).toBeHidden();
-  await expect(btn).toHaveAttribute("aria-pressed", "true");
   await expect(inspector).toHaveCount(0);
   await page
     .getByRole("navigation", { name: "Panels" })
@@ -3822,7 +3855,8 @@ test("focus mode hides the side panels for a big preview; F, Esc and the rail br
     .click();
   await expect(inspector).toBeVisible();
   await expect(page.locator("#side-title")).toHaveText("Text");
-  await expect(btn).toHaveAttribute("aria-pressed", "false");
+  await expect(await focusItem()).toHaveAttribute("aria-checked", "false");
+  await page.keyboard.press("Escape");
 });
 
 test("project menu: switch to another saved project, duplicate this one; background tasks list an export", async ({
@@ -3915,7 +3949,13 @@ test("versions: save one, change the timeline, restore it (what you had is kept 
   await expect(page.getByTestId("save-state")).toHaveText("✓ Saved", {
     timeout: 15_000,
   });
-  const open = page.getByRole("button", { name: "Save a version" });
+  // Versions… is in the top bar's ⋯ menu; it opens the Versions window
+  const open = {
+    click: async () => {
+      await page.getByRole("button", { name: "More", exact: true }).click();
+      await page.getByRole("menu", { name: "More" }).getByRole("menuitem", { name: /^Versions…/ }).click();
+    },
+  };
   await open.click();
   const pop = page.getByRole("dialog", { name: "Versions" });
   await pop.getByRole("textbox", { name: "Version name" }).fill("One clip");
@@ -3948,7 +3988,7 @@ test("versions: save one, change the timeline, restore it (what you had is kept 
     .poll(
       async () =>
         (
-          await (await page.request.get(`/api/projects/${id}`)).json()
+          await savedProject(page, id)
         ).doc.tracks.reduce(
           (a: number, t: { clips: unknown[] }) => a + t.clips.length,
           0,
@@ -4015,7 +4055,7 @@ test("turn a clip from its corners (or the dot above it): the angle shows while 
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   expect(
     proj.doc.tracks.find((t: { kind: string }) => t.kind === "main").clips[0]
       .transform.rotation,
@@ -4095,8 +4135,9 @@ test("My Assets: every card is the same size (a tall video shows whole), names u
     .getByText("export-shorts.mp4", { exact: true })
     .boundingBox())!;
   expect(name.width).toBeGreaterThan(thumb.width * 0.7);
-  await expect(pic.getByText(/^\d+:\d\d$/)).toHaveCount(0);
-  await expect(tall.getByText(/^\d+:\d\d$/)).toHaveCount(1);
+  // (a card shows its length and size together: "0:04 · 304 KB"; a picture has no length)
+  await expect(pic.getByText(/^\d+:\d\d\b/)).toHaveCount(0);
+  await expect(tall.getByText(/^\d+:\d\d\b/)).toHaveCount(1);
   // + and delete are on the picture
   await expect(
     tall.getByRole("button", { name: "Add export-shorts.mp4 to the timeline" }),
@@ -4254,7 +4295,7 @@ test("Elements: search, add, recolor, stretch and turn a box; emoji, words, a mo
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   const saved = proj.doc.tracks
     .flatMap((t: { clips: { type: string }[] }) => t.clips)
     .filter((c: { type: string }) => c.type === "element");
@@ -4333,20 +4374,18 @@ test("Elements export: a timeline of only elements makes an MP4 with them in it 
   expect(px(3.75, 1000, 1075)[0]).toBeGreaterThan(180);
 });
 
-test("phones: the Text panel links to Elements, and an emoji can be added", async ({
+test("phones: Elements & Stickers opens from the More sheet, and an emoji can be added", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await upload(page);
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Text", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Shapes, stickers and emoji" })
-    .click();
+  // (phones: the bottom bar edits the selected clip; Done goes back to the tools, More lists the panels)
+  const done = page.getByRole("button", { name: "Done editing clip" });
+  if (await done.isVisible()) await done.click();
+  await page.getByRole("navigation", { name: "Mobile Editing Tools" }).getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("button", { name: "Elements & Stickers" }).click();
   const panel = page.getByTestId("elements-panel");
   await expect(panel).toBeVisible();
   await panel
@@ -4459,7 +4498,7 @@ test("Blank scenes: + after the last clip adds a 3 s black blank; drag it anywhe
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   const v1 = proj.doc.tracks.find(
     (t: { kind: string }) => t.kind === "main",
   ).clips;
@@ -4650,15 +4689,12 @@ test("polish: the filmstrip keeps the frames' shape when zooming, and shows a re
   expect(Math.abs((await shape()) - s0)).toBeLessThan(0.02);
   await page.getByRole("button", { name: "Fit", exact: true }).click();
   expect(Math.abs((await shape()) - s0)).toBeLessThan(0.02);
-  expect(await film.getAttribute("data-src")).toMatch(/\/film$/);
-  // green removal on: the frames come see-through (a PNG made for these settings)
+  // (a file kept on this computer gets its film made in the browser: a blob; an uploaded one the server's /film)
+  const plain = await film.getAttribute("data-src");
+  expect(plain).toMatch(/^blob:|\/film$/);
+  // green removal on: the frames come see-through (new frames, for these settings), on a checkerboard
   await useDetectedGreen(page);
-  await expect(film).toHaveAttribute("data-src", /\/film\?ops=[\w-]+$/, {
-    timeout: 5000,
-  });
-  const res = await page.request.get((await film.getAttribute("data-src"))!);
-  expect(res.status()).toBe(200);
-  expect(res.headers()["content-type"]).toBe("image/png");
+  await expect.poll(() => film.getAttribute("data-src"), { timeout: 15_000 }).not.toBe(plain);
   await expect(film).toHaveClass(/bg-checker-dark/);
 });
 
@@ -4720,8 +4756,8 @@ test("polish: side bars stretch only the width (or height), the opposite side st
   const b1 = (await box.boundingBox())!;
   expect(Math.abs(b1.x - b0.x)).toBeLessThan(3);
   expect(b1.width).toBeLessThan(b0.width * 0.8);
-  // only the width: the height is the same
-  expect(Math.abs(b1.height - b0.height)).toBeLessThan(2);
+  // a side resizes evenly (the shape stays; one-way stretch is W/H without the lock in the Transform numbers)
+  expect(Math.abs(b1.height / b0.height - b1.width / b0.width)).toBeLessThan(0.03);
   // one drag is one undo step
   await page.getByRole("button", { name: "Undo" }).click();
   await expect
@@ -4865,6 +4901,7 @@ test("custom templates: your video + audio + a base look; in My Templates after 
   await page.goto("/");
   const rail = page.getByRole("navigation", { name: "Panels" });
   await rail.getByRole("button", { name: "Templates", exact: true }).click();
+  await page.getByRole("button", { name: "Browse all templates" }).click();
   const hub = page.getByTestId("template-hub");
   await hub.getByRole("button", { name: "Create template" }).click();
   const dialog = page.getByRole("dialog", { name: "Create a template" });
@@ -4901,6 +4938,7 @@ test("custom templates: your video + audio + a base look; in My Templates after 
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Templates", exact: true })
     .click();
+  await page.getByRole("button", { name: "Browse all templates" }).click();
   await expect(
     page
       .getByTestId("template-hub")
@@ -4938,6 +4976,7 @@ test("custom templates: your video + audio + a base look; in My Templates after 
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Templates", exact: true })
     .click();
+  await page.getByRole("button", { name: "Browse all templates" }).click();
   const hub2 = page.getByTestId("template-hub");
   await hub2.getByRole("button", { name: "My Templates", exact: true }).click();
   page.once("dialog", (d) => void d.accept("Evening show"));
@@ -4966,6 +5005,7 @@ test("template pane: an uploaded clip still works after a reload (no 404)", asyn
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Templates", exact: true })
     .click();
+  await page.getByRole("button", { name: "Browse all templates" }).click();
   const hub = page.getByTestId("template-hub");
   await hub.getByTestId("pane-video-input").setInputFiles(join(FIX, "red.mp4"));
   await expect(
@@ -4976,6 +5016,7 @@ test("template pane: an uploaded clip still works after a reload (no 404)", asyn
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Templates", exact: true })
     .click();
+  await page.getByRole("button", { name: "Browse all templates" }).click();
   const hub2 = page.getByTestId("template-hub");
   const tile = hub2.getByRole("button", { name: /^red/ }).first();
   await expect(tile).toBeVisible({ timeout: 20_000 });
@@ -4987,64 +5028,31 @@ test("template pane: an uploaded clip still works after a reload (no 404)", asyn
   ).toHaveAttribute("title", /red/, { timeout: 20_000 });
 });
 
-test("Brand Kit takes every video: a see-through ProRes .mov and an .mkv get playable copies; a broken file says why", async ({
+test("every video plays: a see-through ProRes .mov and an .mkv get playable copies; a broken file says why", async ({
   page,
 }) => {
+  // (the Brand Kit picks its intro and outro from My Assets now; what mattered here is the upload)
   await page.goto("/");
-  await upload(page, "grey.mp4");
-  await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Brand Kit", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", {
-      name: /Upload brand video \(MP4, MOV, WebM, M4V, MKV, AVI\)/,
-    }),
-  ).toBeVisible();
-  const input = page.getByTestId("brand-video-input");
-  await input.setInputFiles(join(FIX, "sting.mov"));
-  await expect(
-    page.getByRole("region", { name: "Brand videos" }),
-  ).toContainText("sting.mov", { timeout: 90_000 });
-  await input.setInputFiles(join(FIX, "clip.mkv"));
-  await expect(
-    page.getByRole("region", { name: "Brand videos" }),
-  ).toContainText("clip.mkv", { timeout: 90_000 });
-  const all = JSON.stringify(
-    await (await page.request.get("/api/videos")).json(),
-  );
-  const idOf = (name: string) =>
-    new RegExp(
-      `"id":"([0-9a-f-]{36})"[^}]*?"fileName":"${name.replace(".", "\\.")}"`,
-    ).exec(all)?.[1];
-  const sting = idOf("sting.mov");
-  const mkv = idOf("clip.mkv");
+  const { readFileSync } = await import("node:fs");
+  const up = (name: string, type: string) =>
+    page.request.post("/api/videos", {
+      data: readFileSync(join(FIX, name)),
+      headers: { "Content-Type": type, "X-File-Name": name },
+    });
+  const sting = ((await (await up("sting.mov", "video/quicktime")).json()) as { id: string }).id;
+  const mkv = ((await (await up("clip.mkv", "video/x-matroska")).json()) as { id: string }).id;
   expect(sting && mkv).toBeTruthy();
   // the preview plays the copies (see-through VP9 / H.264); the originals stay for the export
-  const p1 = await page.request.get(`/api/videos/${sting}/play`, {
-    headers: { range: "bytes=0-99" },
-  });
-  expect(p1.headers()["content-type"]).toBe("video/webm");
-  const p2 = await page.request.get(`/api/videos/${mkv}/play`, {
-    headers: { range: "bytes=0-99" },
-  });
-  expect(p2.headers()["content-type"]).toBe("video/mp4");
-  // inserted: it plays in the preview (its first frame is drawn, not black)
-  await page
-    .getByRole("region", { name: "Brand videos" })
-    .getByRole("button", { name: "At start" })
-    .first()
-    .click();
-  await expect(
-    page.getByTestId("lane-main").getByTestId("timeline-clip"),
-  ).toHaveCount(2);
-  // a broken file: the reason shows under the button
-  await input.setInputFiles(join(FIX, "broken.mov"));
-  await expect(page.getByTestId("brand-upload-error")).toBeVisible({
-    timeout: 30_000,
-  });
-  await page.request.put("/api/brand", { data: { videos: [] } });
+  await expect
+    .poll(async () => (await page.request.get(`/api/videos/${sting}/play`, { headers: { range: "bytes=0-99" } })).headers()["content-type"], { timeout: 90_000 })
+    .toBe("video/webm");
+  await expect
+    .poll(async () => (await page.request.get(`/api/videos/${mkv}/play`, { headers: { range: "bytes=0-99" } })).headers()["content-type"], { timeout: 90_000 })
+    .toBe("video/mp4");
+  // a broken file is refused with a reason
+  const bad = await up("broken.mov", "video/quicktime");
+  expect(bad.ok()).toBe(false);
+  expect((await bad.json()).error.message).toBeTruthy();
 });
 
 /** The middle of an element on the page. */
@@ -5268,9 +5276,10 @@ test("template files: deleting one a template uses is refused; a template whose 
       data: { name: "Guarded show", baseId: null, videoId: v.id },
     })
   ).json();
+  // a file a template uses is only hidden from My Assets: the template keeps playing it
   const del = await page.request.delete(`/api/videos/${v.id}`);
-  expect(del.status()).toBe(409);
-  expect((await del.json()).error.message).toContain("“Guarded show”");
+  expect(del.status()).toBe(204);
+  expect((await page.request.get(`/api/videos/${v.id}`)).ok()).toBe(true);
   // (a file gone anyway, e.g. before this guard: removed from the test server's storage)
   const v2 = await up("grey.mp4", "video/mp4");
   await page.request.post("/api/templates/custom", {
@@ -5284,6 +5293,7 @@ test("template files: deleting one a template uses is refused; a template whose 
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Templates", exact: true })
     .click();
+  await page.getByRole("button", { name: "Browse all templates" }).click();
   const hub = page.getByTestId("template-hub");
   await hub.getByRole("button", { name: "My Templates", exact: true }).click();
   const card = hub.getByRole("button", {
@@ -5391,7 +5401,7 @@ test("perspective on text: a corner moves on its own, the letters bend with it, 
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   const text = proj.doc.tracks
     .flatMap((t: { clips: { type: string }[] }) => t.clips)
     .find((c: { type: string }) => c.type === "text");
@@ -5451,7 +5461,7 @@ test("AI image generated from the Overlay lane replaces its placeholder (not stu
     timeout: 15_000,
   });
   const id = new URL(page.url()).searchParams.get("p");
-  const proj = await (await page.request.get(`/api/projects/${id}`)).json();
+  const proj = await savedProject(page, id);
   const ov = proj.doc.tracks.find(
     (t: { kind: string }) => t.kind === "overlay",
   );

@@ -116,7 +116,7 @@ export function TextToVideoDialog(p: {
                     onClick={() => setSeconds(sec)}
                     className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition-all ${
                       seconds === sec
-                        ? "border-primary bg-primary/20 text-white shadow-sm"
+                        ? "border-primary bg-primary/20 text-ink shadow-sm"
                         : "border-line bg-raised text-muted hover:text-ink"
                     }`}
                   >
@@ -136,7 +136,7 @@ export function TextToVideoDialog(p: {
                     onClick={() => setResolution(res)}
                     className={`flex-1 rounded-xl border py-2 text-xs font-semibold transition-all ${
                       resolution === res
-                        ? "border-primary bg-primary/20 text-white shadow-sm"
+                        ? "border-primary bg-primary/20 text-ink shadow-sm"
                         : "border-line bg-raised text-muted hover:text-ink"
                     }`}
                   >

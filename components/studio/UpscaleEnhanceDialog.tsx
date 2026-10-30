@@ -55,7 +55,7 @@ export function UpscaleEnhanceDialog(p: {
                   onClick={() => setTargetRes(r)}
                   className={`rounded-xl border p-3 text-center transition-all ${
                     active
-                      ? "border-primary bg-primary/20 text-white font-semibold shadow-sm"
+                      ? "border-primary bg-primary/20 text-ink font-semibold shadow-sm"
                       : "border-line bg-raised text-muted hover:border-line hover:text-ink"
                   }`}
                 >

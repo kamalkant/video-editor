@@ -141,7 +141,7 @@ export function StockMediaBrowser({
                   <button
                     type="button"
                     onClick={() => onAddToTimeline(item)}
-                    className="w-full rounded border border-white/20 bg-raised/80 py-1 text-2xs font-medium text-white hover:bg-hover active:scale-95"
+                    className="w-full rounded border border-white/20 bg-raised/80 py-1 text-2xs font-medium text-ink hover:bg-hover active:scale-95"
                   >
                     + To Timeline
                   </button>

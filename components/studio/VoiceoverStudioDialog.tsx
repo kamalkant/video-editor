@@ -311,7 +311,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             onClick={() => setEngine("gemini")}
             className={`flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs transition-all ${
               engine === "gemini"
-                ? "border-primary bg-primary/15 font-semibold text-white shadow-sm ring-1 ring-primary"
+                ? "border-primary bg-primary/15 font-semibold text-ink shadow-sm ring-1 ring-primary"
                 : "border-line bg-raised text-muted hover:text-ink"
             }`}
           >
@@ -329,7 +329,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
             title={macHere ? undefined : "Mac voices need the ViPlay app on a Mac. Gemini voices work here."}
             className={`flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
               engine === "mac"
-                ? "border-line bg-slate-500/20 font-semibold text-white shadow-sm"
+                ? "border-line bg-slate-500/20 font-semibold text-ink shadow-sm"
                 : "border-line bg-raised text-muted hover:text-ink"
             }`}
           >
@@ -446,7 +446,7 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                     onClick={() => setStyle(p)}
                     className={`rounded-full border px-2.5 py-0.5 text-2xs transition-colors ${
                       style === p
-                        ? "border-primary bg-primary/20 text-white"
+                        ? "border-primary bg-primary/20 text-ink"
                         : "border-line bg-raised text-muted hover:text-ink"
                     }`}
                   >
@@ -536,10 +536,11 @@ function TtsStudioSection({ onAdd }: { onAdd: (m: VideoMeta) => void }) {
                     <button
                       key={v.name}
                       type="button"
+                      aria-pressed={active}
                       onClick={() => setGVoice(v.name)}
                       className={`flex flex-col items-start rounded-xl border p-2.5 text-left transition-all ${
                         active
-                          ? "border-primary bg-primary/20 text-white shadow-md ring-1 ring-primary"
+                          ? "border-primary bg-primary/20 text-ink shadow-md ring-1 ring-primary"
                           : "border-line bg-raised text-muted hover:border-line hover:bg-hover"
                       }`}
                     >

@@ -45,7 +45,7 @@ export function AspectTileSelector({
             onClick={() => onChange(opt.id)}
             className={`group relative flex flex-col items-center justify-between rounded-xl border p-2.5 text-center transition-all ${
               active
-                ? "border-primary bg-primary/10 text-white shadow-sm ring-1 ring-primary"
+                ? "border-primary bg-primary/10 text-ink shadow-sm ring-1 ring-primary"
                 : "border-line bg-raised text-muted hover:border-line hover:bg-hover hover:text-ink"
             }`}
           >
@@ -153,7 +153,7 @@ export function StyleChipGroup({
             onClick={() => onSelect(c)}
             className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
               active
-                ? "border-primary bg-primary/20 font-medium text-white shadow-sm"
+                ? "border-primary bg-primary/20 font-medium text-ink shadow-sm"
                 : "border-line bg-raised text-muted hover:border-line hover:bg-hover hover:text-ink"
             }`}
           >

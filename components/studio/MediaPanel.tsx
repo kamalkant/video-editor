@@ -520,6 +520,20 @@ export function MediaPanel(p: {
         )}
       </div>
 
+      {/* free stock from Pexels and Pixabay (the Import window; it was only in Search tools) */}
+      <button
+        type="button"
+        data-testid="open-import"
+        onClick={() => p.onImport("pexels")}
+        className="btn btn-secondary min-h-8 justify-between px-3 text-xs"
+      >
+        <span className="flex items-center gap-2">
+          <Icon name="search" className="size-3.5 text-muted" />
+          Import from Pexels or Pixabay
+        </span>
+        <Icon name="chevronRight" className="size-3.5 text-muted" />
+      </button>
+
       <section
         aria-labelledby="assets-heading"
         className="@container flex flex-col gap-2"
@@ -530,7 +544,7 @@ export function MediaPanel(p: {
               id="assets-heading"
               className="text-xs font-semibold uppercase tracking-wide text-muted"
             >
-              Assets
+              My Assets
             </h3>
             {sortedAssets && sortedAssets.length > 0 && (
               <span className="rounded-full bg-raised px-1.0 py-0.2 text-2xs font-medium text-muted">

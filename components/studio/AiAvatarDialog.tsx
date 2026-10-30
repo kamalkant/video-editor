@@ -87,7 +87,7 @@ export function AiAvatarDialog(p: {
                     onClick={() => setSelectedAvatar(av)}
                     className={`flex flex-col items-center rounded-xl border p-3 text-center transition-all ${
                       active
-                        ? "border-primary bg-primary/20 text-white shadow-md ring-1 ring-primary"
+                        ? "border-primary bg-primary/20 text-ink shadow-md ring-1 ring-primary"
                         : "border-line bg-raised text-muted hover:border-line hover:text-ink"
                     }`}
                   >

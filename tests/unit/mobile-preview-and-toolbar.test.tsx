@@ -49,10 +49,11 @@ describe("Mobile Timeline Edit Toolbar", () => {
         onSetTrack={vi.fn()}
         onAddTrack={vi.fn()}
         onRemoveTrack={vi.fn()}
+        onCrop={vi.fn()}
       />
     );
 
-    // Editing tools toolbar is present on mobile
+    // Editing tools toolbar is present on mobile (a clip's own tools, like Crop, show when they apply)
     const toolbar = screen.getAllByRole("toolbar", { name: "Editing tools" })[0];
     expect(toolbar).toBeInTheDocument();
 

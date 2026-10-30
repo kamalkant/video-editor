@@ -295,6 +295,7 @@ import { BUBBLE_MASK } from "./LookSections";
 import { TransitionCard } from "./TransitionsPanel";
 import { docTransitions, type TransitionType } from "@/lib/player/transitions";
 import { PanelSplitter, usePanelWidth, useRememberedFlag } from "./PanelSplitter";
+import { FloatingToolbar } from "./FloatingToolbar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { captionLookStyle, type CaptionLook } from "./SubtitlesPanel";
 import { mainFrameAt } from "@/lib/edit/frameAt";
@@ -8685,6 +8686,35 @@ function StudioInner(props: Props) {
     />
   );
 
+  /** Open a settings tab for the selected clip, bringing the settings panel back if it was folded or showed AI Tools. */
+  const openClipTab = (tab: InspectorTab) => {
+    setInspHidden(false);
+    setFocus(false);
+    setInspTab(tab);
+  };
+  // the selected clip's quick actions over the preview (desktop; not while cropping)
+  const floating =
+    wide && selected && !cropFor && !selTransition ? (
+      <FloatingToolbar
+        kind={selected.clip.type}
+        onSplit={() => {
+          // (at the playhead as it is when clicked; a playhead off the clip splits nothing)
+          const id = selected.clip.id;
+          const s0 = clipStart(doc, id);
+          const len = clipLength(selected.clip as AnyClip);
+          const now = clock.get();
+          if (now > s0 + 0.05 && now < s0 + len - 0.05) dispatchDoc({ type: "split", clipId: id, t: now });
+        }}
+        onCrop={() => startCrop(selected.clip.id)}
+        onBackground={() => openClipTab("background")}
+        onColor={() => openClipTab("color")}
+        onSpeed={() => openClipTab("speed")}
+        onDuplicate={() => dispatchDoc({ type: "duplicate", clipId: selected.clip.id })}
+        onDelete={() => deleteSelected()}
+        onSettings={() => openClipTab("basic")}
+      />
+    ) : null;
+
   const previewArea = (
     <section
       aria-label="Preview"
@@ -8749,6 +8779,7 @@ function StudioInner(props: Props) {
       }}
     >
       {stageBusy && <SpinnerOverlay label={stageBusy} />}
+      {floating && <div className="pointer-events-none absolute inset-x-0 top-12 z-20 flex justify-center">{floating}</div>}
       {working && !stageBusy && (
         <span role="status" className="pointer-events-none absolute left-1/2 top-12 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/75 px-3 py-1.5 text-xs text-white shadow-lg" data-testid="stage-working">
           <Spinner size="xs" /> {working}
@@ -9963,6 +9994,10 @@ function StudioInner(props: Props) {
       doc={doc}
       media={ds.media}
       clock={clock}
+      onClipSettings={(clipId, tab) => {
+        selectClip(clipId);
+        openClipTab(tab ?? "basic");
+      }}
       selectedId={selectedId}
       mobile={isMobile}
       onSelect={selectClip}
@@ -10289,8 +10324,27 @@ function StudioInner(props: Props) {
           onSelect={onRail}
           onDropOnTab={handleRailDrop}
         />
-        {!focus && side}
-        {!focus && side && (
+        {/* AI Tools open on the left like the other panels; the settings panel on the right stays for the selected clip */}
+        {!focus && aiOpen && (
+          <>
+            <aside aria-label="AI Tools panel" className="relative flex h-full min-h-0 shrink-0 flex-col" style={{ width: aiW }}>
+              {aiPanel}
+            </aside>
+            <PanelSplitter
+              label="AI Tools width"
+              side="left"
+              value={aiW}
+              onChange={setAiW}
+              min={320}
+              max={1100}
+              reset={defaultAiW()}
+              onCollapse={() => setAiOpen(false)}
+              collapseLabel="Hide AI Tools"
+            />
+          </>
+        )}
+        {!focus && !aiOpen && side}
+        {!focus && !aiOpen && side && (
           <PanelSplitter
             label="Panel width"
             side="left"
@@ -10318,17 +10372,7 @@ function StudioInner(props: Props) {
         >
           <div className="relative flex min-h-0 flex-1 gap-2">
             {previewArea}
-            {focus ? null : aiOpen ? (
-              <PanelSplitter
-                label="AI Tools width"
-                side="right"
-                value={aiW}
-                onChange={setAiW}
-                min={320}
-                max={1100}
-                reset={defaultAiW()}
-              />
-            ) : inspHidden ? null : (
+            {focus || inspHidden ? null : (
               <PanelSplitter
                 label="Inspector width"
                 side="right"
@@ -10341,15 +10385,7 @@ function StudioInner(props: Props) {
                 collapseLabel="Hide the settings panel (Ctrl+Alt+2)"
               />
             )}
-            {focus ? null : aiOpen ? (
-              <aside
-                aria-label="AI Tools panel"
-                className="relative flex h-full min-h-0 shrink-0 flex-col"
-                style={{ width: aiW }}
-              >
-                {aiPanel}
-              </aside>
-            ) : inspHidden ? (
+            {focus ? null : inspHidden ? (
               <button
                 type="button"
                 onClick={() => setInspHidden(false)}
@@ -10394,7 +10430,7 @@ function StudioInner(props: Props) {
               <TimelineResizer
                 height={timelineH}
                 onChange={setTimelineH}
-                rightOffset={focus || inspHidden ? 0 : (aiOpen ? aiW : rightW) + 8}
+                rightOffset={focus || inspHidden ? 0 : rightW + 8}
                 onCollapse={() => setTlHidden(true)}
               />
               <div className="shrink-0" style={{ height: timelineH }}>

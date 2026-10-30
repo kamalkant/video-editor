@@ -276,6 +276,8 @@ export type TimelineProps = {
   onSilences: (clipId: string) => void;
   /** Crop the selected picture clip on the preview. */
   onCrop?: (clipId: string) => void;
+  /** Right-click → Clip settings… / Remove background…: that tab in the settings panel */
+  onClipSettings?: (clipId: string, tab?: "background") => void;
   /** The color picker (remove a background color, like CapCut's): on the selected video clip; again: cancel */
   onPickKey?: (clipId: string) => void;
   /** the color picker is on (the tool shows pressed) */
@@ -486,6 +488,9 @@ function PlayheadNeedle({
  * selected, moved (reordered on the main track), trimmed at their edges,
  * split, cut and duplicated; media can be dropped from My Assets.
  */
+/** Timeline toolbar buttons that act on one clip: hidden, not greyed out, when they don't apply. */
+const CLIP_TOOLS = new Set(["Crop", "Pick key color", "Speed", "Reverse", "Freeze", "Mask", "Silences", "Keyframe", "Motion Tracking", "Detach", "Attach"]);
+
 export function Timeline(p: TimelineProps) {
   const { doc, media } = p;
   const isMobile = !!p.mobile;
@@ -1597,7 +1602,15 @@ export function Timeline(p: TimelineProps) {
     const sound =
       (f.clip.type === "video" || f.clip.type === "audio") &&
       !!media[f.clip.mediaId]?.hasAudio;
+    const picture = f.clip.type === "video" || f.clip.type === "image";
     return [
+      ...(p.onClipSettings
+        ? ([
+            { label: "Clip settings…", onSelect: () => p.onClipSettings!(m.id) },
+            ...(picture ? [{ label: "Remove background…", onSelect: () => p.onClipSettings!(m.id, "background") }] : []),
+            "separator",
+          ] as MenuItem[])
+        : []),
       {
         label: "Split here",
         shortcut: "S",
@@ -1931,7 +1944,9 @@ export function Timeline(p: TimelineProps) {
     expanded?: boolean,
     badge?: number | string,
     active?: boolean,
-  ) => (
+  ) =>
+    // (a clip's own tools show only while they apply to the selected clip, as in Clipchamp; the timeline's always)
+    !onClick && !active && CLIP_TOOLS.has(label) ? null : (
     <div className="relative">
       <button
         type="button"

@@ -10,30 +10,30 @@ afterEach(() => {
 });
 
 describe("accounts are on the website (one sign-in for every ViPlay app)", () => {
-  it("sign-in goes to the website and comes back to the same place in the studio", () => {
+  it("sign-in goes to the website and comes back to the same place in the studio", async () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://video.viplay.in";
-    const res = login(new Request("https://video.viplay.in/login?next=%2Feditor%3Ftemplate%3Dworld-news-globe"));
+    const res = await login(new Request("https://video.viplay.in/login?next=%2Feditor%3Ftemplate%3Dworld-news-globe"));
     expect(res.status).toBe(307);
     const to = new URL(res.headers.get("location")!);
     expect(to.origin + to.pathname).toBe("https://viplay.in/login");
     expect(to.searchParams.get("next")).toBe("https://video.viplay.in/editor?template=world-news-globe");
   });
 
-  it("comes back to the address it was opened at, whatever NEXT_PUBLIC_APP_URL says (it sent people to localhost)", () => {
+  it("comes back to the address it was opened at, whatever NEXT_PUBLIC_APP_URL says (it sent people to localhost)", async () => {
     process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
-    const to = new URL(login(new Request("http://localhost:3000/login?next=%2Feditor", { headers: { "x-forwarded-host": "video.viplay.in", "x-forwarded-proto": "https" } })).headers.get("location")!);
+    const to = new URL((await login(new Request("http://localhost:3000/login?next=%2Feditor", { headers: { "x-forwarded-host": "video.viplay.in", "x-forwarded-proto": "https" } }))).headers.get("location")!);
     expect(to.searchParams.get("next")).toBe("https://video.viplay.in/editor");
     // (the Host header, when there's no proxy header)
-    const direct = new URL(login(new Request("http://x/login", { headers: { host: "video.viplay.in" } })).headers.get("location")!);
+    const direct = new URL((await login(new Request("http://x/login", { headers: { host: "video.viplay.in" } }))).headers.get("location")!);
     expect(direct.searchParams.get("next")).toBe("https://video.viplay.in/editor");
     // (a host off the ViPlay domain is never trusted: the configured address)
-    const odd = new URL(login(new Request("http://x/login", { headers: { host: "evil.example" } })).headers.get("location")!);
+    const odd = new URL((await login(new Request("http://x/login", { headers: { host: "evil.example" } }))).headers.get("location")!);
     expect(odd.searchParams.get("next")).toBe("http://localhost:3000/editor");
   });
 
-  it("sign-up keeps ?ref=; a ?next= off the studio falls back to the editor", () => {
+  it("sign-up keeps ?ref=; a ?next= off the studio falls back to the editor", async () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://video.viplay.in";
-    const to = new URL(signup(new Request("https://video.viplay.in/signup?ref=VDO-AB12&next=https://evil.example")).headers.get("location")!);
+    const to = new URL((await signup(new Request("https://video.viplay.in/signup?ref=VDO-AB12&next=https://evil.example"))).headers.get("location")!);
     expect(to.pathname).toBe("/signup");
     expect(to.searchParams.get("ref")).toBe("VDO-AB12");
     expect(to.searchParams.get("next")).toBe("https://video.viplay.in/editor");

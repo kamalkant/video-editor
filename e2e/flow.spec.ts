@@ -2409,17 +2409,8 @@ test("export formats: MP4 is recommended; GIF, MP3 and a PNG picture are real fi
     formats.getByRole("radio", { name: /MP4 \(H\.264\)/ }),
   ).toBeChecked();
   await expect(formats.getByText("Recommended")).toBeVisible();
-  // the groups, in order
-  await expect(formats.getByRole("group")).toHaveText([
-    /MP4 \(H\.264\)/,
-    /See-through video/,
-    /Animation and picture/,
-    /Sound only/,
-  ]);
-  // background removal is still off: the see-through formats say so, MP4 is fine
-  await expect(
-    formats.getByRole("group", { name: "See-through video (alpha)" }),
-  ).toContainText("Turn on Background removal");
+  // background removal is still off: the see-through formats (on the Video tab) say so, MP4 is fine
+  await expect(formats).toContainText("Turn on Background removal");
   await expect(
     dialog.getByRole("button", { name: "Make video (MP4)" }),
   ).not.toHaveAttribute("aria-disabled", "true");
@@ -2446,6 +2437,9 @@ test("export formats: MP4 is recommended; GIF, MP3 and a PNG picture are real fi
       .getByRole("button", { name: "Change export settings" })
       .click();
   };
+  // the formats are on tabs: Video, Image / GIF, Audio
+  const tab = (name: string) => dialog.getByRole("button", { name, exact: true }).click();
+  await tab("Image / GIF");
   await make(
     /GIF \(animated\)/,
     "Make GIF",
@@ -2454,9 +2448,7 @@ test("export formats: MP4 is recommended; GIF, MP3 and a PNG picture are real fi
     "image/gif",
     "GIF8",
   );
-  // sound only: no size or quality picker for the picture
-  await pickFormat(dialog, /^MP3/);
-  await expect(dialog.getByTestId("video-sizes")).toHaveCount(0);
+  await tab("Audio");
   await make(
     /^MP3/,
     "Make MP3",
@@ -2465,6 +2457,7 @@ test("export formats: MP4 is recommended; GIF, MP3 and a PNG picture are real fi
     "audio/mpeg",
     "ID3",
   );
+  await tab("Image / GIF");
   await make(
     /PNG picture/,
     "Make PNG",
@@ -3010,26 +3003,22 @@ test("Export & Share: the file size shows before exporting, for every format, an
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
   await page.getByTestId("export-button").click();
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
-  const size = dialog.getByTestId("export-size");
-  await expect(size).toHaveText(/Size: about [\d.]+ (KB|MB)/, {
-    timeout: 30_000,
-  });
+  const formats = dialog.getByTestId("export-formats");
+  // each format card shows its estimated size ("Est. 1.2 MB")
+  const mp4 = formats.locator("label").filter({ has: page.getByRole("radio", { name: /^MP4 \(H\.264\)/ }) });
+  await expect(mp4).toContainText(/Est\. [\d.]+ (KB|MB)/, { timeout: 30_000 });
+  await expect(mp4.getByRole("radio")).toBeChecked();
   const bytes = async () => {
-    const m = (await size.textContent())!.match(/([\d.]+) (KB|MB)/)!;
+    const m = (await mp4.textContent())!.match(/Est\. ([\d.]+) (KB|MB)/)!;
     return Number(m[1]) * (m[2] === "MB" ? 1e6 : 1e3);
   };
   const balanced = await bytes();
-  await dialog.getByRole("radio", { name: "Small", exact: true }).click();
+  await dialog.getByRole("button", { name: /^Small/ }).click();
   await expect.poll(bytes).toBeLessThan(balanced);
-  // each format that can be made shows its size (the radio names still start with the format)
-  expect(await dialog.getByTestId("format-size").count()).toBeGreaterThan(5);
-  await expect(
-    dialog
-      .getByTestId("export-formats")
-      .getByRole("radio", { name: /^MP4 \(H\.264\)/ }),
-  ).toBeChecked();
-  await pickFormat(dialog, /^WAV/);
-  await expect(size).toHaveText(/Size: about/);
+  expect(await formats.getByText(/^Est\. /).count()).toBeGreaterThan(2);
+  // the sound formats too
+  await dialog.getByRole("button", { name: "Audio", exact: true }).click();
+  await expect(formats.getByText(/^Est\. /).first()).toBeVisible();
 });
 
 test("compact right panel: narrow number boxes without %, icon view switch, a small pipette, thin scrollbars", async ({

@@ -1463,7 +1463,8 @@ export const TAB_INFO: Record<
     hint: "Size, crop, rotate and shape",
   },
   background: {
-    label: "Background",
+    // ("Background" doesn't fit a seventh of the panel; the tip says what it does)
+    label: "Cutout",
     icon: "background",
     hint: "Remove the background (green screen, black, AI)",
   },

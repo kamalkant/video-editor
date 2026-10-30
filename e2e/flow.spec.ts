@@ -43,16 +43,16 @@ async function openPanel(page: Page, name: string) {
 
 /** New clips keep their background: open the color picker (clip view), then use the detected green. */
 async function startPick(page: Page) {
-  // (a new clip opens on its Adjust tab: the key color is on Background)
+  // (a new clip opens on its Adjust tab: the key color is on Cutout)
   const pick = page.getByRole("button", { name: "Pick key color from video" });
   if (!(await pick.isVisible()))
-    await page.getByRole("tab", { name: "Background", exact: true }).click();
+    await page.getByRole("tab", { name: "Cutout", exact: true }).click();
   await pick.click();
 }
-/** The clip inspector's tab (Adjust · Background · Color · Audio · Speed · More). */
+/** The clip inspector's tab (Adjust · Cutout · Color · Audio · Speed · More). */
 async function inspTab(
   page: Page,
-  name: "Adjust" | "Background" | "Color" | "Audio" | "Speed" | "More",
+  name: "Adjust" | "Cutout" | "Color" | "Audio" | "Speed" | "More",
 ) {
   await page.getByRole("tab", { name, exact: true }).click();
 }
@@ -69,7 +69,7 @@ async function selectFirstVideo(page: Page) {
     });
   }).toPass({ timeout: 20_000 });
 }
-/** Unfold the Background tab's "Fine-tune" (presets, edges, spill). */
+/** Unfold the Cutout tab's "Fine-tune" (presets, edges, spill). */
 async function fineTune(page: Page) {
   const d = page.getByTestId("fine-tune");
   if (!(await d.evaluate((el) => (el as HTMLDetailsElement).open)))
@@ -746,8 +746,8 @@ test("Reset: the ↺ menu in the Clip header resets a tab or everything, and not
   const col = await page.getByTestId("inspector-scroll").boundingBox();
   const card = await insp.boundingBox();
   expect(card!.y + card!.height).toBeGreaterThan(col!.y + col!.height - 3);
-  // green removal on → the Background tab has a dot; the settings don't move
-  await inspTab(page, "Background");
+  // green removal on → the Cutout tab has a dot; the settings don't move
+  await inspTab(page, "Cutout");
   const sw = page.getByRole("switch", { name: "Background removal" });
   const y0 = (await sw.boundingBox())!.y;
   await page
@@ -756,14 +756,14 @@ test("Reset: the ↺ menu in the Clip header resets a tab or everything, and not
   await expect(sw).toHaveAttribute("aria-checked", "true");
   await expect(
     page
-      .getByRole("tab", { name: "Background", exact: true })
+      .getByRole("tab", { name: "Cutout", exact: true })
       .getByTestId("tab-changed"),
   ).toBeVisible();
   expect(Math.abs((await sw.boundingBox())!.y - y0)).toBeLessThan(1);
   await expect(resetBtn).not.toHaveAttribute("aria-disabled", "true");
   await resetBtn.click();
   const menu = page.getByRole("menu", { name: "Reset" });
-  await menu.getByRole("menuitem", { name: "Reset Background" }).click();
+  await menu.getByRole("menuitem", { name: "Reset Cutout" }).click();
   await expect(sw).toHaveAttribute("aria-checked", "false");
   await expect(page.getByTestId("tab-changed")).toHaveCount(0);
   await expect(resetBtn).toHaveAttribute("aria-disabled", "true");
@@ -784,7 +784,7 @@ test("Reset: the ↺ menu in the Clip header resets a tab or everything, and not
   await menu.getByRole("menuitem", { name: "Reset all" }).click();
   await expect(page.getByTestId("tab-changed")).toHaveCount(0);
   await expect(vol).toHaveValue("100");
-  await inspTab(page, "Background");
+  await inspTab(page, "Cutout");
   await expect(sw).toHaveAttribute("aria-checked", "false");
   // the clip is still on the timeline
   await expect(
@@ -2486,7 +2486,7 @@ test("a single see-through file (WebM VP9 + alpha, no MOV) exports without break
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await upload(page);
-  await inspTab(page, "Background");
+  await inspTab(page, "Cutout");
   await page
     .getByRole("button", { name: "Green / blue screen", exact: true })
     .click();
@@ -3044,7 +3044,7 @@ test("compact right panel: narrow number boxes without %, icon view switch, a sm
   expect((await label.boundingBox())!.width).toBeLessThan(40);
   await expect(label.locator("svg")).toHaveCount(1);
   // the key color's pipette is a small icon button
-  await inspTab(page, "Background");
+  await inspTab(page, "Cutout");
   await page
     .getByRole("button", { name: "Green / blue screen", exact: true })
     .click();
@@ -4668,7 +4668,7 @@ test("polish: Cutout sliders stay put when their Reset appears; Custom preset is
   await page.goto("/");
   await upload(page);
   await useDetectedGreen(page);
-  await inspTab(page, "Background");
+  await inspTab(page, "Cutout");
   await fineTune(page);
   const custom = page.getByRole("radio", { name: "Custom" });
   await expect(custom).toBeDisabled();

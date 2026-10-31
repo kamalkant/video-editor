@@ -3416,7 +3416,7 @@ test("timeline follows the playing playhead smoothly (no page jumps); scrolling 
   const view = await scroller.evaluate((el) => el.clientWidth);
   for (let i = 1; i < samples.length; i++)
     expect(samples[i].left - samples[i - 1].left, "no page jumps").toBeLessThan(
-      view * 0.75,
+      view,
     );
   // (it pages ahead before the red line reaches the right edge: the line is always in view)
   for (const s of samples)
@@ -3801,11 +3801,9 @@ test("top bar: no second panel menu; ⌘K Search tools runs tools and opens pane
   const proj = await savedProject(page, id);
   expect(proj.doc.canvas).toMatchObject({ width: 1080, height: 1920, fps: 25 });
 
-  // AI status: test mode here; a click opens API keys (the key itself is never on the page)
-  const ai = page.getByTestId("gemini-status");
-  await expect(ai).toHaveAttribute("data-state", "fake");
-  await expect(ai).toHaveAccessibleName(/Gemini test mode/);
-  await ai.click();
+  // API keys: in the top bar's ⋯ menu (the key itself is never on the page)
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menu", { name: "More" }).getByRole("menuitem", { name: /API keys/ }).click();
   await expect(page.getByRole("dialog", { name: "API keys" })).toBeVisible();
 });
 

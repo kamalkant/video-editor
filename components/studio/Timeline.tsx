@@ -926,12 +926,16 @@ export function Timeline(p: TimelineProps) {
     };
     const onScroll = () => {
       const x = el.scrollLeft;
-      // (its own glide moves between where it started and where it goes; anywhere else is you scrolling)
+      // (its own glide only moves on, from where it was towards where it goes; a step back, or past it, is you)
+      const ahead = f.to >= f.from;
       const gliding =
         performance.now() < f.smoothUntil &&
-        x >= Math.min(f.from, f.to) - 2 &&
-        x <= Math.max(f.from, f.to) + 2;
-      if (gliding || Math.abs(x - f.mine) < 2) return;
+        (ahead ? x >= f.from - 2 && x <= f.to + 2 : x <= f.from + 2 && x >= f.to - 2);
+      if (gliding) {
+        f.from = x;
+        return;
+      }
+      if (Math.abs(x - f.mine) < 2) return;
       f.on = false;
     };
     el.addEventListener("scroll", onScroll, { passive: true });

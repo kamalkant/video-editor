@@ -890,7 +890,7 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
     page.getByRole("heading", { name: "No video loaded" }),
   ).toBeVisible();
   await openPanel(page, "Projects");
-  await page.getByRole("button", { name: "Open News anchor intro" }).first().click();
+  await page.getByRole("button", { name: "Open News anchor intro" }).click();
   await expect(page).toHaveURL(url);
   await selectFirstVideo(page);
   await inspTab(page, "Cutout");
@@ -2840,17 +2840,17 @@ test("AI settings: add, switch off and remove an API key; the Gemini features fo
   );
   await page.keyboard.press("Escape");
   await page.getByTestId("ai-tools").locator('[data-tool="gen-image"]').click();
-  const img = page.getByRole("dialog", { name: /Image Studio/ });
-  await expect(img.getByTestId("gemini-key-card")).toContainText(
-    "Gemini is switched off",
-  );
-  // "Open AI settings" from there, switch it on again: the feature is back
-  await img.getByRole("button", { name: "Open AI settings" }).click();
+  const why = page.getByRole("dialog", { name: "No Gemini API Key Available" });
+  await expect(why).toContainText("Gemini is switched off");
+  // "Open AI Settings" from there, switch it on again: the feature is back
+  await why.getByRole("button", { name: "Open AI Settings" }).click();
   await gem.getByRole("switch", { name: "Google Gemini features" }).click();
   await expect(gem.getByTestId("ai-provider-status")).toHaveText(
     "Connected · ••••Wxyz",
   );
   await page.keyboard.press("Escape");
+  await page.getByTestId("ai-tools").locator('[data-tool="gen-image"]').click();
+  const img = page.getByRole("dialog", { name: /Image Studio/ });
   await expect(img.getByTestId("generate-image-button")).toBeVisible();
   await page.keyboard.press("Escape");
   // removed: the features run on the site's key again (paid with AI credits), no key card

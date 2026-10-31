@@ -778,7 +778,8 @@ export function ProjectsPanel(p: {
                     }}
                     onDoubleClick={() => !current && p.onOpen(x.id)}
                     aria-pressed={isPicked}
-                    aria-label={current ? `${x.name} (open)` : `Open ${x.name}`}
+                    // (a click selects it; the row's open button opens it)
+                    aria-label={current ? `${x.name} (open)` : `Select ${x.name}`}
                     aria-current={current || undefined}
                   >
                     <ProjectCover coverId={x.coverId} iconClass="size-3" />

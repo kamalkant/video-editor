@@ -847,6 +847,7 @@ export function ExportDialog(p: {
                 <OutputSettings output={p.spec.output} info={p.video.info} patch={p.patchOutput} crop={p.crop} idPrefix="export" />
               </div>
             )}
+            {packOfVideo && p.video && !done && <ExportSummary video={p.video} spec={p.spec} crop={p.crop} estimateOn={p.open && !running} />}
 
             {/* Estimated File Size */}
             <div className="flex items-center gap-2 rounded-xl border border-dialog-card-border bg-dialog-header px-2.5 py-1.5 text-xs text-muted">

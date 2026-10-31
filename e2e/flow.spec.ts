@@ -697,11 +697,12 @@ test("a fire-on-black clip starts in Black background mode and the black turns s
   await expect(
     page.getByRole("switch", { name: "Keep glow brightness" }),
   ).toHaveAttribute("aria-checked", "true");
-  await expect(page.getByTestId("exact-frame")).toBeVisible({
+  // (a file kept on this computer shows the result live on the GPU)
+  await expect(page.getByTestId("live-canvas")).toBeVisible({
     timeout: 30_000,
   });
   await expect
-    .poll(() => alphaAt(page, "exact-frame", 20, 20))
+    .poll(() => alphaAt(page, "live-canvas", 20, 20))
     .toBeLessThan(10);
   // switching to green mode: an info icon says this clip needs Black background (its tip on hover), a click switches back
   await page

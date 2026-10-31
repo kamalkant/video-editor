@@ -3771,8 +3771,9 @@ test("top bar: no second panel menu; ⌘K Search tools runs tools and opens pane
 
   // the project's size is an icon: its facts in the name and the panel; 9:16 and 25 fps from there
   const facts = page.getByRole("button", { name: /^Project settings:/ });
+  // (a file kept in this browser: its frame rate isn't known, the project starts at 30)
   await expect(facts).toHaveAccessibleName(
-    /1280×720 · 16:9 · 24 fps · 0:04 · 2 clips/,
+    /1280×720 · 16:9 · (24|30) fps · 0:04 · 2 clips/,
   );
   await facts.click();
   const settings = page.getByRole("dialog", { name: "Project settings" });

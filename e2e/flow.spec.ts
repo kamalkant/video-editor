@@ -206,7 +206,8 @@ test.describe.serial("one-screen studio", () => {
     await expect(card).toContainText(/Frame rate(24 fps|Not known yet)/);
     await expect(card).toContainText("0:04");
     await expect(card).toContainText("Yes (sound detected)");
-    await expect(page.getByRole("button", { name: "Add media" })).toBeVisible();
+    // (more media: the Media panel's Upload media)
+    await expect(page.getByRole("button", { name: "Upload media" })).toBeVisible();
   });
 
   test("pick → full removed view, compare, split, undo, export, final file, change video", async ({

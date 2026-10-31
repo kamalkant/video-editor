@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -10,6 +10,13 @@ import { join } from "node:path";
  * element. Before, it had none of them (EDITOR_AUDIT.md E1). Real Chrome: its WebCodecs H.264 encoder.
  */
 test.use({ channel: "chrome" });
+// (Google Chrome encodes H.264; plain Chromium can't. Where it isn't installed these can't run.)
+const CHROME = {
+  darwin: "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+  linux: "/opt/google/chrome/chrome",
+  win32: "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+}[process.platform as "darwin" | "linux" | "win32"];
+test.skip(!CHROME || !existsSync(CHROME), "needs Google Chrome: npx playwright install chrome");
 
 const W = 640;
 const H = 360;

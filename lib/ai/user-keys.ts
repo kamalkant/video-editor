@@ -32,7 +32,8 @@ export function listUserCredentials(userId: string): Array<{
     const cred = map.get(p.id);
     return {
       provider: p.id,
-      hasKey: !!cred && cred.is_enabled === 1,
+      // (a key that's switched off is still there: the settings say "Switched off", not "No key")
+      hasKey: !!cred,
       last4: cred?.key_last4 || null,
       enabled: cred ? cred.is_enabled === 1 : false,
       source: "user" as const,

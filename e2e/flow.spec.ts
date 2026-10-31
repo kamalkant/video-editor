@@ -668,7 +668,7 @@ test("crop empty area shows the box and the new size; export shows an estimated 
   await expect(page.getByTestId("crop-box")).toBeVisible();
   await page.getByTestId("export-button").click();
   await expect(page.getByTestId("size-estimate")).toContainText(
-    /Estimated size: WebM ~\d+ KB · Safari MOV ~\d+ KB/,
+    /Estimated size: WebM ~\d+ [KM]B · Safari MOV ~\d+ [KM]B/,
     { timeout: 60_000 },
   );
   await expect(page.getByTestId("export-summary")).toContainText(
@@ -925,8 +925,9 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
   await expect(
     page.getByRole("button", { name: "Open News anchor intro" }),
   ).toHaveCount(0);
+  // (projects are kept in this browser: a link to one that's gone says it isn't here)
   await page.goto(url);
-  await expect(page.getByText("That project was deleted.")).toBeVisible();
+  await expect(page.getByText(/That project isn't saved in this browser/)).toBeVisible();
 });
 
 test("My Assets: + adds to the timeline; pictures and music get their own tracks; all saved", async ({

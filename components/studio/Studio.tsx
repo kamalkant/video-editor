@@ -1144,6 +1144,19 @@ function StudioInner(props: Props) {
   const sync = useProjectSync(initialProject, refreshLists);
 
   const projectName = sync.project?.name || "Untitled project";
+  // which projects use each file (by name): the open one from its timeline, others from what was saved —
+  // so removing a file a project needs says so instead of offering to delete it from this computer
+  const listedAssets = useMemo(() => {
+    if (!shownAssets) return shownAssets;
+    const names = new Map((projects.items ?? []).map((x) => [x.id, x.name]));
+    const open = sync.project;
+    return shownAssets.map((a) => {
+      const by = new Map(a.usedIn.map((u) => [u.id, names.get(u.id) ?? u.name]));
+      if (open && usedMedia.has(a.id)) by.set(open.id, open.name || "Untitled project");
+      else if (open) by.delete(open.id);
+      return { ...a, usedIn: [...by].map(([id, name]) => ({ id, name })) };
+    });
+  }, [shownAssets, projects.items, sync.project, usedMedia]);
 
   const docRef = useRef(doc);
   docRef.current = doc;
@@ -8369,7 +8382,7 @@ function StudioInner(props: Props) {
           />
         ) : sidePanel === "media" ? (
           <MediaPanel
-            assets={shownAssets}
+            assets={listedAssets}
             listError={assets.error}
             inTimeline={usedMedia}
             upload={uploadState}

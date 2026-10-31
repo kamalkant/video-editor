@@ -6,6 +6,7 @@ import { deductAICredits, getUserAICredits, refundAICredits } from "../db/ai-cre
 import { getDb } from "../db/index";
 import { apiError } from "../http/errors";
 import { aiKeyScope } from "./keys";
+import { isFake } from "./gemini";
 import { ownerScope } from "../auth/owner";
 import { parseAiCosts, type AiTool } from "./costs";
 import type { ProviderId } from "./providers";
@@ -53,7 +54,8 @@ export async function meteredAi(tool: AiTool, provider: ProviderId, run: () => P
   if (!user) return apiError(401, "unauthorized", "Sign in to use AI features.");
   const { key, source } = keyFor(user.id, provider);
   const scope = { keys: key ? { [provider]: key } : {} };
-  const charge = source !== "own" && user.role !== "super_admin" ? aiCost(tool, units) : 0;
+  // (the pretend Gemini of the browser tests costs nothing)
+  const charge = source !== "own" && user.role !== "super_admin" && !isFake() ? aiCost(tool, units) : 0;
 
   if (charge > 0) {
     const taken = deductAICredits(user.id, charge, `AI: ${tool}`);

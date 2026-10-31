@@ -979,7 +979,7 @@ export function MediaPanel(p: {
                         type="button"
                         onClick={() => add(a)}
                         title="Add to timeline"
-                        aria-label={`Add ${a.fileName} to timeline`}
+                        aria-label={`Add ${a.fileName} to the timeline`}
                         className="flex size-5 items-center justify-center rounded text-muted hover:bg-surface hover:text-ink transition-colors"
                       >
                         <Icon name="plus" className="size-3" />

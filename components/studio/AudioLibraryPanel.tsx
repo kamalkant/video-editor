@@ -74,6 +74,8 @@ export function AudioLibraryPanel({ onAdd, onRecordVoice, onTts }: { onAdd: (v: 
     try {
       const r = await fetch("/api/library/folder", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ folder: path.trim() || null }) });
       const j = await r.json();
+      // (it's a folder on the server: only its super admin sets it)
+      if (r.status === 403) throw new Error("Only the site's admin can set the music folder: it's a folder on the server. Upload your music in My uploads instead.");
       if (!r.ok) throw new Error(j?.error?.message ?? "Couldn't read that folder.");
       await load();
     } catch (e) {

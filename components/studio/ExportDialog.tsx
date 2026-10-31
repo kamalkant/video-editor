@@ -841,6 +841,13 @@ export function ExportDialog(p: {
               </div>
             )}
 
+            {/* The website pack of one video: its size, files and "Crop empty area" */}
+            {packOfVideo && p.video && (
+              <div inert={running} className={`rounded-xl border border-dialog-card-border bg-dialog-card p-2 ${running ? "opacity-60" : ""}`}>
+                <OutputSettings output={p.spec.output} info={p.video.info} patch={p.patchOutput} crop={p.crop} idPrefix="export" />
+              </div>
+            )}
+
             {/* Estimated File Size */}
             <div className="flex items-center gap-2 rounded-xl border border-dialog-card-border bg-dialog-header px-2.5 py-1.5 text-xs text-muted">
               <svg className="size-3.5 shrink-0 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

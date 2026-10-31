@@ -1626,7 +1626,7 @@ export function ProgramPlayer(p: {
           if (!editable || e.button !== 0 || p.cropId || p.patchEdit) return;
           const target = e.target as HTMLElement;
           const insideStage = !!stageRef.current?.contains(target);
-          const isInteractive = !!target.closest("button") || !!target.closest("input") || !!target.closest("select") || !!target.closest("[role='menu']") || !!target.closest("[role='group']");
+          const isInteractive = !!target.closest("button, input, select, label, [role='menu'], [role='group'], [role='radiogroup'], [role='toolbar']");
           if (!insideStage && !isInteractive) {
             p.onSelect?.(null);
             if (p.logoSelected) p.onSelectLogo?.(false);
@@ -1644,7 +1644,7 @@ export function ProgramPlayer(p: {
             if (!editable || e.button !== 0 || p.cropId || p.patchEdit) return;
             const target = e.target as HTMLElement;
             const insideStage = !!stageRef.current?.contains(target);
-            const isInteractive = !!target.closest("button") || !!target.closest("input") || !!target.closest("select") || !!target.closest("[role='menu']") || !!target.closest("[role='group']");
+            const isInteractive = !!target.closest("button, input, select, label, [role='menu'], [role='group'], [role='radiogroup'], [role='toolbar']");
             if (!insideStage && !isInteractive) {
               p.onSelect?.(null);
               if (p.logoSelected) p.onSelectLogo?.(false);

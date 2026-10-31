@@ -15,12 +15,14 @@ export function getInfoWarnings(info: VideoInfo, suggestedKey: string | null): I
 
 export function VideoInfoCard({ info, fileName, suggestedKey, headingId }: { info: VideoInfo; fileName: string; suggestedKey: string | null; headingId?: string }) {
   const warnings = getInfoWarnings(info, suggestedKey);
+  // (a file still only in this browser: no codec or frame rate until the server reads it)
+  const provisional = !info.videoCodec;
   const warn = (f: InfoWarning["field"]) => warnings.find((w) => w.field === f);
   const rows: { label: string; value: string; field?: InfoWarning["field"] }[] = [
     { label: "File", value: fileName },
-    { label: "Format", value: `${info.container.toUpperCase()} (${info.videoCodec.toUpperCase()})` },
+    { label: "Format", value: provisional ? info.container.toUpperCase() : `${info.container.toUpperCase()} (${info.videoCodec.toUpperCase()})` },
     { label: "Resolution", value: `${info.width} × ${info.height}`, field: "resolution" },
-    { label: "Frame rate", value: `${formatFps(info.fps)} fps`, field: "fps" },
+    { label: "Frame rate", value: provisional ? "Not known yet" : `${formatFps(info.fps)} fps`, field: "fps" },
     { label: "Duration", value: formatTime(info.duration), field: "duration" },
     { label: "Audio", value: !info.hasAudio ? "No" : info.soundDetected ? "Yes (sound detected)" : "Yes (silent)", field: "audio" },
     { label: "Background", value: suggestedKey ? `Detected ${suggestedKey}` : "Not found", field: "key" },

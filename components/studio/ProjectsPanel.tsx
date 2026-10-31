@@ -435,6 +435,7 @@ export function ProjectsPanel(p: {
           type="button"
           className="btn btn-primary flex-1"
           onClick={p.onNew}
+          aria-label="New project"
         >
           <Icon name="plus" className="size-4" /> New
         </button>

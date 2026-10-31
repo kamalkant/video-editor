@@ -4628,7 +4628,8 @@ function StudioInner(props: Props) {
       const inDialog = !!document.querySelector("dialog[open]");
       // ⌘K: Search tools, from anywhere (also while typing); again: close it
       if (mod && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") {
-        if (inDialog && !searchOpen) return;
+        // (inside the palette its own ⌘K closes it)
+        if ((inDialog && !searchOpen) || e.defaultPrevented) return;
         e.preventDefault();
         setSearchOpen((o) => !o);
         return;
@@ -4653,6 +4654,17 @@ function StudioInner(props: Props) {
       }
       if (logoShown && e.key === "Escape" && !typing) {
         setLogoSel(false);
+        return;
+      }
+      // Esc leaves focus mode (before unselecting; after a crop or the logo; not from inside a dialog)
+      if (
+        focus &&
+        e.key === "Escape" &&
+        !typing &&
+        !inDialog &&
+        !e.defaultPrevented
+      ) {
+        setFocus(false);
         return;
       }
       if (
@@ -4680,17 +4692,6 @@ function StudioInner(props: Props) {
           .flatMap((t) => t.clips.map((c) => c.id));
         setSelectedClipIds(new Set(allUnlockedIds));
         if (allUnlockedIds.length > 0) setSelectedId(allUnlockedIds[0]);
-        return;
-      }
-      // Esc leaves focus mode (after a crop or the logo; not from inside a dialog)
-      if (
-        focus &&
-        e.key === "Escape" &&
-        !typing &&
-        !inDialog &&
-        !e.defaultPrevented
-      ) {
-        setFocus(false);
         return;
       }
       if (e.key === "?" && !typing && !e.metaKey && !e.ctrlKey) {
@@ -8715,13 +8716,10 @@ function StudioInner(props: Props) {
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
         const insideStage = !!target.closest("[data-testid='program-stage']");
-        const isInteractive =
-          !!target.closest("button") ||
-          !!target.closest("input") ||
-          !!target.closest("select") ||
-          !!target.closest("a") ||
-          !!target.closest("[role='menu']") ||
-          !!target.closest("[role='group']");
+        // (a control: the Program / This clip switch is labels in a radio group)
+        const isInteractive = !!target.closest(
+          "button, input, select, a, label, [role='menu'], [role='group'], [role='radiogroup'], [role='toolbar']",
+        );
         if ((!insideStage || isMobile) && !isInteractive && (selectedId || logoShown)) {
           selectClip(null);
         }
@@ -10280,7 +10278,8 @@ function StudioInner(props: Props) {
     // phones and small tablets: preview on top, then one section at a time
     return (
       <div className="flex min-h-dvh flex-col bg-app">
-        {topBar}
+        {/* (above the sticky preview: the top bar's menus open over it) */}
+        <div className="relative z-100">{topBar}</div>
         {fileInput}
         <main
           id="main"

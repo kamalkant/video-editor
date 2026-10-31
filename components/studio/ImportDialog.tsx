@@ -27,6 +27,12 @@ const TABS: { id: ImportTab; label: string; icon: IconName; hint: string }[] = [
     hint: "Videos, pictures and music from this computer",
   },
   {
+    id: "pexels",
+    label: "Pexels",
+    icon: "video",
+    hint: "Free stock videos (free to use)",
+  },
+  {
     id: "pixabay",
     label: "Pixabay",
     icon: "video",

@@ -39,9 +39,12 @@ function freshRemoval(m: MediaLite | undefined) {
 function removalChanged(ops: OpInstance[], m: MediaLite | undefined): boolean {
   if (ops.some((o) => o.enabled)) return true;
   const fresh = freshRemoval(m).ops;
+  // (a clip made before its background was found, in this browser or on the server, still has the plain start)
+  const plain = m ? freshRemoval({ ...m, suggestedKey: null, keyKind: null, keyVia: undefined }).ops : fresh;
+  const key = (l: OpInstance[]) => l.find((f) => f.type === "chromaKey")?.params;
   return ops.some((o) => {
-    const def = o.type === "chromaKey" ? fresh.find((f) => f.type === "chromaKey")?.params : o.type === "blackKey" ? blackKey.defaults : aiMatte.defaults;
-    return !same(o.params, def);
+    if (o.type === "chromaKey") return !same(o.params, key(fresh)) && !same(o.params, key(plain));
+    return !same(o.params, o.type === "blackKey" ? blackKey.defaults : aiMatte.defaults);
   });
 }
 

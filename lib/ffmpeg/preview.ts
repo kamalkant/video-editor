@@ -3,6 +3,9 @@ import { FILM_COLS, FILM_H, filmCount, filmFrameW } from "../editor/film";
 import { buildFilterGraph } from "./graph";
 import type { VideoInfo } from "./probe";
 import { runFfmpeg, SAFE_INPUT } from "./run";
+import { computeSeeThrough } from "../media/seeThrough";
+
+export { computeSeeThrough };
 
 /** Preview frames are capped at this width (4K sources stay fast). */
 export const PREVIEW_MAX_WIDTH = 1920;
@@ -20,41 +23,6 @@ export type PreviewStats = {
 
 function previewWidth(info: Pick<VideoInfo, "width">) {
   return info.width > PREVIEW_MAX_WIDTH ? PREVIEW_MAX_WIDTH : undefined;
-}
-
-/**
- * Share of the subject core that has turned partly see-through.
- * The subject is alpha > 40; its core is that mask eroded by `erode` px,
- * so soft edges (which are meant to be partly transparent) don't count.
- */
-export function computeSeeThrough(alpha: Uint8Array, w: number, h: number, erode = 3): { seeThroughPct: number | null; transparentPct: number } {
-  const n = w * h;
-  let transparent = 0;
-  let mask = new Uint8Array(n);
-  for (let i = 0; i < n; i++) {
-    if (alpha[i] < 10) transparent++;
-    mask[i] = alpha[i] > 40 ? 1 : 0;
-  }
-  for (let pass = 0; pass < erode; pass++) {
-    const next = new Uint8Array(n);
-    for (let y = 1; y < h - 1; y++) {
-      for (let x = 1; x < w - 1; x++) {
-        const i = y * w + x;
-        next[i] = mask[i] & mask[i - 1] & mask[i + 1] & mask[i - w] & mask[i + w];
-      }
-    }
-    mask = next;
-  }
-  let core = 0;
-  let see = 0;
-  for (let i = 0; i < n; i++) {
-    if (!mask[i]) continue;
-    core++;
-    if (alpha[i] < 245) see++;
-  }
-  const transparentPct = (100 * transparent) / n;
-  if (core < n * 0.005) return { seeThroughPct: null, transparentPct };
-  return { seeThroughPct: Math.round((1000 * see) / core) / 10, transparentPct: Math.round(transparentPct * 10) / 10 };
 }
 
 /** Exact keyed frame (PNG with alpha) plus see-through stats, from one FFmpeg run. */

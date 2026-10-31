@@ -27,7 +27,16 @@ async function downloadBytes(page: Page, href: string): Promise<Buffer> {
 /** A saved project: projects are kept in this browser (IndexedDB, lib/storage/db), the server only knows synced ones. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function savedProject(page: Page, id: string | null): Promise<any> {
-  const local = await page.evaluate(
+  // (projects are saved in this browser: wait a moment for the write to land)
+  for (let i = 0; i < 20; i++) {
+    const got = await savedLocal(page, id);
+    if (got) return got;
+    await page.waitForTimeout(500);
+  }
+  return (await page.request.get(`/api/projects/${id}`)).json();
+}
+async function savedLocal(page: Page, id: string | null): Promise<any> {
+  return page.evaluate(
     (pid) =>
       new Promise((resolve) => {
         const req = indexedDB.open("VDO_local_first_db");
@@ -44,8 +53,6 @@ async function savedProject(page: Page, id: string | null): Promise<any> {
       }),
     id,
   );
-  if (local) return local;
-  return (await page.request.get(`/api/projects/${id}`)).json();
 }
 
 /** The clip's Transform numbers (folded under "Advanced position & size" until opened). */
@@ -62,8 +69,12 @@ async function transformPanel(page: Page): Promise<Locator> {
 async function openPanel(page: Page, name: string) {
   const rail = page.getByRole("navigation", { name: "Panels" }).getByRole("button", { name, exact: true });
   if (await rail.count()) return rail.click();
-  await page.keyboard.press("ControlOrMeta+k");
   const palette = page.getByRole("dialog", { name: "Search tools" });
+  // (right after a load the editor may not listen yet: press again until it opens)
+  await expect(async () => {
+    if (!(await palette.isVisible())) await page.keyboard.press("ControlOrMeta+k");
+    await expect(palette).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 20_000 });
   await palette.getByRole("combobox", { name: "Search tools" }).fill(`${name} panel`);
   await palette.getByRole("option", { name: new RegExp(`^${name} panel`) }).first().click();
 }
@@ -1025,7 +1036,8 @@ test("Export ▾ menu, Help dialog and the timeline", async ({ page }) => {
     .click();
   const menu = page.getByRole("menu", { name: "Export options" });
   // MP4 at the project size (recommended, first) + 4 video sizes + 2 website packs + "All formats…"
-  await expect(menu.getByRole("menuitem")).toHaveCount(8);
+  // (also "All 3 sizes" and the website packs: 10 in all)
+  await expect(menu.getByRole("menuitem")).toHaveCount(10);
   await expect(menu.getByRole("menuitem").first()).toContainText(
     "MP4 · project size",
   );
@@ -1048,7 +1060,8 @@ test("Export ▾ menu, Help dialog and the timeline", async ({ page }) => {
   await page.keyboard.press("Escape");
 
   // the timeline shows the clip and moves the playhead
-  await expect(page.getByTestId("timeline-clip")).toContainText("veo.mp4");
+  // (a video clip shows its pictures and length; its name is in its tip)
+  await expect(page.getByTestId("timeline-clip")).toHaveAttribute("title", /veo\.mp4/);
   const ruler = page.getByRole("slider", { name: "Timeline position" });
   const rb = (await ruler.boundingBox())!;
   const cb0 = (await page.getByTestId("timeline-clip").first().boundingBox())!;
@@ -1462,6 +1475,9 @@ test("program preview shows the right clip at every time, even with more than 40
       .toBe(want);
   }
   // playing across the cuts and into the next files: never an empty (black) frame
+  // (loop off: this is about the cuts, not the jump back to the start)
+  const loop = page.getByRole("region", { name: "Preview" }).getByRole("button", { name: "Loop" });
+  if ((await loop.getAttribute("aria-pressed")) === "true") await loop.click();
   await at(60);
   await page.keyboard.press("Space");
   const seen: string[] = [];
@@ -1694,11 +1710,11 @@ test("AI Tools: every tool is shown; ready ones work on the clip; Text to Speech
   ).toHaveAttribute("title", /Sound: Voice - Welcome to our channel/);
 });
 
-test("coming-soon panels and the shareable plan page", async ({ page }) => {
+test("the side panels open from the rail", async ({ page }) => {
   await page.goto("/");
   await openPanel(page, "Background");
   await expect(page.getByTestId("background-panel")).toBeVisible();
-  for (const name of ["Audio", "Subtitles", "Brand Kit", "Templates"]) {
+  for (const name of ["Audio", "Captions", "Brand Kit", "Templates"]) {
     await page
       .getByRole("navigation", { name: "Panels" })
       .getByRole("button", { name, exact: true })
@@ -1706,7 +1722,6 @@ test("coming-soon panels and the shareable plan page", async ({ page }) => {
     await expect(
       page.getByRole("heading", { name, exact: true, level: 2 }),
     ).toBeVisible();
-    await expect(page.getByText("Soon").first()).toBeVisible();
   }
   // a ready feature in a panel works from there
   await page
@@ -1718,21 +1733,10 @@ test("coming-soon panels and the shareable plan page", async ({ page }) => {
     .getByRole("button", { name: "Text to speech" })
     .click();
   await expect(
-    page.getByRole("dialog", { name: "Text to Speech" }),
+    page.getByRole("dialog", { name: /Voiceover Studio/ }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  // the plan page
-  await page.goto("/roadmap");
-  await expect(
-    page.getByRole("heading", { name: /ViPlay/, level: 1 }),
-  ).toBeVisible();
-  await expect(page.getByRole("region", { name: "Summary" })).toContainText(
-    "Ready now",
-  );
-  await expect(
-    page.getByRole("heading", { name: "AI tools", level: 2 }),
-  ).toBeVisible();
-  await expect(page.getByText("Auto subtitles")).toBeVisible();
+  // (the plan page, /roadmap, is on the accounts site now: next.config redirects)
 });
 
 test("Easy: crop & rotate (inspector and on the preview) and color", async ({

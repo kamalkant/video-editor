@@ -618,14 +618,19 @@ export function Timeline(p: TimelineProps) {
     lastWall: 0,
     mine: -1,
     smoothUntil: 0,
+    // (its own glide: from where to where)
+    from: 0,
+    to: 0,
   });
   /** Scroll the timeline sideways ourselves (not the user: following goes on). */
   const scrollTo = (el: HTMLElement, left: number, smooth = false) => {
     const v = Math.max(0, Math.round(left));
     if (Math.abs(v - el.scrollLeft) < 1) return;
     if (smooth) {
-      // (long at a big zoom: the scroll it makes isn't yours, so it keeps following)
+      // (long at a big zoom: while it glides from here to there, that scroll isn't yours)
       follow.current.smoothUntil = performance.now() + 1500;
+      follow.current.from = el.scrollLeft;
+      follow.current.to = v;
       el.scrollTo({ left: v, behavior: "smooth" });
     } else {
       follow.current.mine = v;
@@ -920,11 +925,13 @@ export function Timeline(p: TimelineProps) {
       }
     };
     const onScroll = () => {
-      if (
-        performance.now() < f.smoothUntil ||
-        Math.abs(el.scrollLeft - f.mine) < 2
-      )
-        return;
+      const x = el.scrollLeft;
+      // (its own glide moves between where it started and where it goes; anywhere else is you scrolling)
+      const gliding =
+        performance.now() < f.smoothUntil &&
+        x >= Math.min(f.from, f.to) - 2 &&
+        x <= Math.max(f.from, f.to) + 2;
+      if (gliding || Math.abs(x - f.mine) < 2) return;
       f.on = false;
     };
     el.addEventListener("scroll", onScroll, { passive: true });

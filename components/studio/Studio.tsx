@@ -126,6 +126,7 @@ import {
   uploadingItems,
 } from "@/lib/media/localMedia";
 import { inOrder } from "@/lib/media/inOrder";
+import { seeThroughOfCanvas } from "@/lib/media/seeThrough";
 import { EditorSkeleton } from "./EditorSkeleton";
 import { Spinner, SpinnerOverlay } from "@/components/ui/Spinner";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -676,7 +677,7 @@ const SIDE_TITLES: Record<SidePanel, string> = {
   background: "Background",
   elements: "Elements",
   audio: "Audio",
-  subtitles: "Subtitles",
+  subtitles: "Captions",
   brand: "Brand Kit",
   effects: "Effects",
   transitions: "Transitions",
@@ -5057,7 +5058,18 @@ function StudioInner(props: Props) {
     // (the server's exact frame is for background removal: a file kept only here isn't sent just to show it)
     !!video && clipShown && pausedT !== null && removalOn(state) && !notOnServer(video.id),
   );
-  const seeThroughPct = preview.result?.stats.seeThroughPct ?? null;
+  // a file kept in this browser: the same check on its live preview, a moment after the settings change
+  const seeLocal = !!video && clipShown && removalOn(state) && notOnServer(video.id);
+  const [localSee, setLocalSee] = useState<number | null>(null);
+  useEffect(() => {
+    if (!seeLocal) return;
+    const timer = setTimeout(() => {
+      const live = document.querySelector<HTMLCanvasElement>('[data-testid="live-canvas"]');
+      setLocalSee(live ? seeThroughOfCanvas(live) : null);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [seeLocal, clipSpecNow, pausedT]);
+  const seeThroughPct = preview.result?.stats.seeThroughPct ?? (seeLocal ? localSee : null);
   const seeThrough =
     state.method === "color" &&
     seeThroughPct !== null &&

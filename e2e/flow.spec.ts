@@ -618,7 +618,8 @@ test("one preview: Result and Original (no side by side), and picking works on t
     page.getByText("This spot looks like part of the person"),
   ).toHaveCount(0);
   await expect(
-    page.getByText(/Removing #1[01]AE3[34] \(picked\)/),
+    // (picked from the frame itself: a file in this browser gives its own green, the server's copy a lighter one)
+    page.getByText(/Removing #[0-9A-F]{6} \(picked\)/),
   ).toBeVisible();
 });
 

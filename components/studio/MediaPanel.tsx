@@ -778,6 +778,20 @@ export function MediaPanel(p: {
                       <Icon name="more" className="size-3.5" />
                     </button>
 
+                    {/* + adds it to the timeline (visible on hover or focus, like Clipchamp) */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        add(a);
+                      }}
+                      title="Add to timeline"
+                      aria-label={`Add ${a.fileName} to the timeline`}
+                      className="absolute top-1 right-8 z-10 flex size-6 items-center justify-center rounded bg-primary text-white shadow-sm opacity-0 group-hover/asset:opacity-100 focus:opacity-100 transition-opacity cursor-pointer"
+                    >
+                      <Icon name="plus" className="size-3.5" />
+                    </button>
+
                     <button
                       type="button"
                       className="relative block aspect-video w-full overflow-hidden bg-stage cursor-pointer focus:outline-none"

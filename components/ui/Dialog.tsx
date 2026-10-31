@@ -36,8 +36,10 @@ export function Dialog({
       ref={ref}
       aria-labelledby={titleId}
       className={`VDO-dialog m-auto max-h-[min(95dvh,58rem)] w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-2xl border-2 border-dialog-border bg-dialog-bg p-0 text-ink shadow-[0_25px_70px_rgba(0,0,0,0.55)] ring-1 ring-white/10 open:flex ${size === "xl" ? "max-w-6xl" : size === "4xl" ? "max-w-4xl" : size === "lg" ? "max-w-5xl" : size === "sm" ? "max-w-md" : "max-w-xl"}${className ? ` ${className}` : ""}`}
-      onClose={onClose}
+      // (React passes a nested dialog's close / cancel up: only this dialog's own count)
+      onClose={(e) => e.target === e.currentTarget && onClose()}
       onCancel={(e) => {
+        if (e.target !== e.currentTarget) return;
         e.preventDefault();
         onClose();
       }}

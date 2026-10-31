@@ -4977,7 +4977,7 @@ test("custom templates: your video + audio + a base look; in My Templates after 
   const hub2 = page.getByTestId("template-hub");
   await hub2.getByRole("button", { name: "My Templates", exact: true }).click();
   // (a double-click on the name renames it; Delete asks first)
-  await hub2.getByRole("heading", { name: "My show", exact: true }).dblclick();
+  await hub2.getByRole("heading", { name: "My show", exact: true, level: 3 }).dblclick();
   const rename = hub2.getByRole("textbox", { name: "Rename template" });
   await rename.fill("Evening show");
   await rename.press("Enter");

@@ -624,7 +624,8 @@ export function Timeline(p: TimelineProps) {
     const v = Math.max(0, Math.round(left));
     if (Math.abs(v - el.scrollLeft) < 1) return;
     if (smooth) {
-      follow.current.smoothUntil = performance.now() + 700;
+      // (long at a big zoom: the scroll it makes isn't yours, so it keeps following)
+      follow.current.smoothUntil = performance.now() + 1500;
       el.scrollTo({ left: v, behavior: "smooth" });
     } else {
       follow.current.mine = v;
@@ -911,7 +912,10 @@ export function Timeline(p: TimelineProps) {
       // Smooth page-ahead scrolling (like Premiere / Final Cut / CapCut):
       // Keep timeline stationary during normal playback so the playhead glides 100% smoothly with zero shaking;
       // when approaching the right edge (82% of view), smoothly scroll forward.
-      if (px > el.scrollLeft + view * 0.82) {
+      if (px > el.scrollLeft + view - 8) {
+        // (already past the edge: at a big zoom it outran the glide) straight back into view
+        scrollTo(el, px - view * 0.18);
+      } else if (px > el.scrollLeft + view * 0.82) {
         scrollTo(el, px - view * 0.18, true);
       }
     };
@@ -1328,7 +1332,9 @@ export function Timeline(p: TimelineProps) {
         f.clip.type !== "audio" &&
         f.clip.type !== "text" &&
         f.clip.type !== "element") ||
-      (!lane && !isAboveTop && !isBelowAudio && d.main);
+      (!lane && !isAboveTop && !isBelowAudio && d.main) ||
+      // (a blank scene lives on Video 1 only)
+      f.clip.type === "blank";
     if (
       toMain &&
       f.clip.type !== "audio" &&

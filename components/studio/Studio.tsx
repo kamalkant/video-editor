@@ -8715,7 +8715,8 @@ function StudioInner(props: Props) {
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         const target = e.target as HTMLElement;
-        const insideStage = !!target.closest("[data-testid='program-stage']");
+        // (the program's or the clip view's picture: picking a key color there must keep the clip)
+        const insideStage = !!target.closest("[data-testid='program-stage'], [data-testid='preview-stage']");
         // (a control: the Program / This clip switch is labels in a radio group)
         const isInteractive = !!target.closest(
           "button, input, select, a, label, [role='menu'], [role='group'], [role='radiogroup'], [role='toolbar']",

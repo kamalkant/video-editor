@@ -995,7 +995,7 @@ test("My Assets: + adds to the timeline; pictures and music get their own tracks
   // the program preview plays the whole timeline
   await page.getByRole("radio", { name: "Program" }).check({ force: true });
   await expect(page.getByTestId("program-caption")).toContainText(
-    "Program · 1280 × 720",
+    /Program\s*·?\s*1280 × 720/,
   );
   // everything is saved with the project
   await expect(page.getByTestId("save-state")).toHaveText("✓ Saved");

@@ -5029,11 +5029,14 @@ function StudioInner(props: Props) {
     if (activeClip?.id === clipId && state.method === "ai") dispatch({ type: "setMethod", method: "color" });
     startKeyPick();
   };
-  const crop = useCropBox(
-    video?.id ?? "",
-    clipSpecNow,
-    !!video && doc.output.crop.enabled && !notOnServer(video.id),
-  );
+  // "Crop empty area" is found on the server: a file kept only here is sent when it's switched on
+  const cropWanted = !!video && doc.output.crop.enabled;
+  const cropWaits = cropWanted && notOnServer(video!.id);
+  useEffect(() => {
+    if (cropWaits && video) void ensureOnServer([video.id]);
+  }, [cropWaits, video]);
+  const cropFound = useCropBox(video?.id ?? "", clipSpecNow, cropWanted && !cropWaits);
+  const crop: typeof cropFound = cropWaits ? { status: "finding", box: null } : cropFound;
   const preview = usePreview(
     video?.id ?? "",
     clipSpecNow,

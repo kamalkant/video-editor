@@ -4143,7 +4143,8 @@ test("My Assets: every card is the same size (a tall video shows whole), names u
   ).toBeVisible();
   await tall.hover();
   await expect(
-    tall.getByRole("button", { name: "Delete export-shorts.mp4" }),
+    // (delete is in the card's options menu)
+    tall.getByRole("button", { name: "Options for export-shorts.mp4" }),
   ).toBeVisible();
 });
 

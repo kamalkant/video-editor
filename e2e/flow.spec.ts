@@ -898,22 +898,27 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
     page.getByRole("textbox", { name: "Edge softness", includeHidden: true }),
   ).toHaveValue("0.21");
 
-  // the video can't be deleted while the project uses it
+  // removing a video a project uses says which project (it only leaves My Assets); cancelled here
   const media = page
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Media" });
   if ((await media.getAttribute("aria-pressed")) !== "true")
     await media.click();
-  page.once("dialog", (d) => void d.accept());
-  await page.getByRole("button", { name: "Delete veo.mp4" }).first().click();
-  await expect(
-    page.getByRole("alert").filter({ hasText: "News anchor intro" }),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Options for veo.mp4" }).first().click();
+  await page.getByRole("menuitem", { name: "Delete veo.mp4" }).click();
+  const ask = page.getByRole("dialog", { name: "Remove Asset" });
+  await expect(ask).toContainText("News anchor intro");
+  await page.keyboard.press("Escape");
+  await expect(ask).toBeHidden();
 
   // delete the project (the editor empties because it was open)
   await openPanel(page, "Projects");
-  page.once("dialog", (d) => void d.accept());
-  await page.getByRole("button", { name: "Delete News anchor intro" }).click();
+  await page.getByRole("button", { name: "Options for News anchor intro" }).first().click();
+  await page.getByRole("menuitem", { name: "Delete News anchor intro" }).click();
+  await page
+    .getByRole("dialog", { name: "Delete Project" })
+    .getByRole("button", { name: "Delete", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "No video loaded" }),
   ).toBeVisible();

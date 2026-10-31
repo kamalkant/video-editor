@@ -889,7 +889,7 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
     page.getByRole("heading", { name: "No video loaded" }),
   ).toBeVisible();
   await openPanel(page, "Projects");
-  await page.getByRole("button", { name: "Open News anchor intro" }).click();
+  await page.getByRole("button", { name: "Open News anchor intro" }).first().click();
   await expect(page).toHaveURL(url);
   await selectFirstVideo(page);
   await inspTab(page, "Cutout");

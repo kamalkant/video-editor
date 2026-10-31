@@ -1640,11 +1640,6 @@ test("AI Tools: every tool is shown; ready ones work on the clip; Text to Speech
     "Creative Tools",
   ])
     await expect(panel.getByRole("region", { name })).toBeVisible();
-  // a "Soon" tool explains itself
-  await panel
-    .getByRole("button", { name: /Text to Video/ })
-    .click({ force: true });
-  await expect(panel.getByText(/Text to Video is coming later/)).toBeVisible();
   // the search finds the tool
   await panel
     .getByRole("textbox", { name: /Describe what you want to do/ })

@@ -6201,6 +6201,8 @@ function StudioInner(props: Props) {
         { type: "setClip", clipId: aiSound.id, patch: { denoise: "light" } },
         group,
       );
+      // (the inspector shows what it turned on: Clean up the sound, on the Audio tab)
+      setInspTab("audio");
       setAiOpen(false);
       return;
     }

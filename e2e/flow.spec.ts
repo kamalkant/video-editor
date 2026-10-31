@@ -1657,8 +1657,8 @@ test("AI Tools: every tool is shown; ready ones work on the clip; Text to Speech
   await expect(panel).toBeHidden();
   await expect(
     page
-      .getByRole("radiogroup", { name: "Remove background noise" })
-      .or(page.getByRole("group", { name: "Remove background noise" }))
+      .getByRole("radiogroup", { name: "Clean up the sound" })
+      .or(page.getByRole("group", { name: "Clean up the sound" }))
       .getByRole("radio", { name: "Light" }),
   ).toBeChecked();
   // Remove Silences opens its dialog

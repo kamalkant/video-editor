@@ -2853,17 +2853,15 @@ test("AI settings: add, switch off and remove an API key; the Gemini features fo
   await page.keyboard.press("Escape");
   await expect(img.getByTestId("generate-image-button")).toBeVisible();
   await page.keyboard.press("Escape");
-  // removed: the features ask for a key
+  // removed: the features run on the site's key again (paid with AI credits), no key card
   await page.getByTestId("ai-settings-button").click();
   await gem.getByRole("button", { name: "Remove key" }).click();
   await expect(gem.getByTestId("ai-provider-status")).toHaveText("No key");
   await page.keyboard.press("Escape");
   await page.getByTestId("ai-tools").locator('[data-tool="gen-video"]').click();
-  await expect(
-    page
-      .getByRole("dialog", { name: /Veo Studio/ })
-      .getByTestId("gemini-key-card"),
-  ).toContainText("Add your Gemini key");
+  const veo = page.getByRole("dialog", { name: /Veo Studio/ });
+  await expect(veo).toBeVisible();
+  await expect(veo.getByTestId("gemini-key-card")).toHaveCount(0);
   await page.keyboard.press("Escape");
   // (put a key back for the other tests: the pretend Gemini then works again)
   const r = await page.request.put("/api/ai/keys", {

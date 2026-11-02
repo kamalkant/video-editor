@@ -33,8 +33,16 @@ export function MobileTopBar({
     <header
       className={`sticky top-0 z-40 flex h-12 w-full shrink-0 items-center justify-between border-b border-line bg-surface px-2.5 pt-[env(safe-area-inset-top)] shadow-xs select-none ${className}`}
     >
-      {/* Left: Back / Home and Project Name Dropdown */}
+      {/* Left: ViPlay Home, Back / Reset, and Project Name Dropdown */}
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <a
+          href="https://viplay.in"
+          className="flex size-7 shrink-0 items-center justify-center rounded-lg hover:opacity-85 transition-opacity"
+          title="Return to ViPlay Main Site"
+          aria-label="ViPlay Main Site"
+        >
+          <img src="/vdo-icon.png" alt="ViPlay" className="size-5.5 object-contain" />
+        </a>
         <button
           type="button"
           onClick={onHome}

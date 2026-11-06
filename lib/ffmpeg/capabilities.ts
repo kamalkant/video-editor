@@ -3,6 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { APPLE_MEDIA, FFMPEG, FfmpegError, runFfmpeg } from "./run";
 
+/** The system's "not now" (as lib/ffmpeg/run's BUSY_ERRNO): the account's limit on running programs, or memory. */
+const BUSY_ERRNO = new Set(["EAGAIN", "ENOMEM"]);
+
 /** What makes the Safari see-through MOV: Apple's encoder (a Mac), x265's alpha layer (FFmpeg 8+, e.g. Linux), else ProRes 4444 (a big file). */
 export type MovEncoder = "videotoolbox" | "x265" | "prores";
 
@@ -156,7 +159,10 @@ async function detect(): Promise<Capabilities> {
       });
   } catch (err) {
     // the reason only (EACCES, ENOENT, "exited with code 126"...), not the server's folders
-    const why = /\b(E[A-Z]{3,})\b|exited with code -?\d+/.exec(String((err as Error)?.message))?.[0] ?? "unknown error";
+    const why = (err as { errno?: string })?.errno ?? /\b(E[A-Z]{3,})\b|exited with code -?\d+/.exec(String((err as Error)?.message))?.[0] ?? "unknown error";
+    // FFmpeg is there, but the system said "not now" (shared hosting: the account's limit on running programs is
+    // full for the moment): nothing to install, it comes back by itself (getCapabilities checks again soon)
+    const busy = BUSY_ERRNO.has(why);
     return {
       ok: false,
       safariAlpha: false,
@@ -165,7 +171,9 @@ async function detect(): Promise<Capabilities> {
       macVoices: APPLE_MEDIA,
       ffmpegVersion: null,
       checks,
-      message: APPLE_MEDIA
+      message: busy
+        ? `The server is busy right now: the hosting account's limit on running programs is full (${why}). Video features come back by themselves when it frees up; reload the page in a minute.`
+        : APPLE_MEDIA
         ? "FFmpeg was not found. Install it with: brew install ffmpeg"
         : `FFmpeg can't run on the server (${FFMPEG.includes("vendor") ? "vendor/ffmpeg" : FFMPEG}: ${why}). Run npm install again (it fetches FFmpeg: scripts/fetch-ffmpeg.mjs), or set FFMPEG_PATH.`,
     };
@@ -191,10 +199,21 @@ async function detect(): Promise<Capabilities> {
   };
 }
 
-const g = globalThis as unknown as { __VDOCaps?: Promise<Capabilities> };
+const g = globalThis as unknown as { __VDOCaps?: Promise<Capabilities>; __VDOCapsFailedAt?: number };
 
-/** Cached for the life of the server process. */
+/** How long a failed check is kept before the next request checks again (it's often a passing "busy"). */
+export const FAILED_CHECK_TTL_MS = 30_000;
+
+/** Cached for the life of the server process when FFmpeg works; a failure only for FAILED_CHECK_TTL_MS. */
 export function getCapabilities(refresh = false): Promise<Capabilities> {
-  if (refresh || !g.__VDOCaps) g.__VDOCaps = detect();
+  const stale = g.__VDOCapsFailedAt !== undefined && Date.now() - g.__VDOCapsFailedAt > FAILED_CHECK_TTL_MS;
+  if (refresh || stale || !g.__VDOCaps) {
+    g.__VDOCapsFailedAt = undefined;
+    const p = detect();
+    g.__VDOCaps = p;
+    void p.then((c) => {
+      if (!c.ok && g.__VDOCaps === p) g.__VDOCapsFailedAt = Date.now();
+    });
+  }
   return g.__VDOCaps;
 }

@@ -27,11 +27,45 @@ export class FfmpegError extends Error {
     message: string,
     public readonly code: number | null,
     public readonly stderrTail: string,
+    /** Why the program couldn't be started at all (ENOENT, EACCES, EAGAIN…), else undefined. */
+    public readonly errno?: string,
   ) {
     super(message);
     this.name = "FfmpegError";
   }
 }
+
+/**
+ * "Not now" answers from the system: the account's limit on running programs/threads is full (shared hosting
+ * counts every site's processes together) or memory is short for a moment. Worth waiting a little and trying again.
+ */
+export const BUSY_ERRNO = new Set(["EAGAIN", "ENOMEM"]);
+const BUSY_STDERR = /Resource temporarily unavailable|Cannot allocate memory/i;
+
+/** FFmpeg was refused by the system for a moment (not a bad file or a missing program). */
+export function isBusyError(err: unknown): boolean {
+  if (!(err instanceof FfmpegError)) return false;
+  if (err.errno) return BUSY_ERRNO.has(err.errno);
+  // started, but couldn't make its threads: it ends at once with the system's words
+  return err.code !== null && err.code !== 0 && BUSY_STDERR.test(err.stderrTail);
+}
+
+/** Waits before each new try when the system says "not now": about 8 s in all. */
+export const BUSY_RETRY_MS = [250, 500, 1000, 2000, 4000];
+
+const sleep = (ms: number, signal?: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(new AbortedError());
+    const t = setTimeout(() => {
+      signal?.removeEventListener("abort", stop);
+      resolve();
+    }, ms);
+    const stop = () => {
+      clearTimeout(t);
+      reject(new AbortedError());
+    };
+    signal?.addEventListener("abort", stop, { once: true });
+  });
 
 export class AbortedError extends Error {
   constructor() {
@@ -65,7 +99,24 @@ export function parseProgressChunk(text: string): number | null {
   return last;
 }
 
-function run(bin: string, args: string[], opts: RunOptions = {}): Promise<RunResult> {
+/** `bin` once; when the system refuses it for a moment (EAGAIN…), again after a short wait (BUSY_RETRY_MS). */
+async function run(bin: string, args: string[], opts: RunOptions = {}): Promise<RunResult> {
+  for (let attempt = 0; ; attempt++) {
+    const t0 = Date.now();
+    try {
+      return await runOnce(bin, args, opts);
+    } catch (err) {
+      const wait = BUSY_RETRY_MS[attempt];
+      // (a job that ran a while before failing isn't started over: only a start that was refused, or one that
+      // ended at once because it couldn't make its threads)
+      const atOnce = (err as FfmpegError).errno !== undefined || Date.now() - t0 < 5000;
+      if (wait === undefined || !isBusyError(err) || !atOnce || opts.signal?.aborted) throw err;
+      await sleep(wait, opts.signal);
+    }
+  }
+}
+
+function runOnce(bin: string, args: string[], opts: RunOptions = {}): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     if (opts.signal?.aborted) return reject(new AbortedError());
     const stdio: ("ignore" | "pipe")[] = ["ignore", "pipe", "pipe"];
@@ -103,7 +154,7 @@ function run(bin: string, args: string[], opts: RunOptions = {}): Promise<RunRes
 
     child.on("error", (err) => {
       if (timer) clearTimeout(timer);
-      reject(new FfmpegError(`Could not start ${bin}: ${err.message}`, null, ""));
+      reject(new FfmpegError(`Could not start ${bin}: ${err.message}`, null, "", (err as NodeJS.ErrnoException).code));
     });
     child.on("close", (code) => {
       if (timer) clearTimeout(timer);
@@ -159,9 +210,20 @@ export function runFfmpeg(args: string[], opts?: RunOptions): Promise<RunResult>
   return inSlot(["-hide_banner", "-nostdin", "-loglevel", "error", ...limitThreads(args)], opts);
 }
 
+/** FFprobe, in the same places as FFmpeg (each is a program running on the account's limit). */
 export async function runFfprobe(args: string[], opts?: RunOptions): Promise<string> {
-  const r = await run(FFPROBE, ["-hide_banner", "-v", "error", ...args], { ...opts, collectStdout: true });
-  return r.stdout.toString();
+  let release: () => void;
+  try {
+    release = await slots.acquire(!!opts?.background, opts?.signal);
+  } catch (err) {
+    throw err instanceof SlotAbortedError ? new AbortedError() : err;
+  }
+  try {
+    const r = await run(FFPROBE, ["-hide_banner", "-v", "error", ...args], { ...opts, collectStdout: true });
+    return r.stdout.toString();
+  } finally {
+    release();
+  }
 }
 
 /** Run FFmpeg for its log output (e.g. volumedetect), which goes to stderr. */

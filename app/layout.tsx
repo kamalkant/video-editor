@@ -7,6 +7,7 @@ import { THEME_SCRIPT } from "@/lib/editor/themeScript";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getComputedFeaturesForUser } from "@/lib/db/features";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { UsageBeacon } from "@/components/usage/UsageBeacon";
 import { getSiteUrl, SITE_NAME, DEFAULT_TITLE, DEFAULT_DESCRIPTION } from "@/lib/seo/config";
 import "./globals.css";
 
@@ -77,6 +78,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <AuthProvider initialUser={user} initialFeatures={features}>
           {children}
         </AuthProvider>
+        <UsageBeacon />
       </body>
     </html>
   );

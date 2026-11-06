@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audioToolById, type AudioToolId } from "@/lib/audio/tools/catalog";
 import { canEncode, decodeAudio, encodeAudio, FORMATS, previewUrl, type AudioFormat } from "@/lib/audio/tools/encode";
 import { duration, gain, integratedLoudness, peakDb, planNormalize, resample, toMono, trim, type Pcm } from "@/lib/audio/tools/pcm";
+import { usage, trackImport } from "@/lib/usage/wire";
+import { failReason, sizeBucket } from "@/lib/usage/track";
 
 const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : `${(n / 1024 / 1024).toFixed(2)} MB`);
 const fmtTime = (s: number) => {
@@ -213,6 +215,7 @@ export function AudioTool({ id }: { id: AudioToolId }) {
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
+  useEffect(() => usage("tool_use", { tool: `audio:${id}` }), [id]);
   const [supported, setSupported] = useState<Record<AudioFormat, boolean>>({ mp3: true, wav: true, webm: false, m4a: false });
 
   const [format, setFormat] = useState<AudioFormat>(id === "compress" ? "mp3" : id === "record" ? "mp3" : "mp3");
@@ -239,6 +242,7 @@ export function AudioTool({ id }: { id: AudioToolId }) {
 
   const pick = async (file: File | undefined) => {
     if (!file) return;
+    trackImport("audio", file.size);
     setLoading(true);
     setError(null);
     try {
@@ -254,6 +258,7 @@ export function AudioTool({ id }: { id: AudioToolId }) {
     if (!src) return;
     setBusy(0);
     setError(null);
+    const t0 = performance.now();
     try {
       let pcm = src.pcm;
       let note: string | undefined;
@@ -272,7 +277,9 @@ export function AudioTool({ id }: { id: AudioToolId }) {
       if (id === "compress") note = `${fmtBytes(src.size)} → ${fmtBytes(bytes.length)} (${Math.round((1 - bytes.length / src.size) * 100)}% smaller)`;
       const suffix = id === "trim" ? "-trimmed" : id === "normalize" ? "-normalized" : id === "compress" ? "-small" : "";
       setResult({ name: `${stem(src.name)}${suffix}.${f.ext}`, bytes, mime: f.mime, url: URL.createObjectURL(new Blob([bytes as BlobPart], { type: f.mime })), note });
+      usage("export_done", { format: f.ext, where: "browser", seconds: Math.round((performance.now() - t0) / 100) / 10, size: sizeBucket(bytes.length) });
     } catch (e) {
+      usage("export_fail", { format: FORMATS[format].ext, where: "browser", reason: failReason(e) });
       setError(`It could not be saved: ${(e as Error).message}`);
     } finally {
       setBusy(null);

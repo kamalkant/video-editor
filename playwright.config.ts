@@ -32,6 +32,8 @@ export default defineConfig({
         // a fake camera, microphone and screen for the Record tests (no real devices, no prompts)
         permissions: ["camera", "microphone"],
         launchOptions: {
+          // a Chromium installed somewhere other than where Playwright looks (CI images): PW_CHROMIUM=/path/to/chrome
+          ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
           args: [
             "--use-fake-ui-for-media-stream",
             "--use-fake-device-for-media-stream",
@@ -41,6 +43,20 @@ export default defineConfig({
         },
       },
       grepInvert: /@webkit-only/,
+      testIgnore: /audio-tools\.spec\.ts/,
+    },
+    // pages that need no account (the audio tools): no sign-in step
+    {
+      name: "public",
+      testMatch: /audio-tools\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        permissions: ["microphone"],
+        launchOptions: {
+          ...(process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : {}),
+          args: ["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream"],
+        },
+      },
     },
     {
       name: "webkit",

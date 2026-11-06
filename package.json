@@ -19,6 +19,7 @@
     "postinstall": "node scripts/fetch-ffmpeg.mjs"
   },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.6",
     "@types/react": "^19",

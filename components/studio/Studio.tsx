@@ -297,7 +297,6 @@ import { BUBBLE_MASK } from "./LookSections";
 import { TransitionCard } from "./TransitionsPanel";
 import { docTransitions, type TransitionType } from "@/lib/player/transitions";
 import { PanelSplitter, usePanelWidth, useRememberedFlag } from "./PanelSplitter";
-import { FloatingToolbar } from "./FloatingToolbar";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { captionLookStyle, type CaptionLook } from "./SubtitlesPanel";
 import { mainFrameAt } from "@/lib/edit/frameAt";
@@ -962,6 +961,16 @@ function StudioInner(props: Props) {
     pt: { x: number; y: number };
   } | null>(null);
   const logoShown = logoSel && !!doc.watermark && !selectedId && !selTransition;
+  // One panel beside the rail (as in Clideo): the rail tab's library, or the settings of what's selected, or the canvas.
+  const [ctxView, setCtxView] = useState<"library" | "settings" | "canvas">("library");
+  /** A clip just added from the Media panel: the panel stays on Media (more files usually follow). */
+  const libStayFor = useRef<string | null>(null);
+  const selKey = selectedId ?? (selTransition ? "transition" : logoShown ? "logo" : null);
+  useEffect(() => {
+    if (!selKey) return;
+    if (libStayFor.current === selKey) libStayFor.current = null;
+    else setCtxView("settings");
+  }, [selKey]);
   const [aiOpen, setAiOpen] = useState(false);
   const [smartMixOpen, setSmartMixOpen] = useState(false);
   const [isAnalyzingMix, setIsAnalyzingMix] = useState(false);
@@ -989,7 +998,13 @@ function StudioInner(props: Props) {
   const [hasCopy, setHasCopy] = useState(() => !!copied);
   const [hasCopiedStyle, setHasCopiedStyle] = useState(() => !!copiedStyle);
   // the inspector's tab for video and picture clips (Adjust · Background · Color · Audio · Speed · Motion · More)
-  const [inspTab, setInspTab] = useState<InspectorTab>("basic");
+  const [inspTab, setInspTabRaw] = useState<InspectorTab>("basic");
+  /** Opening a settings tab also brings the settings into the panel. */
+  const setInspTab = (t: InspectorTab) => {
+    setInspTabRaw(t);
+    setCtxView("settings");
+    setAiOpen(false);
+  };
   // Import (Add media): this computer, Pexels, Pixabay
   const [importTab, setImportTab] = useState<ImportTab | null>(null);
   // AI Tools → Settings (API keys); any "Open AI settings" button asks for it with an event
@@ -1019,9 +1034,9 @@ function StudioInner(props: Props) {
   // panel widths: drag the lines between the panels (remembered)
   const defaultAiW = () => 360;
   const [leftW, setLeftW] = usePanelWidth(
-    "VDO:v1:leftPanelWidth",
-    () => 256,
-    200,
+    "VDO:v1:contextPanelWidth",
+    () => 320,
+    260,
     560,
   );
   const [rightW, setRightW] = usePanelWidth(
@@ -1567,6 +1582,7 @@ function StudioInner(props: Props) {
     );
     if (opts.patch)
       dispatchDoc({ type: "setClip", clipId: id, patch: opts.patch }, group);
+    if (ctxView === "library") libStayFor.current = id;
     setSelectedId(id);
     setNotice(null);
     if (m.kind === "video") {
@@ -5877,22 +5893,40 @@ function StudioInner(props: Props) {
       return;
     }
     if (id === "ai") return toggleAi();
+    // Canvas: the project's size and background, with nothing selected
+    if (id === "background") {
+      setAiOpen(false);
+      selectClip(null);
+      return setCtxView("canvas");
+    }
     if (isSide(id)) {
-      // (AI Tools share the left side: another panel takes their place)
-      if (aiOpen) {
+      // (the panel showed a clip's settings, the canvas or AI Tools: the library takes their place)
+      if (aiOpen || showsSettings) {
         setAiOpen(false);
+        setCtxView("library");
         return setLeftPanel(id);
       }
+      setCtxView("library");
       setLeftPanel((l) => (l === id ? null : id));
     }
   };
+  /** Desktop: the one panel shows settings (the selected clip's, or the canvas) in place of a library. */
+  const showsSettings =
+    wide &&
+    !aiOpen &&
+    (ctxView === "canvas" ||
+      (ctxView === "settings" && (!!selectedId || !!selTransition || logoShown || smartMixOpen)));
   const railActive: PanelId | null =
     workspaceView === "templates"
       ? "templates"
       : wide
         ? aiOpen
           ? "ai"
-          : leftPanel
+          : showsSettings
+            ? ctxView === "canvas"
+              ? "background"
+              : null
+            : leftPanel
         : phoneTab;
   // (phones: the Edit tab is the timeline + settings, not a panel)
   const sidePanel: SidePanel | null = wide
@@ -5904,7 +5938,11 @@ function StudioInner(props: Props) {
   const showPanel = (id: SidePanel | "ai") => {
     if (!wide) return setPhoneTab(id);
     setFocus(false);
-    if (id !== "ai") return setLeftPanel(id);
+    if (id !== "ai") {
+      setAiOpen(false);
+      setCtxView("library");
+      return setLeftPanel(id);
+    }
     setLeftPanel(null);
     setAiOpen(true);
   };
@@ -8614,6 +8652,8 @@ function StudioInner(props: Props) {
         final={single ? final : null}
       />
     ) : null;
+  // (the preview's toolbar hides until the pointer is over the preview; it stays while a key color is being picked)
+  const zoomedOrPicking = pickingOn;
   const programPane = (
     <ProgramPlayer
       doc={doc}
@@ -8636,6 +8676,7 @@ function StudioInner(props: Props) {
       custom={custom}
       bgMedia={bg === "image" || bg === "video" ? bgMedia[bg] : undefined}
       toolbar={previewTools}
+      toolbarOver={wide && !splitShown ? (zoomedOrPicking ? "show" : "hover") : undefined}
       selectedId={selectedId}
       onSelect={selectClip}
       onTransform={(clipId, transform, group) =>
@@ -8715,29 +8756,6 @@ function StudioInner(props: Props) {
     setFocus(false);
     setInspTab(tab);
   };
-  // the selected clip's quick actions over the preview (desktop; not while cropping)
-  const floating =
-    wide && selected && !cropFor && !selTransition ? (
-      <FloatingToolbar
-        kind={selected.clip.type}
-        onSplit={() => {
-          // (at the playhead as it is when clicked; a playhead off the clip splits nothing)
-          const id = selected.clip.id;
-          const s0 = clipStart(doc, id);
-          const len = clipLength(selected.clip as AnyClip);
-          const now = clock.get();
-          if (now > s0 + 0.05 && now < s0 + len - 0.05) dispatchDoc({ type: "split", clipId: id, t: now });
-        }}
-        onCrop={() => startCrop(selected.clip.id)}
-        onBackground={() => openClipTab("background")}
-        onColor={() => openClipTab("color")}
-        onSpeed={() => openClipTab("speed")}
-        onDuplicate={() => dispatchDoc({ type: "duplicate", clipId: selected.clip.id })}
-        onDelete={() => deleteSelected()}
-        onSettings={() => openClipTab("basic")}
-      />
-    ) : null;
-
   const previewArea = (
     <section
       aria-label="Preview"
@@ -8800,7 +8818,6 @@ function StudioInner(props: Props) {
       }}
     >
       {stageBusy && <SpinnerOverlay label={stageBusy} />}
-      {floating && <div className="pointer-events-none absolute inset-x-0 top-12 z-20 flex justify-center">{floating}</div>}
       {working && !stageBusy && (
         <span role="status" className="pointer-events-none absolute left-1/2 top-12 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full bg-black/75 px-3 py-1.5 text-xs text-white shadow-lg" data-testid="stage-working">
           <Spinner size="xs" /> {working}
@@ -10362,43 +10379,8 @@ function StudioInner(props: Props) {
           active={focus ? null : railActive}
           onSelect={onRail}
           onDropOnTab={handleRailDrop}
+          onAdd={() => setImportTab("computer")}
         />
-        {/* AI Tools open on the left like the other panels; the settings panel on the right stays for the selected clip */}
-        {!focus && aiOpen && (
-          <>
-            <aside aria-label="AI Tools panel" className="anim-slide relative flex h-full min-h-0 shrink-0 flex-col" style={{ width: aiW }}>
-              {aiPanel}
-            </aside>
-            <PanelSplitter
-              label="AI Tools width"
-              side="left"
-              value={aiW}
-              onChange={setAiW}
-              min={320}
-              max={1100}
-              reset={defaultAiW()}
-              onCollapse={() => setAiOpen(false)}
-              collapseLabel="Hide AI Tools"
-            />
-          </>
-        )}
-        {!focus && !aiOpen && side}
-        {!focus && !aiOpen && side && (
-          <PanelSplitter
-            label="Panel width"
-            side="left"
-            value={leftW}
-            onChange={setLeftW}
-            min={200}
-            max={560}
-            reset={256}
-            onCollapse={() => {
-              lastLeft.current = leftPanel;
-              setLeftPanel(null);
-            }}
-            collapseLabel="Hide the panel (Ctrl+Alt+1)"
-          />
-        )}
         <main
           id="main"
           className="relative flex min-h-0 min-w-0 flex-1 flex-col gap-2"
@@ -10410,39 +10392,42 @@ function StudioInner(props: Props) {
           }}
         >
           <div className="relative flex min-h-0 flex-1 gap-2">
-            {previewArea}
-            {focus || inspHidden ? null : (
-              <PanelSplitter
-                label="Inspector width"
-                side="right"
-                value={rightW}
-                onChange={setRightW}
-                min={260}
-                max={560}
-                reset={xwide ? 336 : 304}
-                onCollapse={() => setInspHidden(true)}
-                collapseLabel="Hide the settings panel (Ctrl+Alt+2)"
-              />
+            {/* One panel beside the rail: AI Tools, the selected clip's settings (or the canvas), or the rail tab's library */}
+            {!focus && aiOpen && (
+              <>
+                <aside aria-label="AI Tools panel" className="anim-slide relative flex h-full min-h-0 shrink-0 flex-col" style={{ width: aiW }}>
+                  {aiPanel}
+                </aside>
+                <PanelSplitter
+                  label="AI Tools width"
+                  side="left"
+                  value={aiW}
+                  onChange={setAiW}
+                  min={320}
+                  max={1100}
+                  reset={defaultAiW()}
+                  onCollapse={() => setAiOpen(false)}
+                  collapseLabel="Hide AI Tools"
+                />
+              </>
             )}
-            {focus ? null : inspHidden ? (
-              <button
-                type="button"
-                onClick={() => setInspHidden(false)}
-                aria-label="Show the settings panel"
-                title="Show the settings panel (Ctrl+Alt+2)"
-                data-testid="show-inspector"
-                className="flex w-7 shrink-0 flex-col items-center gap-2 rounded-lg bg-surface pt-3 text-muted transition-colors hover:bg-hover hover:text-ink"
-              >
-                <Icon name="chevronLeft" className="size-3.5" />
-                <span className="text-2xs font-medium [writing-mode:vertical-rl]">Settings</span>
-              </button>
-            ) : (
+            {!focus && showsSettings && (
               <aside
                 aria-label="Inspector"
-                className="relative flex h-full min-h-0 shrink-0 flex-col gap-2"
-                style={{ width: rightW }}
+                className="relative flex h-full min-h-0 shrink-0 flex-col gap-1"
+                style={{ width: leftW }}
               >
-                {/* (export lives in the top bar: Export ▾ and its dialog) */}
+                {ctxView !== "canvas" && leftPanel && (
+                  <button
+                    type="button"
+                    data-testid="back-to-library"
+                    className="flex min-h-8 shrink-0 items-center gap-1 self-start rounded-md px-1.5 text-xs font-medium text-muted hover:bg-raised hover:text-ink"
+                    onClick={() => setCtxView("library")}
+                  >
+                    <Icon name="chevronLeft" className="size-3.5" />
+                    {SIDE_TITLES[leftPanel]}
+                  </button>
+                )}
                 <div
                   data-testid="inspector-scroll"
                   className="relative flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto"
@@ -10451,6 +10436,25 @@ function StudioInner(props: Props) {
                 </div>
               </aside>
             )}
+            {!focus && !aiOpen && !showsSettings && side}
+            {!focus && !aiOpen && (showsSettings || side) && (
+              <PanelSplitter
+                label="Panel width"
+                side="left"
+                value={leftW}
+                onChange={setLeftW}
+                min={260}
+                max={560}
+                reset={320}
+                onCollapse={() => {
+                  if (showsSettings) return selectClip(null), setCtxView("library");
+                  lastLeft.current = leftPanel;
+                  setLeftPanel(null);
+                }}
+                collapseLabel="Hide the panel (Ctrl+Alt+1)"
+              />
+            )}
+            {previewArea}
           </div>
           {tlHidden ? (
             <button
@@ -10469,7 +10473,7 @@ function StudioInner(props: Props) {
               <TimelineResizer
                 height={timelineH}
                 onChange={setTimelineH}
-                rightOffset={focus || inspHidden ? 0 : rightW + 8}
+                rightOffset={0}
                 onCollapse={() => setTlHidden(true)}
               />
               <div className="shrink-0" style={{ height: timelineH }}>

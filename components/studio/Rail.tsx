@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { ContextMenu, useMenuButton, type MenuItem } from "@/components/ui/ContextMenu";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 export type PanelId =
@@ -25,29 +26,31 @@ export type RailItem = { id: PanelId | null; label: string; icon: IconName };
 type Item = RailItem;
 
 /**
- * Desktop rail: only what you add to the video (as in Clipchamp and Google Vids). Clip settings are on the right,
- * for the selected clip; projects are in the project menu, the stock library in Media, backdrops on the Project card.
+ * Desktop rail (arranged as in Clideo): a few things you add to the video, then Canvas and More.
+ * A selected clip's settings open in the same panel beside the rail.
  */
 export const DESKTOP: Item[] = [
+  { id: "ai", label: "AI", icon: "ai" },
   { id: "media", label: "Media", icon: "media" },
   { id: "text", label: "Text", icon: "text" },
+  { id: "subtitles", label: "Captions", icon: "subtitles" },
   { id: "elements", label: "Elements", icon: "elements" },
   { id: "audio", label: "Audio", icon: "audio" },
-  { id: "subtitles", label: "Captions", icon: "subtitles" },
-  { id: "transitions", label: "Transitions", icon: "transitions" },
-  { id: "effects", label: "Effects", icon: "effects" },
   { id: "templates", label: "Templates", icon: "templates" },
-  { id: "brand", label: "Brand Kit", icon: "brand" },
-  { id: "ai", label: "AI", icon: "ai" },
+  { id: "background", label: "Canvas", icon: "background" },
 ];
 
-/** Panels that are no longer on the rail but still open (Search tools, the project menu, Media, the Project card). */
-export const MORE_PANELS: Item[] = [
+/** Under "More" on the rail. */
+export const RAIL_MORE: Item[] = [
+  { id: "transitions", label: "Transitions", icon: "transitions" },
+  { id: "effects", label: "Effects", icon: "effects" },
+  { id: "brand", label: "Brand Kit", icon: "brand" },
   { id: "projects", label: "Projects", icon: "projects" },
   { id: "library", label: "Library", icon: "library" },
-  { id: "background", label: "Background", icon: "background" },
-  { id: "edit", label: "Edit", icon: "edit" },
 ];
+
+/** Panels that are not on the rail itself but still open (More, Search tools, the project menu). */
+export const MORE_PANELS: Item[] = [...RAIL_MORE, { id: "edit", label: "Edit", icon: "edit" }];
 
 /** Phones: a tab bar under the preview. */
 const PHONE: Item[] = [
@@ -65,12 +68,16 @@ export function Rail({
   onSelect,
   wide,
   onDropOnTab,
+  onAdd,
 }: {
   active: PanelId | null;
   onSelect: (id: PanelId) => void;
   wide: boolean;
   onDropOnTab?: (id: PanelId, e: React.DragEvent) => void;
+  /** The round + on top: add your own files. */
+  onAdd?: () => void;
 }) {
+  const more = useMenuButton();
   const { hasFeature } = useAuth();
   const items = wide ? DESKTOP : PHONE;
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -87,10 +94,22 @@ export function Rail({
       aria-label="Panels"
       className={
         wide
-          ? "panel flex w-[4.5rem] shrink-0 flex-col overflow-y-auto py-1.5"
+          ? "flex w-[4.5rem] shrink-0 flex-col overflow-y-auto py-1"
           : "border-y border-line bg-surface"
       }
     >
+      {wide && onAdd && (
+        <button
+          type="button"
+          data-testid="rail-add"
+          aria-label="Add media"
+          title="Add your videos, pictures and sound"
+          onClick={onAdd}
+          className="mx-auto mb-2 flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-sm transition-transform hover:scale-105"
+        >
+          <Icon name="plus" className="size-5" strokeWidth={2.5} />
+        </button>
+      )}
       <ul className={wide ? "flex flex-col gap-0.5 px-1.5" : "flex gap-1 p-1"}>
         {items.map((t) => {
           const isAllowed = t.id ? hasFeature(t.id) : false;
@@ -189,11 +208,40 @@ export function Rail({
                     </span>
                   )}
                 </div>
-                <span className="text-center text-[8px]">{t.label}</span>
+                <span className={`text-center ${wide ? "text-2xs" : "text-[8px]"}`}>{t.label}</span>
               </button>
             </li>
           );
         })}
+        {wide && (
+          <li>
+            <button
+              type="button"
+              aria-label="More panels"
+              {...more.buttonProps}
+              className={`relative flex w-full flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-2xs leading-tight transition-all ${
+                more.at || RAIL_MORE.some((m) => m.id === active)
+                  ? "bg-primary-soft font-semibold text-ink"
+                  : "text-muted hover:bg-raised hover:text-ink"
+              }`}
+            >
+              <Icon name="more" className="size-5" strokeWidth={3} />
+              <span className="text-center text-2xs">More</span>
+            </button>
+            {more.at && (
+              <ContextMenu
+                x={more.at.x}
+                y={more.at.y}
+                width={200}
+                label="More panels"
+                onClose={more.close}
+                items={RAIL_MORE.filter((m) => m.id && hasFeature(m.id)).map(
+                  (m): MenuItem => ({ label: m.label, checked: active === m.id, onSelect: () => m.id && onSelect(m.id) }),
+                )}
+              />
+            )}
+          </li>
+        )}
       </ul>
     </nav>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { TimelineDoc } from "@/lib/edit/doc";
 import type { Clock } from "@/lib/editor/clock";
 import type { ProjectRef, SaveState } from "@/lib/projects/useProjectSync";
@@ -117,22 +117,20 @@ export function MobileStudioLayout({
   onOpenPanel = () => {},
   onPatchClip,
 }: MobileStudioLayoutProps) {
-  const [activeTab, setActiveTab] = useState<MobileTab | null>(null);
+  const [tab, setTab] = useState<MobileTab | null>(null);
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
   const [isProjectSheetOpen, setIsProjectSheetOpen] = useState(false);
 
   // A settings tab was asked for (Speed, Cutout, Crop…): the settings sheet opens on it.
-  const seenSettingsKey = useRef(settingsKey);
-  useEffect(() => {
-    if (settingsKey === seenSettingsKey.current) return;
-    seenSettingsKey.current = settingsKey;
-    setActiveTab("settings");
+  const [seenSettingsKey, setSeenSettingsKey] = useState(settingsKey);
+  if (settingsKey !== seenSettingsKey) {
+    setSeenSettingsKey(settingsKey);
+    setTab("settings");
     setSheetSnap("expanded");
-  }, [settingsKey]);
-  // Nothing selected any more: the settings sheet has nothing to show.
-  useEffect(() => {
-    if (!selectedId) setActiveTab((t) => (t === "settings" ? null : t));
-  }, [selectedId]);
+  }
+  // (nothing selected any more: the settings sheet has nothing to show)
+  const activeTab = tab === "settings" && !selectedId ? null : tab;
+  const setActiveTab = setTab;
 
   const handleSelectTab = (tab: MobileTab) => {
     if (activeTab === tab) {

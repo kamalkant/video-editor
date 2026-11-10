@@ -4395,18 +4395,17 @@ test("Elements export: a timeline of only elements makes an MP4 with them in it 
   expect(px(3.75, 1000, 1075)[0]).toBeGreaterThan(180);
 });
 
-test("phones: Elements & Stickers opens from the More sheet, and an emoji can be added", async ({
+test("phones: Elements opens from the bottom strip, and an emoji can be added", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await upload(page);
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  // (phones: the bottom bar edits the selected clip; Done goes back to the tools, More lists the panels)
+  // (phones: the bottom strip edits the selected clip; Done goes back to the tools you add, as on the desktop rail)
   const done = page.getByRole("button", { name: "Done editing clip" });
   if (await done.isVisible()) await done.click();
-  await page.getByRole("navigation", { name: "Mobile Editing Tools" }).getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("button", { name: "Elements & Stickers" }).click();
+  await page.getByRole("navigation", { name: "Mobile Editing Tools" }).getByRole("button", { name: "Elements", exact: true }).click();
   const panel = page.getByTestId("elements-panel");
   await expect(panel).toBeVisible();
   await panel

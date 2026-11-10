@@ -1001,11 +1001,14 @@ function StudioInner(props: Props) {
   const [hasCopiedStyle, setHasCopiedStyle] = useState(() => !!copiedStyle);
   // the inspector's tab for video and picture clips (Adjust · Background · Color · Audio · Speed · Motion · More)
   const [inspTab, setInspTabRaw] = useState<InspectorTab>("basic");
+  /** Counts the times a settings tab was asked for (phones open the settings sheet on it). */
+  const [settingsKey, setSettingsKey] = useState(0);
   /** Opening a settings tab also brings the settings into the panel. */
   const setInspTab = (t: InspectorTab) => {
     setInspTabRaw(t);
     setCtxView("settings");
     setAiOpen(false);
+    setSettingsKey((k) => k + 1);
   };
   // Import (Add media): this computer, Pexels, Pixabay
   const [importTab, setImportTab] = useState<ImportTab | null>(null);
@@ -8685,7 +8688,16 @@ function StudioInner(props: Props) {
       bgMedia={bg === "image" || bg === "video" ? bgMedia[bg] : undefined}
       toolbar={previewTools}
       controlsTarget={wide ? transportEl : null}
-      toolbarOver={wide && !splitShown ? (zoomedOrPicking ? "show" : "hover") : undefined}
+      toolbarOver={
+        wide && !splitShown
+          ? zoomedOrPicking
+            ? "show"
+            : "hover"
+          : isMobile && !zoomedOrPicking
+            ? "hidden"
+            : undefined
+      }
+      controlsVariant={isMobile ? "phone" : undefined}
       selectedId={selectedId}
       onSelect={selectClip}
       onTransform={(clipId, transform, group) =>
@@ -10243,6 +10255,8 @@ function StudioInner(props: Props) {
         }}
         previewArea={previewArea}
         timeline={timeline}
+        inspector={inspector}
+        settingsKey={settingsKey}
         fileInput={fileInput}
         dialogs={dialogs}
         onSplit={(clipId, t) => dispatchDoc({ type: "split", clipId, t })}

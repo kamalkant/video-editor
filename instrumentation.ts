@@ -6,6 +6,8 @@ export async function register() {
   if (process.platform === "linux") {
     const { ensureFfmpeg, upgradeFfmpegLater } = await import("./lib/ffmpeg/ensure");
     ensureFfmpeg();
+    // the FFmpeg check's saved result (lib/ffmpeg/capabilities): ready before the first visitor, without running FFmpeg
+    void import("./lib/ffmpeg/capabilities").then((m) => m.loadSavedCapabilities());
     // still the older FFmpeg (no x265 alpha: the Safari MOV would be ProRes): fetched again in the background
     upgradeFfmpegLater(undefined, () => void import("./lib/ffmpeg/capabilities").then((m) => m.getCapabilities(true)));
   }

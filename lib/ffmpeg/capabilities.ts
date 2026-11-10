@@ -1,6 +1,8 @@
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { dataRoot } from "../dataRoot";
 import { APPLE_MEDIA, FFMPEG, FfmpegError, runFfmpeg } from "./run";
 
 /** The system's "not now" (as lib/ffmpeg/run's BUSY_ERRNO): the account's limit on running programs, or memory. */
@@ -20,6 +22,8 @@ export type Capabilities = {
   ffmpegVersion: string | null;
   checks: { name: string; ok: boolean; why: string }[];
   message: string | null;
+  /** FFmpeg is fine, but the system said "not now" (EAGAIN): it passes by itself, so it is no reason to warn anyone */
+  busy?: boolean;
 };
 
 const NEEDED_ENCODERS = [
@@ -165,6 +169,7 @@ async function detect(): Promise<Capabilities> {
     const busy = BUSY_ERRNO.has(why);
     return {
       ok: false,
+      busy,
       safariAlpha: false,
       movEncoder: "prores",
       aiRemoval: APPLE_MEDIA,
@@ -199,21 +204,89 @@ async function detect(): Promise<Capabilities> {
   };
 }
 
-const g = globalThis as unknown as { __VDOCaps?: Promise<Capabilities>; __VDOCapsFailedAt?: number };
+const g = globalThis as unknown as { __VDOCaps?: Promise<Capabilities>; __VDOCapsFailedAt?: number; __VDOCapsDone?: Capabilities };
 
 /** How long a failed check is kept before the next request checks again (it's often a passing "busy"). */
 export const FAILED_CHECK_TTL_MS = 30_000;
 
-/** Cached for the life of the server process when FFmpeg works; a failure only for FAILED_CHECK_TTL_MS. */
+/**
+ * The check runs FFmpeg six times, which on a busy shared host can take 20 s. A passing result is kept on disk
+ * (dataRoot: it outlives restarts) with the FFmpeg it was made with, so a restarted server reads it instead of
+ * checking again. Another FFmpeg (a new size or date: an upgrade, a new deploy) is checked afresh.
+ */
+const cacheFile = () => process.env.VDO_CAPS_PATH ?? join(dataRoot(), "data", "ffmpeg-capabilities.json");
+
+function ffmpegStamp(): string | null {
+  try {
+    const s = statSync(FFMPEG);
+    return `${FFMPEG}|${s.size}|${Math.round(s.mtimeMs)}`;
+  } catch {
+    return null; // (FFmpeg from the PATH, or not there yet: nothing to tie a saved result to)
+  }
+}
+
+function readSaved(): Capabilities | null {
+  const stamp = ffmpegStamp();
+  if (!stamp) return null;
+  try {
+    const saved = JSON.parse(readFileSync(cacheFile(), "utf8")) as { stamp?: string; caps?: Capabilities };
+    return saved.stamp === stamp && saved.caps?.ok ? saved.caps : null;
+  } catch {
+    return null;
+  }
+}
+
+function save(caps: Capabilities): void {
+  const stamp = ffmpegStamp();
+  if (!stamp || !caps.ok) return;
+  try {
+    mkdirSync(dirname(cacheFile()), { recursive: true });
+    writeFileSync(cacheFile(), JSON.stringify({ stamp, caps }));
+  } catch {
+    // (a read-only disk: the result is still kept in memory)
+  }
+}
+
+/** Load a saved result, if there is one for this FFmpeg (the server's start does this, before anyone asks). */
+export function loadSavedCapabilities(): Capabilities | null {
+  if (g.__VDOCapsDone) return g.__VDOCapsDone;
+  const saved = readSaved();
+  if (saved) {
+    g.__VDOCaps = Promise.resolve(saved);
+    g.__VDOCapsDone = saved;
+  }
+  return saved;
+}
+
+/** Cached for the life of the server process (and on disk) when FFmpeg works; a failure only for FAILED_CHECK_TTL_MS. */
 export function getCapabilities(refresh = false): Promise<Capabilities> {
+  if (!refresh && !g.__VDOCaps) loadSavedCapabilities();
   const stale = g.__VDOCapsFailedAt !== undefined && Date.now() - g.__VDOCapsFailedAt > FAILED_CHECK_TTL_MS;
   if (refresh || stale || !g.__VDOCaps) {
     g.__VDOCapsFailedAt = undefined;
     const p = detect();
     g.__VDOCaps = p;
     void p.then((c) => {
-      if (!c.ok && g.__VDOCaps === p) g.__VDOCapsFailedAt = Date.now();
+      if (g.__VDOCaps !== p) return;
+      g.__VDOCapsDone = c;
+      if (c.ok) save(c);
+      else g.__VDOCapsFailedAt = Date.now();
     });
   }
   return g.__VDOCaps;
+}
+
+/**
+ * The latest finished check, without waiting for one: pages call this so they never stand still while FFmpeg is
+ * probed. null when no check has finished yet (one is started). Work that needs FFmpeg (jobs) waits for
+ * getCapabilities() instead, and says what's wrong then.
+ */
+export function peekCapabilities(): Capabilities | null {
+  void getCapabilities().catch(() => undefined);
+  return g.__VDOCapsDone ?? null;
+}
+
+/** Whether to warn people that videos can't be made here: a real lack, not a check still running or a passing "busy". */
+export function capabilityWarning(caps: Capabilities | null): string | null {
+  return caps && !caps.ok && !caps.busy ? caps.message : null;
 }

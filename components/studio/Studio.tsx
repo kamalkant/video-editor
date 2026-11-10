@@ -965,6 +965,8 @@ function StudioInner(props: Props) {
   const [ctxView, setCtxView] = useState<"library" | "settings" | "canvas">("library");
   /** A clip just added from the Media panel: the panel stays on Media (more files usually follow). */
   const libStayFor = useRef<string | null>(null);
+  /** The slot in the timeline's toolbar for the play controls. */
+  const [transportEl, setTransportEl] = useState<HTMLElement | null>(null);
   const selKey = selectedId ?? (selTransition ? "transition" : logoShown ? "logo" : null);
   useEffect(() => {
     if (!selKey) return;
@@ -8676,6 +8678,7 @@ function StudioInner(props: Props) {
       custom={custom}
       bgMedia={bg === "image" || bg === "video" ? bgMedia[bg] : undefined}
       toolbar={previewTools}
+      controlsTarget={wide ? transportEl : null}
       toolbarOver={wide && !splitShown ? (zoomedOrPicking ? "show" : "hover") : undefined}
       selectedId={selectedId}
       onSelect={selectClip}
@@ -10145,6 +10148,7 @@ function StudioInner(props: Props) {
           : null
       }
       timelineRef={timelineApiRef}
+      transportSlot={wide ? setTransportEl : undefined}
       selectedClipIds={selectedClipIds}
       onSelectClips={onSelectClips}
       onMotionTracking={() => {

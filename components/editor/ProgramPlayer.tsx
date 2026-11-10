@@ -2,6 +2,7 @@
 
 import { previewDraws } from "@/lib/player/previewDraw";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { clipLength, docDuration, findClip, layersAt, LOGO_MAX_SIZE, mainStarts, mainTrack, type AnyClip, type AudioPlaced, type Layer, type MediaLite, type TimelineDoc, type Transform, type VideoClip, type Watermark, watermarkRect } from "@/lib/edit/doc";
 import { logoState } from "@/lib/player/logo";
 import { ELEMENT_DRAG, elementDrag, MEDIA_DRAG, mediaDrag, MEME_DRAG, memeDrag, TEXT_DRAG, textDrag, useElementDrag, useMediaDrag, useMemeDrag, useTextDrag } from "@/lib/editor/mediaDrag";
@@ -241,6 +242,8 @@ export function ProgramPlayer(p: {
   bgMedia?: BgMedia;
   /** Controls at the start of the toolbar row (the Program / This clip switch, preview background). */
   toolbar?: React.ReactNode;
+  /** Where the play controls go instead of under the picture (the timeline's toolbar). */
+  controlsTarget?: HTMLElement | null;
   /** The toolbar row lies over the top of the picture and shows only on hover or keyboard focus ("show": always). As in Clideo, the preview is just the picture. */
   toolbarOver?: "hover" | "show";
   /** The selected clip gets a box on the preview: drag to move, corners to resize. */
@@ -2608,7 +2611,12 @@ export function ProgramPlayer(p: {
             )}
           </div>
         </div>
-        <VideoControls
+        {(() => {
+          // (desktop: the controls sit in the timeline's toolbar, as in Clideo; in full screen they come back under the picture)
+          const over = !!p.controlsTarget && !isFull;
+          const controls = (
+            <VideoControls
+          variant={over ? "timeline" : "bar"}
           playing={isPlaying}
           canPlay={!empty}
           time={time}
@@ -2635,6 +2643,9 @@ export function ProgramPlayer(p: {
             else void el.requestFullscreen?.().catch(() => undefined);
           }}
         />
+          );
+          return over ? createPortal(controls, p.controlsTarget!) : controls;
+        })()}
         {/* one hidden <audio> per sound clip */}
         <div hidden aria-hidden="true">
           {aClips.map((c) => (

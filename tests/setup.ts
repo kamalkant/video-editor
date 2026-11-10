@@ -9,3 +9,5 @@ process.env.VDO_STORAGE ??= mkdtempSync(join(tmpdir(), "VDO-test-storage-"));
 // tests never touch the real database (data/VDO.db): each run boots a fresh one, which also
 // exercises first-run seeding (super admin, plans, feature flags)
 process.env.VDO_DB_PATH ??= join(mkdtempSync(join(tmpdir(), "VDO-test-db-")), "test.db");
+// nor the saved FFmpeg check (lib/ffmpeg/capabilities)
+process.env.VDO_CAPS_PATH ??= join(mkdtempSync(join(tmpdir(), "VDO-test-caps-")), "ffmpeg-capabilities.json");

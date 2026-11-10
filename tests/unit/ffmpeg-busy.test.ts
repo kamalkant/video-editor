@@ -38,6 +38,7 @@ afterEach(() => {
   delete (globalThis as { __viplaySlots?: unknown }).__viplaySlots;
   delete (globalThis as { __VDOCaps?: unknown }).__VDOCaps;
   delete (globalThis as { __VDOCapsFailedAt?: unknown }).__VDOCapsFailedAt;
+  delete (globalThis as { __VDOCapsDone?: unknown }).__VDOCapsDone;
 });
 
 async function runWith(plan: Plan) {

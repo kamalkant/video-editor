@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { TimelineDoc } from "@/lib/edit/doc";
 import type { Clock } from "@/lib/editor/clock";
 import type { ProjectRef, SaveState } from "@/lib/projects/useProjectSync";
@@ -45,6 +45,10 @@ export type MobileStudioLayoutProps = {
   };
   previewArea: ReactNode;
   timeline: ReactNode;
+  /** The selected clip's settings (the same card as on a desktop), shown in a sheet. */
+  inspector?: ReactNode;
+  /** Changes each time a settings tab is asked for (Speed, Cutout, Crop…): the settings sheet opens. */
+  settingsKey?: number;
   fileInput?: ReactNode;
   dialogs?: ReactNode;
   // Action Handlers
@@ -88,6 +92,8 @@ export function MobileStudioLayout({
   projectMenu,
   previewArea,
   timeline,
+  inspector,
+  settingsKey = 0,
   fileInput,
   dialogs,
   onSplit,
@@ -111,20 +117,20 @@ export function MobileStudioLayout({
   onOpenPanel = () => {},
   onPatchClip,
 }: MobileStudioLayoutProps) {
-  const [activeTab, setActiveTab] = useState<MobileTab | null>(null);
+  const [tab, setTab] = useState<MobileTab | null>(null);
   const [sheetSnap, setSheetSnap] = useState<SheetSnap>("compact");
   const [isProjectSheetOpen, setIsProjectSheetOpen] = useState(false);
 
-  // When a clip is tapped/selected:
-  // In YouTube Create style, selecting a clip switches to contextual clip mode
-  useEffect(() => {
-    if (selectedId) {
-      if (activeTab === null) {
-        // keep sheet closed by default so user has maximum view of timeline and preview
-        // but toolbar shows contextual actions
-      }
-    }
-  }, [selectedId]);
+  // A settings tab was asked for (Speed, Cutout, Crop…): the settings sheet opens on it.
+  const [seenSettingsKey, setSeenSettingsKey] = useState(settingsKey);
+  if (settingsKey !== seenSettingsKey) {
+    setSeenSettingsKey(settingsKey);
+    setTab("settings");
+    setSheetSnap("expanded");
+  }
+  // (nothing selected any more: the settings sheet has nothing to show)
+  const activeTab = tab === "settings" && !selectedId ? null : tab;
+  const setActiveTab = setTab;
 
   const handleSelectTab = (tab: MobileTab) => {
     if (activeTab === tab) {
@@ -132,8 +138,8 @@ export function MobileStudioLayout({
       setActiveTab(null);
     } else {
       setActiveTab(tab);
-      // Reset to compact when switching tabs
-      setSheetSnap("compact");
+      // (the settings card is long: it opens tall; the others start compact)
+      setSheetSnap(tab === "settings" ? "expanded" : "compact");
     }
   };
 
@@ -152,7 +158,9 @@ export function MobileStudioLayout({
       case "ai":
         return "AI Magic Tools";
       case "more":
-        return "More Tools & Canvas";
+        return "Canvas & More";
+      case "settings":
+        return "Settings";
     }
   };
 
@@ -277,6 +285,8 @@ export function MobileStudioLayout({
           />
         )}
 
+        {activeTab === "settings" && <div className="flex flex-col gap-2 select-text" data-testid="mobile-settings">{inspector}</div>}
+
         {activeTab === "more" && (
           <MobileMoreSheet
             doc={doc}
@@ -293,6 +303,7 @@ export function MobileStudioLayout({
         selectedId={selectedId}
         onDeselectClip={() => onSelectClip(null)}
         onAddMedia={onChoose}
+        onOpenPanel={onOpenPanel}
         onSplit={() => {
           if (selectedId && onSplit) {
             onSplit(selectedId, clock.get());

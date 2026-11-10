@@ -67,8 +67,20 @@ async function transformPanel(page: Page): Promise<Locator> {
 
 /** Open a left panel: from the rail, or (panels that left the rail: Projects, Library, Background, Edit) from Search tools. */
 async function openPanel(page: Page, name: string) {
-  const rail = page.getByRole("navigation", { name: "Panels" }).getByRole("button", { name, exact: true });
-  if (await rail.count()) return rail.click();
+  const nav = page.getByRole("navigation", { name: "Panels" });
+  const rail = nav.getByRole("button", { name, exact: true });
+  if (await rail.count()) {
+    // (a second click on the open panel would close it)
+    if ((await rail.getAttribute("aria-pressed")) !== "true") await rail.click();
+    return;
+  }
+  // (Transitions, Effects, Brand Kit, Projects and Library are under More on the rail)
+  const more = nav.getByRole("button", { name: "More panels" });
+  if (["Transitions", "Effects", "Brand Kit", "Projects", "Library"].includes(name) && (await more.count())) {
+    await more.click();
+    await page.getByRole("menu", { name: "More panels" }).getByRole("menuitemradio", { name, exact: true }).click();
+    return;
+  }
   const palette = page.getByRole("dialog", { name: "Search tools" });
   // (right after a load the editor may not listen yet: press again until it opens)
   await expect(async () => {
@@ -129,6 +141,9 @@ async function useDetectedGreen(page: Page) {
 async function deselect(page: Page) {
   await page.getByTestId("program-view").focus();
   await page.keyboard.press("Escape");
+  // (with nothing selected the panel shows a library: the Project card is under Canvas on the rail)
+  const canvas = page.getByRole("navigation", { name: "Panels" }).getByRole("button", { name: "Canvas", exact: true });
+  if ((await canvas.count()) && (await canvas.getAttribute("aria-pressed")) !== "true") await canvas.click();
 }
 
 /** Alpha (0-255) at source pixel (x, y) of a canvas or img, read via a 2D canvas. */
@@ -4380,18 +4395,17 @@ test("Elements export: a timeline of only elements makes an MP4 with them in it 
   expect(px(3.75, 1000, 1075)[0]).toBeGreaterThan(180);
 });
 
-test("phones: Elements & Stickers opens from the More sheet, and an emoji can be added", async ({
+test("phones: Elements opens from the bottom strip, and an emoji can be added", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await upload(page);
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  // (phones: the bottom bar edits the selected clip; Done goes back to the tools, More lists the panels)
+  // (phones: the bottom strip edits the selected clip; Done goes back to the tools you add, as on the desktop rail)
   const done = page.getByRole("button", { name: "Done editing clip" });
   if (await done.isVisible()) await done.click();
-  await page.getByRole("navigation", { name: "Mobile Editing Tools" }).getByRole("button", { name: "More", exact: true }).click();
-  await page.getByRole("button", { name: "Elements & Stickers" }).click();
+  await page.getByRole("navigation", { name: "Mobile Editing Tools" }).getByRole("button", { name: "Elements", exact: true }).click();
   const panel = page.getByTestId("elements-panel");
   await expect(panel).toBeVisible();
   await panel

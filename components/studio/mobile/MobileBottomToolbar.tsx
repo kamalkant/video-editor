@@ -9,7 +9,10 @@ export type MobileTab =
   | "effects"
   | "filters"
   | "ai"
-  | "more";
+  | "more"
+  | "settings";
+
+type Panel = "library" | "media" | "templates" | "brand" | "background" | "subtitles" | "elements";
 
 export type MobileBottomToolbarProps = {
   activeTab: MobileTab | null;
@@ -17,6 +20,8 @@ export type MobileBottomToolbarProps = {
   selectedId?: string | null;
   onDeselectClip?: () => void;
   onAddMedia?: () => void;
+  /** A full-screen panel (Media, Captions, Elements). */
+  onOpenPanel?: (panel: Panel) => void;
   onSplit?: () => void;
   onCrop?: () => void;
   onDuplicate?: () => void;
@@ -25,22 +30,36 @@ export type MobileBottomToolbarProps = {
   className?: string;
 };
 
-const CREATION_TABS: { id: MobileTab; label: string; icon: IconName }[] = [
-  { id: "edit", label: "Edit", icon: "cut" },
-  { id: "audio", label: "Audio", icon: "audio" },
-  { id: "text", label: "Text", icon: "text" },
-  { id: "effects", label: "Effects", icon: "effects" },
-  { id: "filters", label: "Filters", icon: "palette" },
-  { id: "ai", label: "AI", icon: "ai" },
-  { id: "more", label: "More", icon: "elements" },
+type Tool = { label: string; icon: IconName; tab?: MobileTab; panel?: Panel };
+
+/** Nothing selected: what you add (the desktop rail's items, in the same order, as in Clideo). */
+const ADD_TOOLS: Tool[] = [
+  { label: "Media", icon: "media", panel: "media" },
+  { label: "Text", icon: "text", tab: "text" },
+  { label: "Captions", icon: "subtitles", panel: "subtitles" },
+  { label: "Elements", icon: "elements", panel: "elements" },
+  { label: "Audio", icon: "audio", tab: "audio" },
+  { label: "Effects", icon: "effects", tab: "effects" },
+  { label: "Filters", icon: "palette", tab: "filters" },
+  { label: "AI", icon: "ai", tab: "ai" },
+  { label: "Canvas", icon: "background", tab: "more" },
 ];
 
+const bar =
+  "sticky bottom-0 z-40 flex w-full shrink-0 items-stretch gap-1 overflow-x-auto border-t border-line bg-surface px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] scrollbar-none";
+const item = (on: boolean, danger = false) =>
+  `flex min-w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-1 text-2xs leading-tight transition-all active:scale-95 ${
+    on ? "bg-primary-soft font-semibold text-ink" : danger ? "text-danger" : "text-muted hover:bg-raised/40 hover:text-ink"
+  }`;
+
+/** The strip at the bottom of the phone editor: add tools, or the selected clip's tools. It scrolls sideways. */
 export function MobileBottomToolbar({
   activeTab,
   onSelectTab,
   selectedId,
   onDeselectClip,
   onAddMedia,
+  onOpenPanel,
   onSplit,
   onCrop,
   onDuplicate,
@@ -48,199 +67,72 @@ export function MobileBottomToolbar({
   onBgRemoval,
   className = "",
 }: MobileBottomToolbarProps) {
-  const isClipSelected = !!selectedId;
-
-  if (isClipSelected) {
-    // Mode 2: YouTube Create Contextual Clip Action Bar
+  if (selectedId) {
+    const clipTools: { label: string; icon: IconName; tab?: MobileTab; run?: () => void; danger?: boolean }[] = [
+      { label: "Settings", icon: "settings", tab: "settings" },
+      ...(onSplit ? [{ label: "Split", icon: "split" as IconName, run: onSplit }] : []),
+      { label: "Edit", icon: "cut", tab: "edit" },
+      ...(onCrop ? [{ label: "Crop", icon: "crop" as IconName, run: onCrop }] : []),
+      ...(onBgRemoval ? [{ label: "Cutout", icon: "wand" as IconName, run: onBgRemoval }] : []),
+      { label: "Filters", icon: "palette", tab: "filters" },
+      { label: "Effects", icon: "effects", tab: "effects" },
+      ...(onDuplicate ? [{ label: "Duplicate", icon: "copy" as IconName, run: onDuplicate }] : []),
+      ...(onDelete ? [{ label: "Delete", icon: "trash" as IconName, run: onDelete, danger: true }] : []),
+    ];
     return (
-      <nav
-        aria-label="Clip Editing Tools"
-        className={`sticky bottom-0 z-40 flex w-full shrink-0 items-center gap-1 border-t border-line bg-surface px-2 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-2xl select-none overflow-x-auto no-scrollbar ${className}`}
-      >
-        {/* Deselect / Done Button */}
+      <nav aria-label="Clip Editing Tools" className={`${bar} ${className}`}>
         {onDeselectClip && (
-          <button
-            type="button"
-            onClick={onDeselectClip}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl border border-line bg-surface px-2.5 py-1 text-ink active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
-            title="Done editing clip"
-            aria-label="Done editing clip"
-          >
-            <Icon name="check" className="size-4 text-primary" />
-            <span className="text-2xs font-semibold">Done</span>
+          <button type="button" onClick={onDeselectClip} className={`${item(false)} border border-line text-ink`} aria-label="Done editing clip">
+            <Icon name="check" className="size-5 text-primary" />
+            <span className="font-semibold">Done</span>
           </button>
         )}
-
-        <div className="h-6 w-px bg-line/60 shrink-0 mx-0.5" />
-
-        {/* Split */}
-        {onSplit && (
-          <button
-            type="button"
-            onClick={onSplit}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-muted hover:text-ink hover:bg-raised/40 active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
-            title="Split clip at playhead"
-            aria-label="Split"
-          >
-            <Icon name="split" className="size-4 text-ink" />
-            <span className="text-2xs leading-tight">Split</span>
-          </button>
-        )}
-
-        {/* Edit / Adjust Sheet (Speed, Volume, Trim details) */}
-        <button
-          type="button"
-          onClick={() => onSelectTab("edit")}
-          className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 transition-all shrink-0 cursor-pointer min-w-[48px] ${
-            activeTab === "edit"
-              ? "bg-primary text-white shadow-xs font-semibold"
-              : "text-muted hover:text-ink hover:bg-raised/40"
-          }`}
-          title="Adjust Speed, Volume, Trim"
-          aria-label="Edit"
-        >
-          <Icon name="cut" className={`size-4 ${activeTab === "edit" ? "text-white" : "text-ink"}`} />
-          <span className="text-2xs leading-tight">Edit</span>
-        </button>
-
-        {/* Filters */}
-        <button
-          type="button"
-          onClick={() => onSelectTab("filters")}
-          className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 transition-all shrink-0 cursor-pointer min-w-[48px] ${
-            activeTab === "filters"
-              ? "bg-primary text-white shadow-xs font-semibold"
-              : "text-muted hover:text-ink hover:bg-raised/40"
-          }`}
-          title="Color filters & LUTs"
-          aria-label="Filters"
-        >
-          <Icon name="palette" className={`size-4 ${activeTab === "filters" ? "text-white" : "text-ink"}`} />
-          <span className="text-2xs leading-tight">Filters</span>
-        </button>
-
-        {/* Effects */}
-        <button
-          type="button"
-          onClick={() => onSelectTab("effects")}
-          className={`flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 transition-all shrink-0 cursor-pointer min-w-[48px] ${
-            activeTab === "effects"
-              ? "bg-primary text-white shadow-xs font-semibold"
-              : "text-muted hover:text-ink hover:bg-raised/40"
-          }`}
-          title="Transitions & Visual effects"
-          aria-label="Effects"
-        >
-          <Icon name="effects" className={`size-4 ${activeTab === "effects" ? "text-white" : "text-ink"}`} />
-          <span className="text-2xs leading-tight">Effects</span>
-        </button>
-
-        {/* Crop */}
-        {onCrop && (
-          <button
-            type="button"
-            onClick={onCrop}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-muted hover:text-ink hover:bg-raised/40 active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
-            title="Crop clip"
-            aria-label="Crop"
-          >
-            <Icon name="crop" className="size-4 text-ink" />
-            <span className="text-2xs leading-tight">Crop</span>
-          </button>
-        )}
-
-        {/* BG Removal / Cutout */}
-        {onBgRemoval && (
-          <button
-            type="button"
-            onClick={onBgRemoval}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-muted hover:text-ink hover:bg-raised/40 active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
-            title="Remove background / Cutout"
-            aria-label="Background"
-          >
-            <Icon name="wand" className="size-4 text-ink" />
-            <span className="text-2xs leading-tight">Background</span>
-          </button>
-        )}
-
-        {/* Duplicate */}
-        {onDuplicate && (
-          <button
-            type="button"
-            onClick={onDuplicate}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-muted hover:text-ink hover:bg-raised/40 active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
-            title="Duplicate clip"
-            aria-label="Duplicate"
-          >
-            <Icon name="copy" className="size-4 text-ink" />
-            <span className="text-2xs leading-tight">Duplicate</span>
-          </button>
-        )}
-
-        {/* Delete */}
-        {onDelete && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-xl px-2 py-1 text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all shrink-0 cursor-pointer min-w-[48px]"
-            title="Delete clip"
-            aria-label="Delete"
-          >
-            <Icon name="trash" className="size-4 text-rose-500" />
-            <span className="text-2xs leading-tight">Delete</span>
-          </button>
-        )}
+        {clipTools.map((t) => {
+          const on = !!t.tab && activeTab === t.tab;
+          return (
+            <button
+              key={t.label}
+              type="button"
+              aria-label={t.label}
+              aria-pressed={t.tab ? on : undefined}
+              onClick={() => (t.tab ? onSelectTab(t.tab) : t.run?.())}
+              className={item(on, t.danger)}
+            >
+              <Icon name={t.icon} className="size-5" />
+              <span>{t.label}</span>
+            </button>
+          );
+        })}
       </nav>
     );
   }
 
-  // Mode 1: YouTube Create Minimalist Creation Toolbar (No clip selected)
   return (
-    <nav
-      aria-label="Mobile Editing Tools"
-      className={`sticky bottom-0 z-40 flex w-full shrink-0 items-center justify-around border-t border-line bg-surface px-1 py-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-2xl select-none ${className}`}
-    >
-      {/* Optional Quick Add Media button */}
+    <nav aria-label="Mobile Editing Tools" className={`${bar} ${className}`}>
       {onAddMedia && (
         <button
           type="button"
           onClick={onAddMedia}
-          className="flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1 px-0.5 transition-all active:scale-95 cursor-pointer min-w-0 text-primary hover:bg-primary/10"
+          className="mr-1 flex size-11 shrink-0 items-center justify-center self-center rounded-full bg-primary text-white shadow-sm active:scale-95"
           title="Add video, photo or audio file"
           aria-label="Add Media"
         >
-          <div className="flex size-5 items-center justify-center rounded-full bg-primary text-white shadow-xs">
-            <Icon name="plus" className="size-3" />
-          </div>
-          <span className="truncate text-2xs font-semibold leading-tight tracking-tight">
-            Add
-          </span>
+          <Icon name="plus" className="size-5" strokeWidth={2.5} />
         </button>
       )}
-
-      {/* Primary Creation Tools */}
-      {CREATION_TABS.map((tab) => {
-        const isActive = activeTab === tab.id;
+      {ADD_TOOLS.map((t) => {
+        const on = !!t.tab && activeTab === t.tab;
         return (
           <button
-            key={tab.id}
+            key={t.label}
             type="button"
-            onClick={() => onSelectTab(tab.id)}
-            aria-label={tab.label}
-            aria-pressed={isActive}
-            className={`flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1 px-0.5 transition-all active:scale-95 cursor-pointer min-w-0 ${
-              isActive
-                ? "bg-primary text-white shadow-xs font-semibold"
-                : "text-muted hover:text-ink hover:bg-raised/40"
-            }`}
+            aria-label={t.label}
+            aria-pressed={t.tab ? on : undefined}
+            onClick={() => (t.tab ? onSelectTab(t.tab) : t.panel && onOpenPanel?.(t.panel))}
+            className={item(on)}
           >
-            <Icon
-              name={tab.icon}
-              className={`size-4.5 shrink-0 ${isActive ? "text-white" : "text-muted"}`}
-            />
-            <span className="truncate text-2xs leading-tight tracking-tight">
-              {tab.label}
-            </span>
+            <Icon name={t.icon} className="size-5" />
+            <span>{t.label}</span>
           </button>
         );
       })}

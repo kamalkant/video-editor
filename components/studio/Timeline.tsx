@@ -348,6 +348,8 @@ export type TimelineProps = {
   }) => void;
   /** Imperative timeline controls (Zoom In, Zoom Out, Fit) */
   timelineRef?: React.Ref<TimelineApi | null>;
+  /** The element in the toolbar where the program's play controls are shown (desktop). */
+  transportSlot?: (el: HTMLElement | null) => void;
   /** Synchronized multi-selection IDs across tracks */
   selectedClipIds?: Set<string>;
   onSelectClips?: (ids: string[]) => void;
@@ -645,7 +647,7 @@ export function Timeline(p: TimelineProps) {
   const [headW, setHeadW] = useState(() => {
     try {
       const v = Number(localStorage.getItem(HEAD_KEY));
-      return v >= HEAD_MIN && v <= HEAD_MAX ? v : 136;
+      return v >= HEAD_MIN && v <= HEAD_MAX ? v : 168;
     } catch {
       return 136;
     }
@@ -2303,7 +2305,7 @@ export function Timeline(p: TimelineProps) {
           <div
             role="toolbar"
             aria-label="Editing tools"
-            className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto py-0.5"
+            className="flex min-w-0 flex-1 basis-0 items-center gap-1 overflow-x-auto py-0.5"
           >
           {tool(
             "Split",
@@ -2627,7 +2629,8 @@ export function Timeline(p: TimelineProps) {
             "Marker: Add marker at playhead (M)",
           )}
         </div>
-        <span className="ml-auto flex shrink-0 items-center gap-1 pl-2 text-xs text-muted">
+        {p.transportSlot && <div ref={p.transportSlot} data-testid="timeline-transport" className="flex shrink-0 items-center px-2" />}
+        <span className="ml-auto flex min-w-0 flex-1 basis-0 items-center justify-end gap-1 pl-2 text-xs text-muted">
           <span className="tabular-nums" data-testid="timeline-length">
             {empty
               ? ""
@@ -2684,9 +2687,16 @@ export function Timeline(p: TimelineProps) {
 
       <div className="relative flex min-h-0 flex-1">
         {/* track headers: their own column, so the sideways scrollbar runs under the lanes only */}
+        {/* (desktop, as in Clideo: a thin strip of track icons; it opens to the names and buttons under the pointer or the keyboard) */}
+        <div className="relative z-40 shrink-0" style={{ width: 36 }}>
         <div
-          className="relative z-40 flex shrink-0 flex-col border-r border-line bg-surface rounded-bl-xl"
-          style={{ width: isMobile ? 36 : headW }}
+          data-testid="track-head-column"
+          className={
+            isMobile
+              ? "relative flex h-full flex-col border-r border-line bg-surface rounded-bl-xl"
+              : `absolute inset-y-0 left-0 flex flex-col overflow-hidden rounded-bl-xl border-r border-line bg-surface transition-[width] duration-150 hover:w-(--head-w) hover:shadow-2xl focus-within:w-(--head-w) focus-within:shadow-2xl ${trackDrag ? "w-(--head-w) shadow-2xl" : "w-9"}`
+          }
+          style={isMobile ? { width: 36 } : ({ ["--head-w" as string]: `${headW}px` } as React.CSSProperties)}
         >
           {!isMobile && (
             <div
@@ -2698,7 +2708,7 @@ export function Timeline(p: TimelineProps) {
               aria-valuenow={headW}
               tabIndex={0}
               data-testid="track-head-resizer"
-              className="absolute inset-y-0 -right-1 z-40 w-2 cursor-col-resize hover:bg-primary/40 focus-visible:bg-primary/60"
+              className="absolute inset-y-0 right-0 z-40 w-1.5 cursor-col-resize hover:bg-primary/40 focus-visible:bg-primary/60"
               onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -2720,7 +2730,7 @@ export function Timeline(p: TimelineProps) {
               }}
             />
           )}
-          <div className="flex h-6 shrink-0 items-center justify-center gap-0.5 border-b border-line bg-surface px-1">
+          <div className={`flex h-6 shrink-0 items-center gap-0.5 border-b border-line bg-surface ${isMobile ? "justify-center px-1" : "justify-start px-1.5"}`}>
             <TrackAdd
               icon="layers"
               label="Add an overlay track"
@@ -2773,7 +2783,7 @@ export function Timeline(p: TimelineProps) {
                       track: tr,
                     });
                   }}
-                  className={`relative flex items-center ${isMobile ? "justify-center px-0.5" : "gap-1 px-1.5"} border-b border-line text-2xs transition-colors h-16 ${isDraggingThis ? "opacity-40 bg-raised/50" : ""}`}
+                  className={`relative flex items-center ${isMobile ? "justify-center px-0.5" : "min-w-(--head-w) gap-1 whitespace-nowrap px-1.5"} border-b border-line text-2xs transition-colors h-16 ${isDraggingThis ? "opacity-40 bg-raised/50" : ""}`}
                 >
                   {isMobile ? (
                     <div
@@ -2798,6 +2808,10 @@ export function Timeline(p: TimelineProps) {
                         />
                       )}
 
+                      {/* (first, so it shows in the thin strip) */}
+                      <span className="flex w-6 shrink-0 justify-center" title={names[tr.id]}>
+                        <Icon name={trackIcon(tr)} className="size-4 text-muted" />
+                      </span>
                       {/* Drag Grip Handle (Overlay and Audio tracks only) */}
                       {tr.kind !== "main" ? (
                         <button
@@ -2811,13 +2825,8 @@ export function Timeline(p: TimelineProps) {
                           <Icon name="grip" className="size-3" />
                         </button>
                       ) : (
-                        <div className="w-1 shrink-0" />
+                        <div className="w-4 shrink-0" />
                       )}
-
-                      <Icon
-                        name={trackIcon(tr)}
-                        className="size-3.5 shrink-0 text-muted"
-                      />
                       <TrackName
                         name={names[tr.id]}
                         onRename={(n) => p.onSetTrack(tr.id, { name: n })}
@@ -2882,6 +2891,7 @@ export function Timeline(p: TimelineProps) {
             {/* room for the lanes' sideways scrollbar, so both reach the bottom together */}
             {!empty && <div aria-hidden="true" className="h-4" />}
           </div>
+        </div>
         </div>
 
         <div

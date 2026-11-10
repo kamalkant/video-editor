@@ -2,10 +2,8 @@
 
 import { jobProgress } from "@/lib/export/progress";
 import Link from "next/link";
-import { useState, type ComponentProps, type ReactElement, type RefObject } from "react";
+import { useState, type ComponentProps, type RefObject } from "react";
 import { Icon } from "@/components/ui/Icon";
-import { VoiceSearchMic } from "@/components/ui/VoiceSearchMic";
-import { Tip } from "@/components/ui/Tip";
 import { useModKey } from "@/lib/editor/platform";
 import type { ExportPresetId, VideoPresetId } from "@/lib/export/presets";
 import type { Job } from "@/lib/jobs/queue";
@@ -17,7 +15,6 @@ import { MoreMenu } from "./MoreMenu";
 import { ProjectFacts } from "./ProjectFacts";
 import { ProjectMenu } from "./ProjectMenu";
 import { TasksButton } from "./TasksButton";
-import { ThemeMenu } from "./ThemeMenu";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import type { VersionsProps } from "./VersionsMenu";
@@ -112,11 +109,6 @@ export function TopBar(p: {
     p.nameRef.current?.select();
   };
   const menu = <ProjectMenu {...p.projectMenu} currentId={p.project?.id ?? null} onRename={rename} />;
-  const tip = (text: string, el: ReactElement<{ "aria-describedby"?: string }>, align: "left" | "center" | "right" = "center") => (
-    <Tip text={text} side="bottom" align={align}>
-      {el}
-    </Tip>
-  );
   return (
     <header className="flex min-h-14 items-center gap-x-2 border-b border-line bg-surface px-3 py-1 sm:gap-x-3">
       <a
@@ -176,57 +168,9 @@ export function TopBar(p: {
             <span className="max-sm:hidden">{menu}</span>
           </>
         )}
-        {p.facts && (
-          <span className="flex max-lg:hidden">
-            <ProjectFacts {...p.facts} className={iconBtn} />
-          </span>
-        )}
       </div>
       <div className="ml-auto flex items-center gap-1">
-        {/* Search tools (a box on wide screens, an icon below; under ⋯ on phones and tablets) */}
-        <span className="mr-1 flex items-center max-lg:hidden">
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => p.onSearch()}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                p.onSearch();
-              }
-            }}
-            aria-label={`Search tools (${mod} K)`}
-            className="group hidden h-8 w-48 items-center gap-1.5 rounded-md border border-line bg-canvas px-2.5 text-xs text-muted hover:border-control hover:text-ink min-[1440px]:flex cursor-pointer transition-colors select-none"
-          >
-            <Icon name="search" className="size-4 shrink-0 text-muted group-hover:text-ink transition-colors" />
-            <span className="flex-1 text-left truncate">Search tools…</span>
-            <span
-              onClick={(e) => {
-                e.stopPropagation();
-                p.onSearch(true);
-              }}
-              className="flex items-center"
-              title="Search tools by voice"
-            >
-              <VoiceSearchMic
-                size="xs"
-                onTranscript={() => {}}
-              />
-            </span>
-            <kbd className="text-2xs shrink-0">{mod} K</kbd>
-          </div>
-          {tip(
-            `Search tools (${mod} K)`,
-            <button
-              type="button"
-              className={`${iconBtn} min-[1440px]:hidden`}
-              onClick={p.onSearch}
-              aria-label={`Search tools (${mod} K)`}
-            >
-              <Icon name="search" className="size-5" />
-            </button>,
-          )}
-        </span>
+        {/* (Search tools: ⌘K, or under ⋯; the theme is under ⋯ too. The bar keeps only what is used all the time.) */}
         <span className="flex items-center gap-0.5 max-sm:hidden">
           <TasksButton className={iconBtn} />
         </span>
@@ -237,9 +181,6 @@ export function TopBar(p: {
         <button type="button" className={`${iconBtn} max-[379px]:hidden`} onClick={p.onRedo} disabled={!p.canRedo} aria-label="Redo" title={`Redo (${mod} Shift Z)`}>
           <Icon name="redo" className="size-5" />
         </button>
-        <span className="flex items-center gap-0.5 max-lg:hidden">
-          <ThemeMenu className={iconBtn} />
-        </span>
         {/* the rest, when it's wanted: versions, focus mode, 720p proxies, API keys, help (and on phones: search, add media, theme) */}
         <MoreMenu
           className={iconBtn}

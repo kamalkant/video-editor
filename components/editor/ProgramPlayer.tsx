@@ -2,6 +2,7 @@
 
 import { previewDraws } from "@/lib/player/previewDraw";
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { clipLength, docDuration, findClip, layersAt, LOGO_MAX_SIZE, mainStarts, mainTrack, type AnyClip, type AudioPlaced, type Layer, type MediaLite, type TimelineDoc, type Transform, type VideoClip, type Watermark, watermarkRect } from "@/lib/edit/doc";
 import { logoState } from "@/lib/player/logo";
 import { ELEMENT_DRAG, elementDrag, MEDIA_DRAG, mediaDrag, MEME_DRAG, memeDrag, TEXT_DRAG, textDrag, useElementDrag, useMediaDrag, useMemeDrag, useTextDrag } from "@/lib/editor/mediaDrag";
@@ -241,6 +242,12 @@ export function ProgramPlayer(p: {
   bgMedia?: BgMedia;
   /** Controls at the start of the toolbar row (the Program / This clip switch, preview background). */
   toolbar?: React.ReactNode;
+  /** Where the play controls go instead of under the picture (the timeline's toolbar). */
+  controlsTarget?: HTMLElement | null;
+  /** The toolbar row lies over the top of the picture and shows only on hover or keyboard focus ("show": always). As in Clideo, the preview is just the picture. */
+  toolbarOver?: "hover" | "show" | "hidden";
+  /** Phones: the short controls row (time, play, sound, full screen). */
+  controlsVariant?: "phone";
   /** The selected clip gets a box on the preview: drag to move, corners to resize. */
   selectedId?: string | null;
   onSelect?: (id: string | null) => void;
@@ -1584,8 +1591,16 @@ export function ProgramPlayer(p: {
 
   const empty = mainTrack(doc).clips.length === 0 && docDuration(doc) === 0;
   return (
-    <figure className={`m-0 flex min-w-0 flex-col ${p.fit ? "h-full min-h-0" : ""}`} aria-labelledby="program-caption">
-      <div className="flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line px-2 text-xs">
+    <figure className={`group/prev relative m-0 flex min-w-0 flex-col ${p.fit ? "h-full min-h-0" : ""}`} aria-labelledby="program-caption">
+      <div
+        className={`flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line px-2 text-xs ${
+          p.toolbarOver === "hidden"
+            ? "hidden"
+            : p.toolbarOver
+            ? `absolute inset-x-0 top-0 z-20 bg-surface/90 backdrop-blur transition-opacity duration-150 focus-within:opacity-100 group-hover/prev:opacity-100 ${p.toolbarOver === "show" || zoomMenu ? "opacity-100" : "opacity-0"}`
+            : ""
+        }`}
+      >
         <div className="flex items-center gap-1.5 shrink-0">
           {p.toolbar}
           {modeBar}
@@ -2600,7 +2615,12 @@ export function ProgramPlayer(p: {
             )}
           </div>
         </div>
-        <VideoControls
+        {(() => {
+          // (desktop: the controls sit in the timeline's toolbar, as in Clideo; in full screen they come back under the picture)
+          const over = !!p.controlsTarget && !isFull;
+          const controls = (
+            <VideoControls
+          variant={over ? "timeline" : p.controlsVariant && !isFull ? p.controlsVariant : "bar"}
           playing={isPlaying}
           canPlay={!empty}
           time={time}
@@ -2627,6 +2647,9 @@ export function ProgramPlayer(p: {
             else void el.requestFullscreen?.().catch(() => undefined);
           }}
         />
+          );
+          return over ? createPortal(controls, p.controlsTarget!) : controls;
+        })()}
         {/* one hidden <audio> per sound clip */}
         <div hidden aria-hidden="true">
           {aClips.map((c) => (

@@ -1584,7 +1584,8 @@ function StudioInner(props: Props) {
     );
     if (opts.patch)
       dispatchDoc({ type: "setClip", clipId: id, patch: opts.patch }, group);
-    if (ctxView === "library") libStayFor.current = id;
+    // (more files added from the Media panel: it stays open; the first clip of a project shows its settings)
+    if (ctxView === "library" && hasClips) libStayFor.current = id;
     setSelectedId(id);
     setNotice(null);
     if (m.kind === "video") {
@@ -4548,6 +4549,11 @@ function StudioInner(props: Props) {
     setLogoSel(false);
     if (id !== cropFor) setCropFor(null);
     if (id !== patchEdit?.clipId) setPatchEdit(null);
+    // (a click on a clip, even the one already selected, brings its settings into the panel)
+    if (id) {
+      libStayFor.current = null;
+      setCtxView("settings");
+    }
     setSelectedId(id);
     setSelectedClipIds(id ? new Set([id]) : new Set());
     const f = id ? findClip(doc, id) : null;

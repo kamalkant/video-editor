@@ -290,3 +290,25 @@ export function peekCapabilities(): Capabilities | null {
 export function capabilityWarning(caps: Capabilities | null): string | null {
   return caps && !caps.ok && !caps.busy ? caps.message : null;
 }
+
+/**
+ * After a deploy (a new FFmpeg) there is no saved result, and the first visitor would start the 20 s check. Instead
+ * the server starts it by itself, `delayMs` after it comes up (out of the way of its own start), and once more
+ * `retryMs` later if the host was busy. Returns the way to stop it (tests).
+ */
+export function warmCapabilities(delayMs = 15_000, retryMs = 60_000): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const later = (ms: number, fn: () => void) => {
+    timer = setTimeout(fn, ms);
+    timer.unref?.();
+  };
+  if (loadSavedCapabilities()) return () => undefined;
+  later(delayMs, () => {
+    void getCapabilities()
+      .then((c) => {
+        if (c.busy) later(retryMs, () => void getCapabilities(true).catch(() => undefined));
+      })
+      .catch(() => undefined);
+  });
+  return () => clearTimeout(timer);
+}

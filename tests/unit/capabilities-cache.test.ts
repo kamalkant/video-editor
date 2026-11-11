@@ -106,3 +106,39 @@ describe("a passing check is remembered across restarts", () => {
     expect(next.caps.loadSavedCapabilities()).toBeNull();
   });
 });
+
+describe("after a deploy the server runs the check itself", () => {
+  it("with nothing saved: starts it shortly after start, so the first visitor finds the answer ready", async () => {
+    rmSync(process.env.VDO_CAPS_PATH!, { force: true });
+    const { caps, runs } = await boot("ok");
+    const stop = caps.warmCapabilities(20, 1_000);
+    expect(runs).toHaveLength(0); // (not during the server's own start)
+    await new Promise((r) => setTimeout(r, 120));
+    expect(runs.length).toBeGreaterThanOrEqual(5);
+    expect(caps.peekCapabilities()?.ok).toBe(true);
+    stop();
+  });
+
+  it("with a saved result: runs nothing", async () => {
+    rmSync(process.env.VDO_CAPS_PATH!, { force: true });
+    const first = await boot("ok");
+    await first.caps.getCapabilities();
+    await new Promise((r) => setTimeout(r, 10));
+    const { caps, runs } = await boot("ok");
+    caps.warmCapabilities(5, 5);
+    await new Promise((r) => setTimeout(r, 60));
+    expect(runs).toHaveLength(0);
+    expect(caps.peekCapabilities()?.ok).toBe(true);
+  });
+
+  it("a busy host: tries once more a little later", async () => {
+    rmSync(process.env.VDO_CAPS_PATH!, { force: true });
+    const { caps, runs } = await boot("busy");
+    caps.warmCapabilities(5, 40);
+    await new Promise((r) => setTimeout(r, 30));
+    const first = runs.length;
+    expect(first).toBeGreaterThan(0);
+    await new Promise((r) => setTimeout(r, 80));
+    expect(runs.length).toBeGreaterThan(first);
+  });
+});

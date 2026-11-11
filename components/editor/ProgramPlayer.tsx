@@ -244,7 +244,7 @@ export function ProgramPlayer(p: {
   toolbar?: React.ReactNode;
   /** Where the play controls go instead of under the picture (the timeline's toolbar). */
   controlsTarget?: HTMLElement | null;
-  /** The toolbar row lies over the top of the picture and shows only on hover or keyboard focus ("show": always). As in Clideo, the preview is just the picture. */
+  /** The toolbar row shows only while the pointer is over the preview or it has keyboard focus ("show": always; "hidden": never, phones). Its space stays, so the picture never moves and nothing lies over it. */
   toolbarOver?: "hover" | "show" | "hidden";
   /** Phones: the short controls row (time, play, sound, full screen). */
   controlsVariant?: "phone";
@@ -1593,12 +1593,12 @@ export function ProgramPlayer(p: {
   return (
     <figure className={`group/prev relative m-0 flex min-w-0 flex-col ${p.fit ? "h-full min-h-0" : ""}`} aria-labelledby="program-caption">
       <div
-        className={`flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line px-2 text-xs ${
+        className={`h-10 shrink-0 items-center justify-between gap-1.5 px-2 text-xs ${
           p.toolbarOver === "hidden"
             ? "hidden"
-            : p.toolbarOver
-            ? `absolute inset-x-0 top-0 z-20 bg-surface/90 backdrop-blur transition-opacity duration-150 focus-within:opacity-100 group-hover/prev:opacity-100 ${p.toolbarOver === "show" || zoomMenu ? "opacity-100" : "opacity-0"}`
-            : ""
+            : !p.toolbarOver
+              ? "flex border-b border-line"
+              : `flex transition-opacity duration-150 focus-within:opacity-100 group-hover/prev:opacity-100 ${p.toolbarOver === "show" || zoomMenu ? "opacity-100" : "opacity-0"}`
         }`}
       >
         <div className="flex items-center gap-1.5 shrink-0">

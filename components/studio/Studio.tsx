@@ -967,7 +967,8 @@ function StudioInner(props: Props) {
   const libStayFor = useRef<string | null>(null);
   /** The slot in the timeline's toolbar for the play controls. */
   const [transportEl, setTransportEl] = useState<HTMLElement | null>(null);
-  const selKey = selectedId ?? (selTransition ? "transition" : logoShown ? "logo" : null);
+  // (the logo: only a click on it in the preview shows its card; switched on in the Brand Kit, that panel stays)
+  const selKey = selectedId ?? (selTransition ? "transition" : null);
   useEffect(() => {
     if (!selKey) return;
     if (libStayFor.current === selKey) libStayFor.current = null;
@@ -5900,7 +5901,14 @@ function StudioInner(props: Props) {
     if (focus) {
       setFocus(false);
       if (id === "ai") return setAiOpen(true);
-      if (isSide(id)) return setLeftPanel(id);
+      if (id === "background") {
+        selectClip(null);
+        return setCtxView("canvas");
+      }
+      if (isSide(id)) {
+        setCtxView("library");
+        return setLeftPanel(id);
+      }
       return;
     }
     if (id === "ai") return toggleAi();
@@ -6447,6 +6455,8 @@ function StudioInner(props: Props) {
     setSelectedId(null);
     setSelTransition(null);
     setLogoSel(true);
+    // (like any element added from the panel: its card takes the panel's place)
+    setCtxView("settings");
     setMode("program");
   };
   const lookClip =
@@ -8688,7 +8698,8 @@ function StudioInner(props: Props) {
       custom={custom}
       bgMedia={bg === "image" || bg === "video" ? bgMedia[bg] : undefined}
       toolbar={previewTools}
-      controlsTarget={wide ? transportEl : null}
+      // (split view: each pane keeps its own controls under its picture)
+      controlsTarget={wide && !splitShown ? transportEl : null}
       toolbarOver={
         wide && !splitShown
           ? zoomedOrPicking
@@ -8726,6 +8737,7 @@ function StudioInner(props: Props) {
       onPatchDone={() => setPatchEdit(null)}
       logoSelected={logoShown}
       onSelectLogo={(on) => {
+        if (on) setCtxView("settings");
         setLogoSel(on);
         if (on) {
           setSelectedId(null);

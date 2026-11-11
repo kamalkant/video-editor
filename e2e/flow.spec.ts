@@ -244,7 +244,8 @@ test.describe.serial("one-screen studio", () => {
   }) => {
     await page.goto("/");
     await upload(page);
-    // the clip keeps its background until you ask: the removal card offers it
+    // the clip keeps its background until you ask: the removal card (on Cutout) offers it
+    if (!(await page.getByTestId("remove-found").isVisible())) await inspTab(page, "Cutout");
     await expect(page.getByTestId("remove-found")).toBeVisible();
     await startPick(page);
     await expect(page.getByRole("radio", { name: "Original" })).toBeChecked();
@@ -3171,6 +3172,7 @@ test("Logo: a picture dropped on the preview lands logo-sized, where it was drop
   await expect(
     page.locator('[data-testid="timeline-clip"][data-type="image"]'),
   ).toHaveCount(1);
+  await openPanel(page, "Media");
   const tile = page
     .getByTestId("assets")
     .getByRole("button", { name: "site.png", exact: true })
@@ -3327,6 +3329,7 @@ test("timeline: dragging a file shows a shadow where it lands; dragging a Video 
   await upload(page, "grey.mp4");
   await expect(main).toHaveCount(2);
   // a file from My Assets over the overlay track: a dashed shadow as long as the file
+  await openPanel(page, "Media");
   const tile = page
     .getByTestId("assets")
     .getByRole("button", { name: "grey.mp4", exact: true })
@@ -3581,6 +3584,8 @@ test("Edit panel: the editing tools for the selected clip, and its settings", as
   await expect(
     page.getByRole("tab", { name: "Color", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
+  // (the settings took the panel's place: the link above them goes back to Edit)
+  await page.getByTestId("back-to-library").click();
   await panel.getByRole("button", { name: "Keyframe" }).click();
   await panel.getByRole("button", { name: /Adjust ·/ }).click();
   await expect(page.getByTestId("keyframe-count")).toHaveText("1");
@@ -3739,7 +3744,7 @@ test("an empty timeline: the first thing dropped starts at 0", async ({
   await tile.dispatchEvent("dragstart", { dataTransfer: dt });
   await lane.dispatchEvent("dragover", at);
   await lane.dispatchEvent("drop", at);
-  await tile.dispatchEvent("dragend", { dataTransfer: dt });
+  // (the first clip opens its settings in the Media panel's place: the tile is gone, and the app ends the drag itself)
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
   await expect(page.getByTestId("save-state")).toHaveText("✓ Saved", {
     timeout: 15_000,
@@ -3777,7 +3782,7 @@ test("top bar: no second panel menu; ⌘K Search tools runs tools and opens pane
   await expect(palette).toBeHidden();
   await expect(page.locator("#side-title")).toHaveText("Brand Kit");
   // a tool that can't be used says why (nothing to redo)
-  await page.getByRole("button", { name: /Search tools/ }).click();
+  await page.keyboard.press("ControlOrMeta+k");
   await box.fill("redo");
   await expect(palette.getByRole("option", { name: /Redo/ })).toHaveAttribute(
     "aria-disabled",
@@ -3844,7 +3849,8 @@ test("focus mode hides the side panels for a big preview; F, Esc and the rail br
   await page.goto("/");
   await upload(page);
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  const stage = page.getByTestId("program-stage");
+  // (the picture is as tall as the space above the timeline allows: it is the preview area that grows)
+  const stage = page.getByRole("region", { name: "Preview" });
   const inspector = page.getByRole("complementary", { name: "Inspector" });
   await expect(inspector).toBeVisible();
   const w0 = (await stage.boundingBox())!.width;
@@ -3876,7 +3882,7 @@ test("focus mode hides the side panels for a big preview; F, Esc and the rail br
     .getByRole("navigation", { name: "Panels" })
     .getByRole("button", { name: "Text", exact: true })
     .click();
-  await expect(inspector).toBeVisible();
+  // (the panel is back, on what the rail button opens)
   await expect(page.locator("#side-title")).toHaveText("Text");
   await expect(await focusItem()).toHaveAttribute("aria-checked", "false");
   await page.keyboard.press("Escape");
@@ -4132,6 +4138,7 @@ test("My Assets: every card is the same size (a tall video shows whole), names u
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
   await upload(page, "site.png");
   await expect(page.getByTestId("timeline-clip")).toHaveCount(2);
+  await openPanel(page, "Media");
   const tiles = page.getByTestId("assets").locator("li");
   const tall = tiles
     .filter({
@@ -4265,22 +4272,30 @@ test("Elements: search, add, recolor, stretch and turn a box; emoji, words, a mo
   await page.keyboard.press("ControlOrMeta+Shift+z");
   await expect(sel).toHaveAttribute("data-rotation", "90");
   // emoji: from the list, and any emoji
+  // (the new element's settings took the panel's place: back to Elements)
+  await openPanel(page, "Elements");
   await search.fill("fire");
   await panel
     .getByRole("button", { name: "Add emoji: fire", exact: true })
     .click();
   await expect(elClips.filter({ hasText: "🔥" })).toHaveCount(1);
+  // (the new element's settings took the panel's place: back to Elements)
+  await openPanel(page, "Elements");
   await search.fill("");
   await panel.getByRole("textbox", { name: "Any emoji" }).fill("🦄");
   await panel.getByRole("button", { name: "Add emoji 🦄" }).click();
   await expect(elClips.filter({ hasText: "🦄" })).toHaveCount(1);
   // a sticker's words
+  // (the new element's settings took the panel's place: back to Elements)
+  await openPanel(page, "Elements");
   await panel
     .getByRole("button", { name: "Add WOW! burst", exact: true })
     .click();
   await card.getByRole("textbox", { name: "Words" }).fill("YES!");
   await expect(elClips.filter({ hasText: "YES!" })).toHaveCount(1);
   // the ticker's words move while it plays
+  // (the new element's settings took the panel's place: back to Elements)
+  await openPanel(page, "Elements");
   await panel
     .getByRole("button", { name: "Add News ticker", exact: true })
     .click();
@@ -4306,6 +4321,8 @@ test("Elements: search, add, recolor, stretch and turn a box; emoji, words, a mo
   await page.keyboard.press("Space");
   expect(await row()).not.toBe(r0);
   // the logo tile: your Brand Kit logo in a corner (without one: the Brand Kit opens)
+  // (the new element's settings took the panel's place: back to Elements)
+  await openPanel(page, "Elements");
   const logoTile = panel.getByRole("button", {
     name: /^(Add )?Logo in the corner/,
   });
@@ -4356,6 +4373,8 @@ test("Elements export: a timeline of only elements makes an MP4 with them in it 
   await expect(
     page.locator('[data-testid="timeline-clip"][data-type="element"]'),
   ).toHaveCount(1);
+  // (the new element's settings took the panel's place: back to Elements)
+  await openPanel(page, "Elements");
   await panel
     .getByRole("button", { name: "Add Progress bar", exact: true })
     .click();
@@ -4646,10 +4665,12 @@ test("polish: + overlay / + audio icons; the sideways scrollbar is under the lan
   );
   // the lanes scroll on their own: they start right of the track names
   const scroller = page.getByTestId("timeline-scroller");
+  // (the names are a thin strip until the pointer or the keyboard is on them: off it first)
+  await scroller.hover();
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   const heads = page.getByTestId("track-heads");
   const sb = (await scroller.boundingBox())!;
-  const hb = (await heads.boundingBox())!;
-  expect(Math.abs(sb.x - (hb.x + hb.width))).toBeLessThan(2);
+  await expect.poll(async () => { const hb = (await heads.boundingBox())!; return Math.abs(sb.x - (hb.x + hb.width)); }).toBeLessThan(2);
   // scrolled down: the names stay level with their lanes
   await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight));
   await expect

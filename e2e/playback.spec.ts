@@ -42,6 +42,12 @@ const isRed = ([r, g, b, a]: number[]) => a! > 200 && r! > 170 && g! < 80 && b! 
 const poolVideos = (page: Page) =>
   page.getByTestId("video-pool").evaluate((el) => [...el.querySelectorAll("video")].map((v) => ({ src: v.currentSrc || v.src, t: v.currentTime, paused: v.paused })));
 
+/** The Media panel (after the first clip the panel shows that clip's settings). */
+async function showMedia(page: Page) {
+  const b = page.getByRole("navigation", { name: "Panels" }).getByRole("button", { name: "Media", exact: true });
+  if ((await b.getAttribute("aria-pressed")) !== "true") await b.click();
+}
+
 test("local-first: an imported clip shows its first frame at once and plays from this computer", async ({ page }) => {
   const downloads = watchDownloads(page);
   await page.goto("/editor");
@@ -63,6 +69,7 @@ test("local-first: an imported clip shows its first frame at once and plays from
   await expect.poll(async () => (await poolVideos(page)).some((v) => v.src.startsWith("blob:"))).toBe(true);
 
   // 2. drag it from Media onto the overlay track, then play: it plays at once, from this computer
+  await showMedia(page);
   const tile = page.getByTestId("assets").getByRole("button", { name: "red.mp4", exact: true }).first();
   const lane = page.getByTestId("lane-overlay").first();
   const lb = (await lane.boundingBox())!;
@@ -92,6 +99,7 @@ test("local-first: an imported clip shows its first frame at once and plays from
   // nothing was downloaded back from the server, and nothing was sent to it: the file stays here
   expect(downloads.filter((d) => d.id === id)).toEqual([]);
   expect(puts).toEqual([]);
+  await showMedia(page);
   await expect(page.getByTestId("assets").getByTestId("asset-local").first()).toBeVisible();
 
   // 3. after a reload, it plays from the copy kept in the browser (still not sent)

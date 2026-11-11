@@ -13,10 +13,31 @@ export const ELEMENT_DRAG = "application/x-vdo-element";
  * drag's data until the drop, so the timeline and the preview read it from here
  * to show where it would land (and how big it is).
  */
+/**
+ * A drag from a panel ends for sure: the tile's own "dragend" is lost when its panel goes away on the drop
+ * (the first clip, a text or an element opens its settings in the panel's place), and what is being dragged
+ * would stay set for good. So every drop on the page, and every drag end that reaches it, clears it.
+ */
+let watching = false;
+function watchDragEnd() {
+  if (watching || typeof window === "undefined") return;
+  watching = true;
+  const end = () => {
+    setMediaDrag(null);
+    setTextDrag(null);
+    setElementDrag(null);
+    setLibraryClipDrag(null);
+  };
+  window.addEventListener("dragend", end, true);
+  // (after the drop's own handlers: they read what was dragged)
+  window.addEventListener("drop", () => setTimeout(end, 0), true);
+}
+
 let current: MediaLite | null = null;
 const listeners = new Set<() => void>();
 
 export function setMediaDrag(m: MediaLite | null) {
+  if (m) watchDragEnd();
   if (current === m) return;
   current = m;
   for (const l of listeners) l();
@@ -40,6 +61,7 @@ let currentText: TextDragItem | null = null;
 const textListeners = new Set<() => void>();
 
 export function setTextDrag(t: TextDragItem | null) {
+  if (t) watchDragEnd();
   if (currentText === t) return;
   currentText = t;
   for (const l of textListeners) l();
@@ -68,6 +90,7 @@ let currentElement: ElementDragItem | null = null;
 const elementListeners = new Set<() => void>();
 
 export function setElementDrag(e: ElementDragItem | null) {
+  if (e) watchDragEnd();
   if (currentElement === e) return;
   currentElement = e;
   for (const l of elementListeners) l();
@@ -105,6 +128,7 @@ let currentLibraryClip: LibraryClipDragItem | null = null;
 const libraryClipListeners = new Set<() => void>();
 
 export function setLibraryClipDrag(c: LibraryClipDragItem | null) {
+  if (c) watchDragEnd();
   if (currentLibraryClip === c) return;
   currentLibraryClip = c;
   for (const l of libraryClipListeners) l();

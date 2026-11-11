@@ -4,8 +4,15 @@ import { join } from "node:path";
 const FIX = join(__dirname, ".fixtures");
 const upload = (page: Page, file: string) => page.getByTestId("file-input").setInputFiles(join(FIX, file));
 
+/** The Media panel (after the first clip the panel shows that clip's settings). */
+async function showMedia(page: Page) {
+  const b = page.getByRole("navigation", { name: "Panels" }).getByRole("button", { name: "Media", exact: true });
+  if ((await b.getAttribute("aria-pressed")) !== "true") await b.click();
+}
+
 /** Drag an asset tile over `lane` at (dx, dy from its top-left); returns the shadow's box and label. */
 async function dragOver(page: Page, name: string, target: Locator, pos: { x: number; y: number }) {
+  await showMedia(page);
   const tile = page.getByTestId("assets").getByRole("button", { name, exact: true }).first();
   const dt = await page.evaluateHandle(() => new DataTransfer());
   const at = { dataTransfer: dt, clientX: pos.x, clientY: pos.y };
@@ -187,6 +194,7 @@ test("every sound clip shows its waveform: an upload, a mic recording, a sound e
   await expect.poll(async () => (await wavesOf(page)).every((w) => w.loads), { timeout: 20_000 }).toBe(true);
 
   // a mic recording
+  await showMedia(page);
   await page.getByRole("button", { name: "Record Voice", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Record" });
   await dialog.getByRole("button", { name: "Turn on microphone" }).click();

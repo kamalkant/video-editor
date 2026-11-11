@@ -167,6 +167,12 @@ export function TopBar(p: {
             <span className="max-sm:hidden">{menu}</span>
           </>
         )}
+        {/* (the project's size, frame rate and length: a small icon by the name) */}
+        {p.facts && (
+          <span className="flex max-lg:hidden">
+            <ProjectFacts {...p.facts} className={iconBtn} />
+          </span>
+        )}
       </div>
       <div className="ml-auto flex items-center gap-1">
         {/* (Search tools: ⌘K, or under ⋯; the theme is under ⋯ too. The bar keeps only what is used all the time.) */}

@@ -128,13 +128,9 @@ describe("Mobile Web YT Create Polish & Fixes", () => {
     );
 
     expect(screen.getByRole("button", { name: /Add Media/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Audio" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Text" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Effects" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "AI" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "More" })).toBeInTheDocument();
+    // (the desktop rail's items, in a strip that scrolls)
+    for (const name of ["Media", "Text", "Captions", "Elements", "Audio", "Effects", "Filters", "AI", "Canvas"])
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
 
     // Mode B: Clip Selected Mode (selectedId != null)
     rerender(

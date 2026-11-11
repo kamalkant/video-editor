@@ -496,6 +496,10 @@ const CLIP_TOOLS = new Set(["Crop", "Pick key color", "Speed", "Reverse", "Freez
 export function Timeline(p: TimelineProps) {
   const { doc, media } = p;
   const isMobile = !!p.mobile;
+  // (the slot for the play controls: handed up through a callback of our own, so the props stay plain values)
+  const setTransportSlot = p.transportSlot;
+  const hasTransportSlot = !!setTransportSlot;
+  const slotRef = useCallback((el: HTMLDivElement | null) => setTransportSlot?.(el), [setTransportSlot]);
   const t = useThrottledClock(p.clock, 150);
   const [dragTotal, setDragTotal] = useState<number | null>(null);
   const dragTotalRef = useRef<number | null>(null);
@@ -2655,7 +2659,7 @@ export function Timeline(p: TimelineProps) {
             "Marker: Add marker at playhead (M)",
           )}
         </div>
-        {p.transportSlot && <div ref={p.transportSlot} data-testid="timeline-transport" className="flex shrink-0 items-center px-2" />}
+        {hasTransportSlot && <div ref={slotRef} data-testid="timeline-transport" className="flex shrink-0 items-center px-2" />}
         <span className="ml-auto flex min-w-0 flex-1 basis-0 items-center justify-end gap-1 pl-2 text-xs text-muted">
           <span className="tabular-nums" data-testid="timeline-length">
             {empty

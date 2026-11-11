@@ -50,23 +50,23 @@ describe("Mobile Editor Redesign (Compact Bottom Sheet)", () => {
     expect(onExport).toHaveBeenCalledTimes(1);
   });
 
-  it("renders MobileBottomToolbar with the 7 primary mobile tool tabs", () => {
+  it("renders MobileBottomToolbar with the desktop rail's tools (what you add), in a strip", () => {
     const onSelectTab = vi.fn();
-    render(<MobileBottomToolbar activeTab={null} onSelectTab={onSelectTab} />);
+    const onOpenPanel = vi.fn();
+    render(<MobileBottomToolbar activeTab={null} onSelectTab={onSelectTab} onOpenPanel={onOpenPanel} />);
 
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Audio" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Text" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Effects" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Filters" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "AI" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "More" })).toBeInTheDocument();
+    for (const name of ["Media", "Text", "Captions", "Elements", "Audio", "Effects", "Filters", "AI", "Canvas"])
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(onSelectTab).toHaveBeenCalledWith("edit");
+    // a sheet for some, a full panel for others
+    fireEvent.click(screen.getByRole("button", { name: "Audio" }));
+    expect(onSelectTab).toHaveBeenCalledWith("audio");
 
     fireEvent.click(screen.getByRole("button", { name: "Text" }));
     expect(onSelectTab).toHaveBeenCalledWith("text");
+
+    fireEvent.click(screen.getByRole("button", { name: "Elements" }));
+    expect(onOpenPanel).toHaveBeenCalledWith("elements");
   });
 
   it("renders MobileBottomSheet with compact snap height and supports expansion", () => {
@@ -140,13 +140,11 @@ describe("Mobile Editor Redesign (Compact Bottom Sheet)", () => {
     expect(screen.getByTestId("mock-timeline")).toBeInTheDocument();
 
     // Bottom toolbar is present
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Audio" })).toBeInTheDocument();
 
-    // Tapping Edit opens the Edit sheet
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    expect(screen.getByText("Edit Clip")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Split" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+    // Tapping Audio opens the Audio sheet
+    fireEvent.click(screen.getByRole("button", { name: "Audio" }));
+    expect(screen.getByText("Audio & Sound")).toBeInTheDocument();
 
     // Tapping Text switches to Text sheet
     fireEvent.click(screen.getByRole("button", { name: "Text" }));
@@ -156,15 +154,15 @@ describe("Mobile Editor Redesign (Compact Bottom Sheet)", () => {
     expect(screen.getByText("Color")).toBeInTheDocument();
     expect(screen.getByText("Animation")).toBeInTheDocument();
 
-    // Tapping More switches to More Tools & Canvas
-    fireEvent.click(screen.getByRole("button", { name: "More" }));
-    expect(screen.getByText("More Tools & Canvas")).toBeInTheDocument();
+    // Tapping Canvas switches to Canvas & More
+    fireEvent.click(screen.getByRole("button", { name: "Canvas" }));
+    expect(screen.getByText("Canvas & More")).toBeInTheDocument();
     expect(screen.getByText("16:9")).toBeInTheDocument();
     expect(screen.getByText("9:16")).toBeInTheDocument();
     expect(screen.getByText("1:1")).toBeInTheDocument();
 
-    // Tapping More again toggles close
-    fireEvent.click(screen.getByRole("button", { name: "More" }));
-    expect(screen.queryByText("More Tools & Canvas")).not.toBeInTheDocument();
+    // Tapping Canvas again toggles close
+    fireEvent.click(screen.getByRole("button", { name: "Canvas" }));
+    expect(screen.queryByText("Canvas & More")).not.toBeInTheDocument();
   });
 });

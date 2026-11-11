@@ -311,6 +311,8 @@ export function ProgramPlayer(p: {
   // start where the playhead already is (e.g. after switching from the clip view)
   const tRef = useRef(p.clock.get());
   const playing = useRef(false);
+  /** Since when a playing frame has waited for a video still seeking (null: none waits). */
+  const playHoldSince = useRef<number | null>(null);
   const startedAt = useRef<{ wall: number; t: number } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   // the browser-made timeline film waits while this plays (a second decoder of the same file would stutter it)
@@ -653,11 +655,17 @@ export function ProgramPlayer(p: {
     // In paused / scrubbing / trimming mode:
     // If any active video element is seeking or not ready, keep the last valid frame on canvas.
     // Safari WebKit draws transparent pixels if drawImage is called while video is seeking!
-    if (!playing.current && active.some((l) => {
+    // Playing: the same for a moment (the jump back to the start of a loop, a cut to a clip whose file is still
+    // seeking): the last picture stays rather than a black frame; after HOLD_MS it draws whatever it has.
+    const notReady = active.some((l) => {
       const el = elOf.get(l.clip.id);
       return el && (el.seeking || el.readyState < 2) && !standIn(l.clip as VideoClip, el, timeIn(l.clip as VideoClip, t - l.start));
-    })) {
-      return;
+    });
+    if (!notReady) playHoldSince.current = null;
+    if (notReady && !playing.current) return;
+    if (notReady && playing.current) {
+      playHoldSince.current ??= now;
+      if (now - playHoldSince.current < HOLD_MS) return;
     }
     // Never wipe canvas to transparent during scrubbing/trimming if project has clips
     if (layers.length === 0 && !playing.current && d.tracks.some((tr) => tr.kind !== "audio" && !tr.hidden && tr.clips.length > 0)) {

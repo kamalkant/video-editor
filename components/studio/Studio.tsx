@@ -673,6 +673,8 @@ const SOON_AREAS: SoonArea[] = [
 ];
 /** A template's slot to select when its new project opens (sessionStorage). */
 const PENDING_SLOT_KEY = "VDO:v1:pendingSlot";
+/** "Start the new project with a blank" (sessionStorage), read by the empty editor. */
+const START_BLANK_KEY = "VDO:v1:startBlank";
 
 const SIDE_TITLES: Record<SidePanel, string> = {
   media: "Media",
@@ -1827,6 +1829,20 @@ function StudioInner(props: Props) {
   };
 
   /** Leave the open project: a fresh editor at "/editor" (preserving the active panel if specified). */
+  // a new project that starts with a blank (Project menu → New project with a blank): once the editor is empty
+  useEffect(() => {
+    if (hasClips || sync.project) return;
+    let want = false;
+    try {
+      want = sessionStorage.getItem(START_BLANK_KEY) === "1";
+      if (want) sessionStorage.removeItem(START_BLANK_KEY);
+    } catch {
+      /* private window */
+    }
+    if (want) addBlankAt(0);
+    // (addBlankAt reads the live timeline; run when the timeline empties)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasClips, sync.project]);
   const toEmptyEditor = (keepPanel?: SidePanel | null) => {
     resetEditor();
     if (keepPanel !== undefined) {
@@ -1862,10 +1878,17 @@ function StudioInner(props: Props) {
     removeLocal(LAST_SPEC_KEY);
     removeLocal(LAST_SETTINGS_KEY);
     // (no new project is made from the old timeline: the editor reloads empty at "/")
+    // (a blank to start with: asked for through session storage, because the empty editor may be a fresh
+    // one: leaving a project's address starts the editor again, and a blank added here would be lost)
+    if (o.withBlank === true)
+      try {
+        sessionStorage.setItem(START_BLANK_KEY, "1");
+      } catch {
+        /* private window: no blank */
+      }
     void sync.detach().then(() => {
       refreshLists();
       toEmptyEditor();
-      if (o.withBlank === true) addBlankAt(0);
     });
   };
 

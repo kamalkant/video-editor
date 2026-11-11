@@ -73,6 +73,42 @@ function Card({
   );
 }
 
+/**
+ * A few word tabs under a card's title (as in Clideo: Text · Style · Animate · Transform), one shown at a time,
+ * so a card stays short. Arrow keys move between them.
+ */
+function CardTabs<T extends string>({ label, tabs, value, onChange }: { label: string; tabs: { id: T; label: string }[]; value: T; onChange: (t: T) => void }) {
+  const onKey = (e: React.KeyboardEvent, i: number) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const next = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+    onChange(next.id);
+    (e.currentTarget.parentElement?.children[tabs.indexOf(next)] as HTMLElement | undefined)?.focus();
+  };
+  return (
+    <div role="tablist" aria-label={label} className="-mx-3 -mt-2.5 flex border-b border-line px-2" data-testid="card-tabs">
+      {tabs.map((t, i) => {
+        const on = t.id === value;
+        return (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(t.id)}
+            onKeyDown={(e) => onKey(e, i)}
+            className={`relative min-w-0 flex-1 truncate px-1 py-2 text-xs ${on ? "font-semibold text-ink" : "text-muted hover:text-ink"}`}
+          >
+            {t.label}
+            {on && <span aria-hidden="true" className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-primary" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** Keyframes and opacity in the inspector: the playhead, and where the changes go. */
 export type MotionProps = {
   clock?: Clock;
@@ -680,8 +716,22 @@ function TextCard({
   const aligned =
     st.preset === "title" || st.preset === "plain" || st.preset === "caption";
   const twoColors = st.preset === "lowerThird" || st.preset === "breaking";
+  const [tab, setTab] = useState<"text" | "style" | "animate" | "transform">("text");
   return (
     <Card title="Text" id="clip-card-title" action={action}>
+      <CardTabs
+        label="Text settings"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "text", label: "Text" },
+          { id: "style", label: "Style" },
+          { id: "animate", label: "Animate" },
+          { id: "transform", label: "Transform" },
+        ]}
+      />
+      {tab === "text" && (
+        <>
       <div className="flex flex-col gap-1">
         <span className="text-xs font-medium text-muted">Text</span>
         {/* select letters to give them their own size, color, font… (lib/text/marks) */}
@@ -762,6 +812,10 @@ function TextCard({
         value={st.color}
         onChange={(v) => style({ color: v }, "text:color")}
       />
+        </>
+      )}
+      {tab === "style" && (
+        <>
       {!twoColors && (
         <Switch
           label="Box behind the text"
@@ -799,7 +853,7 @@ function TextCard({
         />
       )}
       {/* effects: outline, a gradient, letter spacing, the box's shape, the shadow's look */}
-      <Fold title="Effects" testId="text-effects">
+      <Fold title="Effects" testId="text-effects" defaultOpen>
         <Switch label="Outline" checked={!!st.outline} onCheckedChange={(v) => style({ outline: v ? { color: "#000000", width: 0.06 } : undefined })} />
         {st.outline && (
           <>
@@ -844,6 +898,10 @@ function TextCard({
           </>
         )}
       </Fold>
+        </>
+      )}
+      {tab === "animate" && (
+        <>
       <AnimFields text anim={clip.anim} onChange={(a) => onPatch({ anim: a })} />
       <LabeledSlider
         label="Length"
@@ -856,7 +914,10 @@ function TextCard({
         valueText={(v) => `${v.toFixed(1)} seconds`}
         onChange={(v) => onPatch({ duration: v }, "clip:duration")}
       />
-      <details className="rounded-md bg-canvas/60 px-2 py-1">
+        </>
+      )}
+      {tab === "transform" && (
+      <details open className="rounded-md bg-canvas/60 px-2 py-1">
         <summary className="cursor-pointer py-1 text-xs font-medium text-muted">
           Transform & Align (Position, size, turn & skew)
         </summary>
@@ -896,6 +957,7 @@ function TextCard({
           </button>
         </div>
       </details>
+      )}
     </Card>
   );
 }
@@ -934,11 +996,24 @@ function ElementCard({
   const pct = (v: number) => `${v} percent`;
   const words = WORD_KINDS.includes(k);
   const oneLine = k === "badge" || k === "tag" || k === "ribbon" || k === "pulse" || k === "locationBug" || k === "audioWave" || k === "viewfinder";
+  const [tab, setTab] = useState<"element" | "animate" | "transform">("element");
   return (
     <Card title="Element" id="clip-card-title" action={action}>
-      <p className="-mt-1 truncate text-xs text-muted" data-testid="element-name">
+      <CardTabs
+        label="Element settings"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { id: "element", label: "Element" },
+          { id: "animate", label: "Animate" },
+          { id: "transform", label: "Transform" },
+        ]}
+      />
+      <p className="truncate text-xs text-muted" data-testid="element-name">
         {elementName(clip)}
       </p>
+      {tab === "element" && (
+        <>
       {k === "emoji" && (
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-muted">Emoji</span>
@@ -1198,6 +1273,10 @@ function ElementCard({
         </>
       )}
       {k !== "progress" && k !== "ticker" && <Switch label="Shadow" checked={!!el.shadow} onCheckedChange={(v) => set({ shadow: v || undefined })} />}
+        </>
+      )}
+      {tab === "animate" && (
+        <>
       <AnimFields anim={clip.anim} onChange={(a) => onPatch({ anim: a })} />
       <Fades c={clip} onChange={(p) => onPatch(p, "clip:fade")} />
       <LabeledSlider
@@ -1211,7 +1290,10 @@ function ElementCard({
         valueText={(v) => `${v.toFixed(1)} seconds`}
         onChange={(v) => onPatch({ duration: v }, "clip:duration")}
       />
-      <details className="rounded-md bg-canvas/60 px-2 py-1">
+        </>
+      )}
+      {tab === "transform" && (
+      <details open className="rounded-md bg-canvas/60 px-2 py-1">
         <summary className="cursor-pointer py-1 text-xs font-medium text-muted">Transform & Align (Position, size, turn & skew)</summary>
         <div className="flex flex-col gap-2 pb-1">
           <KeyframeBar clip={clip} mv={mv} mp={motion} />
@@ -1245,6 +1327,7 @@ function ElementCard({
           </button>
         </div>
       </details>
+      )}
     </Card>
   );
 }
@@ -1496,9 +1579,12 @@ export const TAB_INFO: Record<
   more: { label: "More", icon: "more", hint: "Logo boxes and file info" },
 };
 /** Which tabs a clip has. */
-export const tabsFor = (type: "video" | "image"): InspectorTab[] =>
+export const tabsFor = (type: "video" | "image", open?: InspectorTab): InspectorTab[] =>
   type === "video"
-    ? ["basic", "background", "color", "audio", "speed", "tracking", "more"]
+    ? // (five tabs and More, as in Clideo; Motion opens from the timeline's Motion Tracking tool and shows only while it is open)
+      open === "tracking"
+      ? ["basic", "background", "color", "audio", "speed", "tracking", "more"]
+      : ["basic", "background", "color", "audio", "speed", "more"]
     : ["basic", "color", "more"];
 
 /**
@@ -1530,7 +1616,7 @@ export function ClipInspector(
     watermark,
     onLookAll,
   } = p;
-  const tabs = tabsFor(clip.type);
+  const tabs = tabsFor(clip.type, p.tab);
   const tab = tabs.includes(p.tab) || p.tab === "smartMix" ? p.tab : "basic";
   // keyframes: the Basic tab shows (and changes) the look at the playhead
   const mp = p.motion ?? {};

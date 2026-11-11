@@ -56,9 +56,17 @@ async function savedLocal(page: Page, id: string | null): Promise<any> {
   );
 }
 
+/** A text or element card's tab (Text · Style · Animate · Transform; Element · Animate · Transform). Other cards have none: nothing happens. */
+async function cardTab(page: Page, name: "Text" | "Element" | "Style" | "Animate" | "Transform") {
+  const tab = page.getByTestId("card-tabs").getByRole("tab", { name, exact: true });
+  if ((await tab.count()) && (await tab.getAttribute("aria-selected")) !== "true") await tab.click();
+}
+
 /** The clip's Transform numbers (folded under "Advanced position & size" until opened). */
 async function transformPanel(page: Page): Promise<Locator> {
   const panel = page.getByTestId("transform-panel");
+  // (text and element cards: it is on their Transform tab)
+  await cardTab(page, "Transform");
   // (text and element cards keep it in their "Transform & Align" section)
   const outer = page.locator("summary", { hasText: /^Transform & Align/ });
   if (!(await panel.isVisible()) && (await outer.count())) await outer.first().click();
@@ -3689,16 +3697,19 @@ test("Text: more styles (with effects and new animations); Transitions: wipes, c
   await expect(
     card.getByRole("textbox", { name: "Text", exact: true }),
   ).toHaveText("SUBSCRIBE");
+  await cardTab(page, "Animate");
   await expect(card.getByRole("combobox", { name: "Comes in" })).toHaveValue(
     "pop",
   );
-  // effects: an outline
-  await card.getByTestId("text-effects").locator("summary").click();
+  // effects (on the Style tab, open): an outline
+  await cardTab(page, "Style");
+  await expect(card.getByTestId("text-effects")).toHaveAttribute("open", "");
   await card.getByRole("switch", { name: "Outline" }).click();
   await expect(
     card.getByRole("textbox", { name: "Outline width" }),
   ).toBeVisible();
   // typewriter is offered for text
+  await cardTab(page, "Animate");
   await card
     .getByRole("combobox", { name: "Comes in" })
     .selectOption("typewriter");

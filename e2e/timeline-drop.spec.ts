@@ -217,7 +217,9 @@ test("every sound clip shows its waveform: an upload, a mic recording, a sound e
   // (pictures to look at: the sound lanes in both themes)
   const tl = page.getByRole("region", { name: "Timeline" });
   await tl.screenshot({ path: "test-results/waves-a.png" });
-  await page.getByTestId("theme-cycle").click();
+  // (the theme is under ⋯ in the top bar)
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menu", { name: "More" }).getByRole("menuitemradio", { name: "Light", exact: true }).click();
   await page.waitForTimeout(500);
   await tl.screenshot({ path: "test-results/waves-b.png" });
 });

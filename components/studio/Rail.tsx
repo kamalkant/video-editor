@@ -50,7 +50,11 @@ export const RAIL_MORE: Item[] = [
 ];
 
 /** Panels that are not on the rail itself but still open (More, Search tools, the project menu). */
-export const MORE_PANELS: Item[] = [...RAIL_MORE, { id: "edit", label: "Edit", icon: "edit" }];
+export const MORE_PANELS: Item[] = [
+  ...RAIL_MORE,
+  { id: "background", label: "Background", icon: "background" },
+  { id: "edit", label: "Edit", icon: "edit" },
+];
 
 /** Phones: a tab bar under the preview. */
 const PHONE: Item[] = [

@@ -146,6 +146,17 @@ async function deselect(page: Page) {
   if ((await canvas.count()) && (await canvas.getAttribute("aria-pressed")) !== "true") await canvas.click();
 }
 
+/** The Project card (size, fit, background): under Canvas on the rail. */
+async function projectCard(page: Page) {
+  const canvas = page.getByRole("navigation", { name: "Panels" }).getByRole("button", { name: "Canvas", exact: true });
+  if ((await canvas.getAttribute("aria-pressed")) !== "true") await canvas.click();
+}
+/** The theme is under ⋯ in the top bar. */
+async function pickTheme(page: Page, label: "Dark" | "Light" | "Match my computer") {
+  await page.getByRole("button", { name: "More", exact: true }).click();
+  await page.getByRole("menu", { name: "More" }).getByRole("menuitemradio", { name: label, exact: true }).click();
+}
+
 /** Alpha (0-255) at source pixel (x, y) of a canvas or img, read via a 2D canvas. */
 async function alphaAt(page: Page, testId: string, x: number, y: number) {
   return page.getByTestId(testId).evaluate(
@@ -191,7 +202,8 @@ test.describe.serial("one-screen studio", () => {
     await expect(
       page.getByRole("region", { name: "Export & Share" }),
     ).toHaveCount(0);
-    // nothing selected yet: the inspector shows the project
+    // the project's settings are under Canvas on the rail
+    await projectCard(page);
     await expect(page.getByRole("region", { name: "Project" })).toBeVisible();
     await openPanel(page, "Projects");
     await expect(page.getByTestId("projects-empty")).toContainText(
@@ -968,6 +980,8 @@ test("My Assets: + adds to the timeline; pictures and music get their own tracks
   await expect(
     page.getByTestId("lane-main").getByTestId("timeline-clip"),
   ).toHaveCount(2);
+  // (the first clip opened its settings in the panel: back to Media)
+  await openPanel(page, "Media");
   // thumbnails; one click only selects, the + button (or a double-click) adds it again (at the end of Video 1)
   const grey = page
     .getByRole("button", { name: "grey.mp4", exact: true })
@@ -1492,7 +1506,8 @@ test("program preview shows the right clip at every time, even with more than 40
   }
   // playing across the cuts and into the next files: never an empty (black) frame
   // (loop off: this is about the cuts, not the jump back to the start)
-  const loop = page.getByRole("region", { name: "Preview" }).getByRole("button", { name: "Loop" });
+  // (the play controls are in the timeline's toolbar)
+  const loop = page.getByRole("button", { name: "Loop", exact: true });
   if ((await loop.getAttribute("aria-pressed")) === "true") await loop.click();
   await at(60);
   await page.keyboard.press("Space");
@@ -1588,6 +1603,7 @@ test("Record: camera, then screen + camera (two clips), then a voiceover", async
   expect(cam.info.duration).toBeGreaterThan(1);
 
   // screen + camera → the screen on Video 1, the camera on an overlay track, same start
+  await openPanel(page, "Media");
   await page
     .getByRole("button", { name: "Record Screen + cam", exact: true })
     .click();
@@ -1731,10 +1747,7 @@ test("the side panels open from the rail", async ({ page }) => {
   await openPanel(page, "Background");
   await expect(page.getByTestId("background-panel")).toBeVisible();
   for (const name of ["Audio", "Captions", "Brand Kit", "Templates"]) {
-    await page
-      .getByRole("navigation", { name: "Panels" })
-      .getByRole("button", { name, exact: true })
-      .click();
+    await openPanel(page, name);
     await expect(
       page.getByRole("heading", { name, exact: true, level: 2 }),
     ).toBeVisible();
@@ -2006,8 +2019,11 @@ test("preview ratio can be switched or typed; tracks can be renamed and the name
     page.getByRole("button", { name: /^Logo and titles\. Press Enter/ }),
   ).toBeVisible();
   // widen the names column by dragging its edge
+  // (the column is a thin strip until the pointer is over it)
+  await page.getByTestId("track-head-column").hover();
   const handle = page.getByTestId("track-head-resizer");
   const w0 = Number(await handle.getAttribute("aria-valuenow"));
+  await expect.poll(async () => (await page.getByTestId("track-head-column").boundingBox())!.width).toBeGreaterThan(w0 - 2);
   const r = (await handle.boundingBox())!;
   await page.mouse.move(r.x + r.width / 2, r.y + 50);
   await page.mouse.down();
@@ -2226,10 +2242,7 @@ test("Medium: transitions between Video 1 clips (marker, card, preview)", async 
     .getByRole("radio", { name: /None/ })
     .click();
   await expect(length).toHaveText(/^0:06\.0/);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Transitions", exact: true })
-    .click();
+  await openPanel(page, "Transitions");
   await page
     .getByTestId("transitions-panel")
     .getByRole("button", { name: /Crossfade every cut/ })
@@ -2288,10 +2301,7 @@ test("Medium: Mask tool makes a round camera bubble; a look from the Effects pan
     .toBeGreaterThan(200);
 
   // Effects ▸ B&W: red turns grey on the preview
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Effects", exact: true })
-    .click();
+  await openPanel(page, "Effects");
   await page
     .getByTestId("effects-panel")
     .getByRole("radio", { name: "B&W" })
@@ -2344,10 +2354,7 @@ test("Medium: Brand Kit logo shows on the preview; a font and brand colors are r
   await page.goto("/");
   await upload(page, "red.mp4");
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Brand Kit", exact: true })
-    .click();
+  await openPanel(page, "Brand Kit");
   const panel = page.getByTestId("brand-panel");
   await panel
     .getByTestId("brand-logo-input")
@@ -2585,15 +2592,13 @@ test("clicking the dark area around the preview picture unselects the clip", asy
   await expect(page.getByRole("region", { name: "Project" })).toBeVisible();
 });
 
-test("theme: one top-bar icon steps through Dark, Light and Match my computer; the choice is kept after a reload", async ({
+test("theme: Dark, Light and Match my computer are under ⋯; the choice is kept after a reload", async ({
   page,
 }) => {
   await page.goto("/");
   const html = page.locator("html");
-  const btn = page.getByTestId("theme-cycle");
   await expect(html).not.toHaveAttribute("data-theme");
-  await expect(btn).toHaveAttribute("aria-label", /^Theme: Dark/);
-  await btn.click();
+  await pickTheme(page, "Light");
   await expect(html).toHaveAttribute("data-theme", "light");
   await expect
     .poll(() =>
@@ -2612,10 +2617,9 @@ test("theme: one top-bar icon steps through Dark, Light and Match my computer; t
     .toBe("#d9dce3");
   await page.reload();
   await expect(html).toHaveAttribute("data-theme", "light");
-  await expect(btn).toHaveAttribute("aria-label", /^Theme: Light/);
   // Match my computer: follows the system setting
   await page.emulateMedia({ colorScheme: "dark" });
-  await btn.click();
+  await pickTheme(page, "Match my computer");
   await expect(html).toHaveAttribute("data-theme", "system");
   await expect
     .poll(() =>
@@ -2629,7 +2633,7 @@ test("theme: one top-bar icon steps through Dark, Light and Match my computer; t
     )
     .toBe("rgb(236, 238, 243)");
   // and back to dark (the default)
-  await btn.click();
+  await pickTheme(page, "Dark");
   await expect(html).not.toHaveAttribute("data-theme");
 });
 
@@ -2945,6 +2949,7 @@ test("Import (pretend libraries): Pexels to the timeline, Pixabay to My Assets",
   const main = page.getByTestId("lane-main").getByTestId("timeline-clip");
   await expect(main).toHaveCount(1);
   // Media → Import from the web → Pexels: search, pick, Add to timeline
+  await openPanel(page, "Media");
   await page.getByTestId("open-import").click();
   const dlg = page.getByRole("dialog", { name: "Import" });
   await expect(dlg.getByRole("tab", { name: "Pexels" })).toHaveAttribute(
@@ -3031,6 +3036,7 @@ test("fixes: clip volume reaches the preview (0 is silent, 150% is louder), stic
   const box = (await scroller.boundingBox())!;
   expect(Math.abs(head.y - box.y)).toBeLessThan(4);
   // My Assets: the check follows the timeline (deleting the clip removes it)
+  await openPanel(page, "Media");
   await expect(
     page.getByTestId("assets").getByTestId("asset-used"),
   ).toHaveCount(1);
@@ -3206,10 +3212,7 @@ test("Brand Kit logo: click it on the preview and drag it anywhere (saved); a co
   await page.goto("/");
   await upload(page, "red.mp4");
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Brand Kit", exact: true })
-    .click();
+  await openPanel(page, "Brand Kit");
   const panel = page.getByTestId("brand-panel");
   await panel
     .getByTestId("brand-logo-input")
@@ -3375,17 +3378,17 @@ test("timeline follows the playing playhead smoothly (no page jumps); scrolling 
   await expect(
     page.getByRole("navigation", { name: "Panels" }).getByRole("button"),
   ).toHaveText([
-    // (what you add to the video; projects are in the project menu, settings on the right)
+    // (a round + for your own files, what you add to the video, the canvas, then More: Transitions, Effects, Brand Kit, Projects, Library)
+    "",
+    /^AI$/,
     /Media/,
     /Text/,
+    /Captions/,
     /Elements/,
     /Audio/,
-    /Captions/,
-    /Transitions/,
-    /Effects/,
     /Templates/,
-    /Brand Kit/,
-    /^AI$/,
+    /Canvas/,
+    /More/,
   ]);
   await upload(page);
   const main = page.getByTestId("lane-main").getByTestId("timeline-clip");
@@ -3577,10 +3580,7 @@ test("Brand Kit logo: a box in a brand color, rounded corners, a part of the vid
   await page.goto("/");
   await upload(page, "red.mp4");
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Brand Kit", exact: true })
-    .click();
+  await openPanel(page, "Brand Kit");
   const panel = page.getByTestId("brand-panel");
   // a brand color: a click on it copies it, it doesn't go away
   await panel.getByRole("button", { name: "Add color" }).click();
@@ -3686,10 +3686,7 @@ test("Text: more styles (with effects and new animations); Transitions: wipes, c
   await expect(
     page.getByTestId("lane-main").getByTestId("timeline-clip"),
   ).toHaveCount(2);
-  await page
-    .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Transitions", exact: true })
-    .click();
+  await openPanel(page, "Transitions");
   const tp = page.getByTestId("transitions-panel");
   for (const name of ["Wipe left", "Circle open", "Zoom in", "Spin"])
     await expect(

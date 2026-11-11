@@ -7100,13 +7100,14 @@ function StudioInner(props: Props) {
         hint: "Automatic dialogue ducking between Video & Voiceover",
         run: () => setSmartMixOpen(true),
       },
+      // (the rail's Canvas is the project card; "Background" is the backdrops library)
       ...[...RAIL_ITEMS, ...MORE_PANELS].filter((r) => r.id).map((r) => ({
-        id: `panel:${r.id}`,
+        id: `panel:${r.id}:${r.label}`,
         label: `${r.label} panel`,
         group: "Panels",
         icon: r.icon,
         hint: `Open ${r.label} on the left`,
-        run: () => showPanel(r.id as SidePanel | "ai"),
+        run: () => (r.label === "Canvas" ? onRail("background") : showPanel(r.id as SidePanel | "ai")),
       })),
       {
         id: "add:media",
@@ -8792,6 +8793,8 @@ function StudioInner(props: Props) {
         );
         if ((!insideStage || isMobile) && !isInteractive && (selectedId || logoShown)) {
           selectClip(null);
+          // (as in Clideo: a click on the empty area around the picture shows the canvas settings)
+          if (wide) setCtxView("canvas");
         }
       }}
       onDragEnter={(e) => {

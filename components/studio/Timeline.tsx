@@ -618,7 +618,10 @@ export function Timeline(p: TimelineProps) {
     on: true,
     lastT: 0,
     lastWall: 0,
-    mine: -1,
+    // (NaN: none yet. It was -1, so your own scroll to the very start (0) counted as ours and the following went on)
+    mine: NaN,
+    // (where the timeline was when we last looked: a different place, outside our own glide, is your scroll)
+    seen: 0,
     smoothUntil: 0,
     // (its own glide: from where to where)
     from: 0,
@@ -636,6 +639,9 @@ export function Timeline(p: TimelineProps) {
       el.scrollTo({ left: v, behavior: "smooth" });
     } else {
       follow.current.mine = v;
+      follow.current.seen = v;
+      // (a jump ends any glide: what moves the timeline after it is you)
+      follow.current.smoothUntil = 0;
       el.scrollLeft = v;
     }
   };
@@ -896,6 +902,14 @@ export function Timeline(p: TimelineProps) {
     const el = scroller.current;
     if (!el) return;
     const f = follow.current;
+    // (its own glide only moves on, from where it was towards where it goes; a step back, or past it, is you)
+    const inGlide = (x: number) => {
+      const ahead = f.to >= f.from;
+      return (
+        performance.now() < f.smoothUntil &&
+        (ahead ? x >= f.from - 2 && x <= f.to + 2 : x <= f.from + 2 && x >= f.to - 2)
+      );
+    };
     const onClock = () => {
       const now = performance.now();
       const tl = clock.get();
@@ -906,7 +920,9 @@ export function Timeline(p: TimelineProps) {
       if (emptyRef.current) return;
       const view = el.clientWidth;
       const px = tl * pxRef.current + 12;
-      const playing = dt > 0 && dt < 0.25 && gap < 250;
+      // (playing: time moved on by about as much as the wall clock did. A stutter of a few frames is still
+      // playing, not a seek: it must not start the following again after you scrolled away)
+      const playing = dt > 0 && gap < 2000 && Math.abs(dt - gap / 1000) < 0.2;
       if (!playing) {
         // a jump (seek, Home / End, loop, play after a pause): follow again; bring the line into view
         f.on = true;
@@ -915,6 +931,13 @@ export function Timeline(p: TimelineProps) {
         return;
       }
       if (!f.on) return;
+      // (you scrolled, and the clock ticked before the browser told us: without this the next line would
+      // pull the timeline straight back, most of all at a big zoom where the red line is then out of view)
+      if (!inGlide(el.scrollLeft) && Math.abs(el.scrollLeft - f.seen) > 2) {
+        f.seen = el.scrollLeft;
+        f.on = false;
+        return;
+      }
       if (px < el.scrollLeft + 8) return scrollTo(el, px - view / 3, true);
       // Smooth page-ahead scrolling (like Premiere / Final Cut / CapCut):
       // Keep timeline stationary during normal playback so the playhead glides 100% smoothly with zero shaking;
@@ -922,22 +945,25 @@ export function Timeline(p: TimelineProps) {
       if (px > el.scrollLeft + view - 8) {
         // (already past the edge: at a big zoom it outran the glide) straight back into view
         scrollTo(el, px - view * 0.18);
-      } else if (px > el.scrollLeft + view * 0.82) {
+      } else if (px > el.scrollLeft + view * 0.82 && now > f.smoothUntil - 1100) {
+        // (one glide at a time: asked again on every tick, the browser restarted it each time and it never
+        // got going, so at a big zoom the timeline jumped page by page instead)
         scrollTo(el, px - view * 0.18, true);
       }
     };
     const onScroll = () => {
       const x = el.scrollLeft;
-      // (its own glide only moves on, from where it was towards where it goes; a step back, or past it, is you)
-      const ahead = f.to >= f.from;
-      const gliding =
-        performance.now() < f.smoothUntil &&
-        (ahead ? x >= f.from - 2 && x <= f.to + 2 : x <= f.from + 2 && x >= f.to - 2);
+      const gliding = inGlide(x);
+      f.seen = x;
       if (gliding) {
         f.from = x;
         return;
       }
-      if (Math.abs(x - f.mine) < 2) return;
+      if (Math.abs(x - f.mine) < 2) {
+        // (used once: a later scroll of yours to the same place is yours)
+        f.mine = NaN;
+        return;
+      }
       f.on = false;
     };
     el.addEventListener("scroll", onScroll, { passive: true });

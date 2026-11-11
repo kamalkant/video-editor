@@ -211,7 +211,7 @@ test.describe.serial("one-screen studio", () => {
     );
     await page
       .getByRole("navigation", { name: "Panels" })
-      .getByRole("button", { name: "Media" })
+      .getByRole("button", { name: "Media", exact: true })
       .click();
     await upload(page);
     // the new clip plays in the program view with its background kept
@@ -233,8 +233,10 @@ test.describe.serial("one-screen studio", () => {
     await expect(card).toContainText(/Frame rate(24 fps|Not known yet)/);
     await expect(card).toContainText("0:04");
     await expect(card).toContainText("Yes (sound detected)");
-    // (more media: the Media panel's Upload media)
+    // (more media: the Media panel's Upload media, and the round + on the rail)
+    await openPanel(page, "Media");
     await expect(page.getByRole("button", { name: "Upload media" })).toBeVisible();
+    await expect(page.getByTestId("rail-add")).toBeVisible();
   });
 
   test("pick → full removed view, compare, split, undo, export, final file, change video", async ({
@@ -940,7 +942,7 @@ test("projects save automatically, can be renamed, reopened and deleted", async 
   // removing a video a project uses says which project (it only leaves My Assets); cancelled here
   const media = page
     .getByRole("navigation", { name: "Panels" })
-    .getByRole("button", { name: "Media" });
+    .getByRole("button", { name: "Media", exact: true });
   if ((await media.getAttribute("aria-pressed")) !== "true")
     await media.click();
   await page.getByRole("button", { name: "Options for veo.mp4" }).first().click();
@@ -1026,6 +1028,8 @@ test("My Assets: + adds to the timeline; pictures and music get their own tracks
   await expect(
     page.locator('[data-testid="lane-overlay"] [data-type="image"]'),
   ).toHaveCount(1);
+  // (added with Media open: the panel stays on Media; a click on the clip shows its settings)
+  await page.locator('[data-testid="lane-overlay"] [data-type="image"]').click();
   await expect(page.getByRole("region", { name: "Picture" })).toBeVisible();
   await upload(page, "music.m4a");
   await expect(
@@ -3040,6 +3044,7 @@ test("fixes: clip volume reaches the preview (0 is silent, 150% is louder), stic
   await expect(
     page.getByTestId("assets").getByTestId("asset-used"),
   ).toHaveCount(1);
+  await clip.first().click();
   await page
     .getByRole("region", { name: "Clip" })
     .getByRole("button", { name: "Delete" })
@@ -3397,20 +3402,25 @@ test("timeline follows the playing playhead smoothly (no page jumps); scrolling 
   await expect(main).toHaveCount(2);
   const scroller = page.getByTestId("timeline-scroller");
   // zoom in until the timeline is much wider than its box
-  for (let i = 0; i < 6; i++) {
+  // (the timeline is the full width of the window now: more steps to get there)
+  for (let i = 0; i < 12; i++) {
     const [sw, cw] = await scroller.evaluate((el) => [
       el.scrollWidth,
       el.clientWidth,
     ]);
-    if (sw > cw * 3) break;
-    await page.getByRole("button", { name: "Zoom in the timeline" }).click();
+    if (sw > cw * 4) break;
+    const zoomIn = page.getByRole("button", { name: "Zoom in the timeline" });
+    // (as far in as it goes)
+    if (await zoomIn.isDisabled()) break;
+    await zoomIn.click();
   }
   await page.getByLabel("Program preview. Space plays or pauses.").focus();
   await page.keyboard.press("Home");
   await page.getByRole("button", { name: "Play" }).click();
   // sample while it plays: the timeline pages ahead smoothly, and the red line stays in view
   const samples: { left: number; line: number; mid: number; right: number }[] = [];
-  for (let i = 0; i < 30; i++) {
+  // (the full-width timeline takes longer to reach its right side: sample for up to 7 s)
+  for (let i = 0; i < 70; i++) {
     samples.push(
       await page.evaluate(() => {
         const el = document.querySelector<HTMLElement>(
@@ -3433,6 +3443,8 @@ test("timeline follows the playing playhead smoothly (no page jumps); scrolling 
         };
       }),
     );
+    // (enough seen: stop before the video ends and loops back to the start)
+    if (samples.filter((x) => x.left > 0).length >= 10) break;
     await page.waitForTimeout(100);
   }
   const moved = samples.filter((s) => s.left > 0);

@@ -240,7 +240,8 @@ export function Rail({
                 label="More panels"
                 onClose={more.close}
                 items={RAIL_MORE.filter((m) => m.id && hasFeature(m.id)).map(
-                  (m): MenuItem => ({ label: m.label, checked: active === m.id, onSelect: () => m.id && onSelect(m.id) }),
+                  // (choosing the panel that is already open keeps it open; a rail button toggles, a menu item doesn't)
+                  (m): MenuItem => ({ label: m.label, checked: active === m.id, onSelect: () => m.id && active !== m.id && onSelect(m.id) }),
                 )}
               />
             )}

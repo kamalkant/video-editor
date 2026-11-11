@@ -1148,7 +1148,7 @@ export function interruptOrphanedGenerations(doc: TimelineDoc): TimelineDoc {
  * length, the transition into it and its transform (a frame's size and place); a longer video is cut to the
  * slot, a shorter one keeps its own length. Null: the slot does not take that kind of media.
  */
-export function replacePlaceholder(doc: TimelineDoc, clipId: string, m: MediaLite): { doc: TimelineDoc; clipId: string } | null {
+export function replacePlaceholder(doc: TimelineDoc, clipId: string, m: MediaLite, wantId?: string): { doc: TimelineDoc; clipId: string } | null {
   const f = findClip(doc, clipId);
   const slot = f?.clip as (AnyClip & { placeholder?: { accepts: "video" | "image" | "both" } }) | undefined;
   if (!f || !slot?.placeholder || m.kind === "audio") return null;
@@ -1159,8 +1159,8 @@ export function replacePlaceholder(doc: TimelineDoc, clipId: string, m: MediaLit
   const slotTransform = (slot as { transform?: Transform }).transform;
   const without = mapTrack(doc, f.track.id, (t) => ({ ...t, clips: (t.clips as AnyClip[]).filter((c) => c.id !== clipId) }) as Track);
   const added = overlay
-    ? addMedia(without, m, { at: start, trackId: f.track.id, duration: length, overlay: true })
-    : addMedia(without, m, { index: f.index, duration: length });
+    ? addMedia(without, m, { at: start, trackId: f.track.id, duration: length, overlay: true, id: wantId })
+    : addMedia(without, m, { index: f.index, duration: length, id: wantId });
   let next = added.doc;
   const patch: Record<string, unknown> = {};
   if (m.kind === "video") patch.out = Math.min(m.duration, length);

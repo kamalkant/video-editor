@@ -1,5 +1,5 @@
 import { findClip, mainTrack, type Backdrop, type Canvas, type ElementClip, type MarkerColor, type MediaLite, type TextClip, type TimelineDoc, type TimelineMarker, type Track, type Transform, type VideoClip, type Watermark } from "../edit/doc";
-import { addBlank, addCaptionTrack, addElement, addMarker, addMedia, addText, addTrack, closeAllGaps, deleteClip, deleteClips, deleteMarker, detachAudio, attachAudio, toggleAudioDetach, duplicateClip, editClipAt, keyframeOp, moveClip, removeRangesInClip, removeTrack, reorderTracks, setClip, setTrack, splitClip, trimClip, updateMarker, pasteClip, type AddOptions, type CaptionIn, type CopiedClip, type KeyframeOp } from "../edit/docEdit";
+import { replacePlaceholder, addBlank, addCaptionTrack, addElement, addMarker, addMedia, addText, addTrack, closeAllGaps, deleteClip, deleteClips, deleteMarker, detachAudio, attachAudio, toggleAudioDetach, duplicateClip, editClipAt, keyframeOp, moveClip, removeRangesInClip, removeTrack, reorderTracks, setClip, setTrack, splitClip, trimClip, updateMarker, pasteClip, type AddOptions, type CaptionIn, type CopiedClip, type KeyframeOp } from "../edit/docEdit";
 import { activeAiOp, blackOp, keyOp, sanitizeOutput, type OutputSettings } from "../edit/spec";
 import type { Range } from "../edit/timeline";
 import { cutTimelineRanges, removeCaptionWords, type CaptionWordRef } from "../edit/transcriptCut";
@@ -52,7 +52,9 @@ export type DocAction =
   | { type: "deleteMarker"; markerId: string }
   | { type: "updateMarker"; markerId: string; patch: Partial<TimelineMarker> }
   /** a saved version back on the timeline (one undo step); media: its uploads */
-  | { type: "replaceDoc"; doc: TimelineDoc; media: Record<string, MediaLite> };
+  | { type: "replaceDoc"; doc: TimelineDoc; media: Record<string, MediaLite> }
+  /** a template's slot filled with an upload (lib/edit/docEdit replacePlaceholder); `id`: the new clip's */
+  | { type: "replacePlaceholder"; clipId: string; media: MediaLite; id?: string };
 
 const limitsOfMedia = (m: MediaLite | undefined) => (m ? { width: m.width, fps: m.fps, duration: m.duration } : undefined);
 
@@ -213,6 +215,10 @@ export function docReducer(s: DocState, a: DocAction): DocState {
     }
     case "replaceDoc":
       return { doc: a.doc, media: { ...s.media, ...a.media } };
+    case "replacePlaceholder": {
+      const r = replacePlaceholder(d, a.clipId, a.media, a.id);
+      return r ? { doc: r.doc, media: { ...s.media, [a.media.id]: a.media } } : s;
+    }
     case "setWatermark": {
       const media = a.media ? { ...s.media, [a.media.id]: a.media } : s.media;
       if (!a.watermark) {

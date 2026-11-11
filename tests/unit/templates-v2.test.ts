@@ -3,6 +3,10 @@ import { docSchema, findClip, mainTrack, type MediaLite } from "@/lib/edit/doc";
 import { replacePlaceholder } from "@/lib/edit/docEdit";
 import { build, placeholdersOf } from "@/lib/templates/v2/build";
 import { YOUTUBE } from "@/lib/templates/v2/catalog/youtube";
+import { V2_TEMPLATES } from "@/lib/templates/v2/catalog";
+import { STARTER } from "@/lib/library";
+import { elementPreset } from "@/lib/elements/catalog";
+import { TEXT_STYLES } from "@/lib/text/layout";
 import { CANVAS, insideSafe, offsetOf } from "@/lib/templates/v2/layout";
 import { RATIOS } from "@/lib/templates/v2/spec";
 
@@ -11,7 +15,7 @@ const shortVideo: MediaLite = { ...video, id: "22222222-2222-4222-8222-222222222
 const picture: MediaLite = { ...video, id: "33333333-3333-4333-8333-333333333333", kind: "image", fileName: "me.png", duration: 0, hasAudio: false };
 
 describe("templates v2", () => {
-  for (const spec of YOUTUBE)
+  for (const spec of V2_TEMPLATES)
     for (const r of RATIOS)
       it(`${spec.id} builds a valid ${r} project with its scenes, slots and words`, () => {
         const doc = build(spec, r);
@@ -25,6 +29,20 @@ describe("templates v2", () => {
           if (t.kind === "overlay")
             for (const c of t.clips) expect(insideSafe({ x: c.transform?.x ?? 0, y: c.transform?.y ?? 0 }, r, 0.001)).toBe(true);
       });
+
+  it("every template: a unique id, a music bed that exists, text styles and elements that exist, a slot", () => {
+    expect(new Set(V2_TEMPLATES.map((t) => t.id)).size).toBe(V2_TEMPLATES.length);
+    expect(V2_TEMPLATES.length).toBeGreaterThanOrEqual(40);
+    const beds = new Set(STARTER.filter((r) => r.kind === "music").map((r) => r.name));
+    for (const t of V2_TEMPLATES) {
+      if (t.music) expect(beds.has(t.music.id), `${t.id}: music ${t.music.id}`).toBe(true);
+      for (const l of t.scenes.flatMap((s) => s.layers)) {
+        if (l.kind === "text") expect(TEXT_STYLES.some((x) => x.id === l.style), `${t.id}: style ${l.style}`).toBe(true);
+        if (l.kind === "element") expect(elementPreset(l.preset), `${t.id}: element ${l.preset}`).toBeTruthy();
+        if (l.kind === "media" && l.frame) expect(elementPreset(l.frame), `${t.id}: frame ${l.frame}`).toBeTruthy();
+      }
+    }
+  });
 
   it("anchors land where they say, in every shape", () => {
     for (const r of RATIOS) {

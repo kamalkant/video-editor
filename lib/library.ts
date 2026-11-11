@@ -117,6 +117,43 @@ export const STARTER: Recipe[] = [
     src: `aevalsrc='(${chord([196, 246.94, 293.66], 0.06)})*(0.7+0.3*sin(2*PI*0.5*t))+0.4*sin(2*PI*50*t)*exp(-14*mod(t\\,1))+0.08*(random(0)-0.5)*exp(-30*mod(t+0.5\\,1))+0.01*(random(1)-0.5)'`,
     af: "lowpass=f=2400,afade=t=in:d=1,afade=t=out:st=28:d=2",
   },
+  // template beds (lib/templates/v2: each template names one)
+  {
+    name: "cinematic-rise",
+    title: "Cinematic rise",
+    kind: "music",
+    mood: "Cinematic",
+    d: 30,
+    src: `aevalsrc='(${chord([65.41, 98, 130.81], 0.12)})*(0.6+0.4*sin(2*PI*0.125*t))+0.06*sin(2*PI*(261.63+t*2)*t)*(0.5+0.5*sin(2*PI*0.5*t))+0.35*sin(2*PI*45*t)*exp(-6*mod(t\\,4))'`,
+    af: "lowpass=f=2200,aecho=0.8:0.8:250|500:0.35|0.2,afade=t=in:d=3,afade=t=out:st=26:d=4",
+  },
+  {
+    name: "game-drive",
+    title: "Game drive",
+    kind: "music",
+    mood: "Gaming",
+    d: 30,
+    src: `aevalsrc='0.55*sin(2*PI*60*t)*exp(-14*mod(t\\,0.375))+0.1*sin(2*PI*if(lt(mod(t\\,1.5)\\,0.75)\\,220\\,196)*t)*if(lt(mod(t\\,0.1875)\\,0.09)\\,1\\,0.3)+0.06*(random(0)-0.5)*exp(-50*mod(t+0.1875\\,0.375))'`,
+    af: "afade=t=in:d=1,afade=t=out:st=28:d=2",
+  },
+  {
+    name: "corporate-light",
+    title: "Corporate light",
+    kind: "music",
+    mood: "Corporate",
+    d: 30,
+    src: `aevalsrc='(${chord([261.63, 329.63, 392, 493.88], 0.05)})*(0.75+0.25*sin(2*PI*0.25*t))+0.18*sin(2*PI*if(lt(mod(t\\,2)\\,1)\\,523.25\\,587.33)*t)*exp(-8*mod(t\\,0.5))+0.3*sin(2*PI*55*t)*exp(-12*mod(t\\,1))'`,
+    af: "lowpass=f=5000,aecho=0.6:0.5:150:0.2,afade=t=in:d=1.5,afade=t=out:st=27:d=3",
+  },
+  {
+    name: "party-beat",
+    title: "Party beat",
+    kind: "music",
+    mood: "Celebration",
+    d: 30,
+    src: `aevalsrc='0.6*sin(2*PI*52*t)*exp(-16*mod(t\\,0.5))+0.12*sin(2*PI*if(lt(mod(t\\,1)\\,0.5)\\,392\\,440)*t)*exp(-10*mod(t\\,0.25))+0.08*(random(0)-0.5)*exp(-35*mod(t+0.25\\,0.5))'`,
+    af: "afade=t=in:d=0.5,afade=t=out:st=28:d=2",
+  },
   // sound effects
   {
     name: "whoosh",

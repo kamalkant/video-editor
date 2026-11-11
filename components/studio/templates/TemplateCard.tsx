@@ -11,6 +11,11 @@ import { drawBackdrop } from "@/lib/backdrops";
 import { mainStarts } from "@/lib/edit/doc";
 import { formatTime } from "@/lib/format";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { createFrameCache, drawFrame, type FrameSources } from "@/lib/render/frame";
+import { docDuration } from "@/lib/edit/doc";
+
+/** A template project has no files yet: the frame renderer draws its scenes, backdrops, text and graphics. */
+const NO_MEDIA: FrameSources = { media: {}, video: () => null, image: () => null, live: () => null };
 
 export function TemplateCard({
   template,
@@ -79,6 +84,7 @@ export function TemplateCard({
   const startTimeRef = useRef<number>(0);
 
   const doc = useMemo(() => template.build(), [template]);
+  const frameCache = useRef(createFrameCache());
   const docRef = useRef(doc);
   docRef.current = doc;
 
@@ -100,11 +106,20 @@ export function TemplateCard({
       const elapsed = (time - startTimeRef.current) / 1000;
 
       try {
+        const d0 = docRef.current;
+        if (template.previewFrame && d0) {
+          // the project itself, drawn like the preview and the export (it loops while the pointer is on the card)
+          const len = Math.max(0.5, docDuration(d0));
+          const t = isHovered || isSelected ? elapsed % len : Math.min(1.4, len * 0.4);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          drawFrame(ctx, d0, t, NO_MEDIA, frameCache.current);
+          if (isHovered || isSelected) animFrameRef.current = requestAnimationFrame(render);
+          return;
+        }
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, cv.width, cv.height);
 
-        const d0 = docRef.current;
         if (picture) {
           // your template: its video's frame, filling the card like the video fills the canvas
           const k = Math.max(cv.width / picture.naturalWidth, cv.height / picture.naturalHeight);

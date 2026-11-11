@@ -244,6 +244,8 @@ import { OutputSettings } from "./OutputSettings";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { DESKTOP as RAIL_ITEMS, MORE_PANELS, Rail, type PanelId } from "./Rail";
 import type { ExportQuality } from "./ExportMenu";
+import { TemplateSlots } from "./templates/TemplateSlots";
+import { placeholdersOf } from "@/lib/templates/v2/build";
 import type { Command } from "@/lib/editor/commands";
 import { useTask } from "@/lib/editor/tasks";
 import { setTheme, THEMES } from "@/lib/editor/theme";
@@ -312,6 +314,7 @@ import { useVeoJob } from "@/lib/editor/useVeoJob";
 import type { Caption } from "@/lib/subtitles/segments";
 import {
   addMedia,
+  setClip,
   deleteClip,
   interruptOrphanedGenerations,
   type CopiedClip,
@@ -668,6 +671,9 @@ const SOON_AREAS: SoonArea[] = [
   "effects",
   "transitions",
 ];
+/** A template's slot to select when its new project opens (sessionStorage). */
+const PENDING_SLOT_KEY = "VDO:v1:pendingSlot";
+
 const SIDE_TITLES: Record<SidePanel, string> = {
   media: "Media",
   library: "Library",
@@ -967,6 +973,29 @@ function StudioInner(props: Props) {
   const [ctxView, setCtxView] = useState<"library" | "settings" | "canvas">("library");
   /** A clip just added from the Media panel: the panel stays on Media (more files usually follow). */
   const libStayFor = useRef<string | null>(null);
+  /**
+   * A template's first slot, to select once its project is open. (Kept for this tab only: opening a project
+   * may start the editor afresh, so a ref would be gone.)
+   */
+  const pendingSlot = useRef<string | null>(null);
+  useEffect(() => {
+    let id = pendingSlot.current;
+    try {
+      id ??= sessionStorage.getItem(PENDING_SLOT_KEY);
+    } catch {
+      /* private window */
+    }
+    if (!id || !findClip(doc, id)) return;
+    pendingSlot.current = null;
+    try {
+      sessionStorage.removeItem(PENDING_SLOT_KEY);
+    } catch {
+      /* private window */
+    }
+    setSelectedId(id);
+    setSelectedClipIds(new Set([id]));
+    setCtxView("settings");
+  }, [doc]);
   /** The slot in the timeline's toolbar for the play controls. */
   const [transportEl, setTransportEl] = useState<HTMLElement | null>(null);
   // (the logo: only a click on it in the preview shows its card; switched on in the Brand Kit, that panel stays)
@@ -1411,9 +1440,11 @@ function StudioInner(props: Props) {
   );
 
   // the latest timeline, for uploads that finish later (their callback was made on an older render)
-  const live = useRef({ doc, hasClips, activeClip });
+  // (slotId: the selected clip, when it is a template's slot waiting for your media)
+  const slotOf = (id: string | null) => (id && (findClip(doc, id)?.clip as { placeholder?: unknown } | undefined)?.placeholder ? id : null);
+  const live = useRef({ doc, hasClips, activeClip, slotId: slotOf(selectedId) });
   useEffect(() => {
-    live.current = { doc, hasClips, activeClip };
+    live.current = { doc, hasClips, activeClip, slotId: slotOf(selectedId) };
   });
 
   // a background upload ended (lib/media/localMedia)
@@ -1572,6 +1603,15 @@ function StudioInner(props: Props) {
       opts.at ??
       (m.kind === "video" && !opts.trackId ? undefined : clock.get());
     const id = `m${++editSeq.current}${newId(doc)}`;
+    // a template's slot is selected: the file fills it (same place, length and transition), unless it was put somewhere on purpose
+    const slot = live.current.slotId ? findClip(doc, live.current.slotId) : null;
+    const accepts = (slot?.clip as { placeholder?: { accepts: string } } | undefined)?.placeholder?.accepts;
+    if (slot && m.kind !== "audio" && (accepts === "both" || accepts === m.kind) && opts.at === undefined && opts.index === undefined && !opts.trackId) {
+      dispatchDoc({ type: "replacePlaceholder", clipId: slot.clip.id, media: m, id }, group);
+      setSelectedId(id);
+      setNotice(null);
+      return;
+    }
     // (overlay: a picture-in-picture video on a free overlay track, e.g. the camera of a screen recording)
     dispatchDoc(
       {
@@ -6667,6 +6707,19 @@ function StudioInner(props: Props) {
       }
     }
 
+    // a v2 template's music bed (made on the server from lib/library STARTER, kept out of My Assets)
+    if (t.music && !audioMeta) {
+      try {
+        const res = await fetch(`/api/library/starter-${t.music.id}/add?hidden=1`, { method: "POST" });
+        if (res.ok) {
+          const j = await res.json();
+          audioMeta = (j.video ?? j) as VideoMeta;
+        }
+      } catch {
+        /* offline: the template works without its music */
+      }
+    }
+
     let built = t.build(custom);
 
     if (videoClipMeta) {
@@ -6675,7 +6728,17 @@ function StudioInner(props: Props) {
     }
     if (audioMeta) {
       const m = mediaLiteOf(audioMeta);
-      built = addMedia(built, m, { at: 0 }).doc;
+      const added = addMedia(built, m, { at: 0 });
+      built = added.doc;
+      // (a bed ends with the template, fading out)
+      if (t.music) {
+        const len = docDuration(built);
+        built = setClip(built, added.clipId, {
+          out: Math.min(m.duration, len),
+          volume: t.music.volume ?? 0.8,
+          fadeOut: Math.min(1.5, len / 4),
+        });
+      }
     }
 
     if (videoClipMeta || audioMeta) {
@@ -6686,8 +6749,18 @@ function StudioInner(props: Props) {
       }));
     }
 
+    // a v2 template: its first slot waiting for your media is selected once the project is open (a file you add goes there)
+    if (t.v2) {
+      pendingSlot.current = placeholdersOf(built)[0]?.clipId ?? null;
+      try {
+        if (pendingSlot.current) sessionStorage.setItem(PENDING_SLOT_KEY, pendingSlot.current);
+      } catch {
+        /* private window */
+      }
+    }
     await createAndOpen(built, t.name);
-    setNotice(`🎬 Loaded "${t.name}" with ready-to-edit broadcast layers!`);
+    if (t.v2) setNotice(null);
+    else setNotice(`🎬 Loaded "${t.name}" with ready-to-edit broadcast layers!`);
   };
 
   // a template picked on the website (/editor?template=<id>) starts a project once, on an empty editor
@@ -8477,6 +8550,8 @@ function StudioInner(props: Props) {
             }
           />
         ) : sidePanel === "media" ? (
+          <>
+          <TemplateSlots doc={doc} selectedId={null} onSelect={(id) => selectClip(id)} onUpload={() => setImportTab("computer")} />
           <MediaPanel
             assets={listedAssets}
             listError={assets.error}
@@ -8493,6 +8568,7 @@ function StudioInner(props: Props) {
             onImport={(tab) => setImportTab(tab)}
             onOpenLibrary={() => showPanel("library")}
           />
+          </>
         ) : (
           <ProjectsPanel
             projects={projects.items}
@@ -9146,6 +9222,12 @@ function StudioInner(props: Props) {
       {/* the main card fills the column (full height), anything else sits under it; one-row sliders everywhere on the right */}
       <SliderDensity.Provider value="compact">
         <div className="flex flex-1 flex-col gap-2 [&>:first-child]:flex-1">
+          {selectedId && slotOf(selectedId) && (
+            // (not stretched: the card under it fills the column)
+            <div className="flex-none!">
+              <TemplateSlots doc={doc} selectedId={selectedId} onSelect={(id) => selectClip(id)} onUpload={openPicker} onMedia={() => showPanel("media")} />
+            </div>
+          )}
           {smartMixOpen ? (
             <SmartMixPanel
               doc={doc}

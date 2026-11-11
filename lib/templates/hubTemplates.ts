@@ -3,6 +3,8 @@ import { DEFAULT_OUTPUT } from "../edit/spec";
 import type { CustomTemplateStatus } from "./custom";
 import { BROADCAST_TEMPLATES_BY_ID } from "./newsTemplates";
 import type { AspectRatio, BroadcastTemplate, TemplateCategory } from "./types";
+import { build as buildV2 } from "./v2/build";
+import { V2_TEMPLATES } from "./v2/catalog";
 
 /**
  * Everything the Video Templates library shows besides the 24 broadcast templates, in the
@@ -81,3 +83,36 @@ export function legacyToBroadcast(t: { id: string; name: string; category: strin
     previewBackdrop: true,
   };
 }
+
+/** A v2 template (lib/templates/v2) in one shape, as a library card. */
+export function v2ToBroadcast(spec: import("./v2/spec").TemplateSpec, ratio: AspectRatio): BroadcastTemplate {
+  // (built on first use: 120 cards are listed, few are drawn)
+  let d: import("../edit/doc").TimelineDoc | null = null;
+  const doc = () => (d ??= buildV2(spec, ratio));
+  const slots = spec.scenes.flatMap((sc, si) =>
+    sc.layers
+      .filter((l) => l.kind === "media")
+      .map((l, i) => ({ id: `s${si}-${i}`, name: (l as { role: string }).role, type: "presenter" as const, trackKind: (l as { frame?: string }).frame ? ("overlay" as const) : ("main" as const) })),
+  );
+  return {
+    id: `v2-${spec.id}-${ratio}`,
+    name: spec.name,
+    category: spec.category as TemplateCategory,
+    description: `To add: ${spec.summary}.`,
+    aspectRatio: ratio,
+    resolution: "HD",
+    duration: Math.max(1, Math.round(spec.scenes.reduce((a, s) => a + s.length, 0) - spec.scenes.reduce((a, s, i) => a + (i && s.transitionIn ? s.transitionIn.duration : 0), 0))),
+    tags: ["new", ...spec.tags],
+    slots: [...slots, ...(spec.music ? [{ id: "music", name: "Music bed", type: "audio" as const, trackKind: "audio" as const }] : [])],
+    build: () => doc(),
+    previewFrame: true,
+    ...(spec.music ? { music: spec.music } : {}),
+    v2: { id: spec.id, ratio, summary: spec.summary },
+  };
+}
+
+/** Every v2 template in every shape, as cards (16:9 first). */
+export function v2Cards(): BroadcastTemplate[] {
+  return RATIO_ORDER.flatMap((r) => V2_TEMPLATES.map((t) => v2ToBroadcast(t, r)));
+}
+const RATIO_ORDER: AspectRatio[] = ["16:9", "9:16", "1:1"];

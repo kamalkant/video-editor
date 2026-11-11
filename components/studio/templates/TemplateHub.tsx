@@ -8,7 +8,7 @@ import {
   type TemplateCategory,
 } from "@/lib/templates/types";
 import { BROADCAST_TEMPLATES, BROADCAST_TEMPLATES_BY_ID } from "@/lib/templates/newsTemplates";
-import { customHubId, customToBroadcast, legacyToBroadcast } from "@/lib/templates/hubTemplates";
+import { customHubId, customToBroadcast, legacyToBroadcast, v2Cards } from "@/lib/templates/hubTemplates";
 import type { CustomTemplateStatus } from "@/lib/templates/custom";
 import { TEMPLATES } from "@/lib/templates";
 import type { VideoMeta } from "@/lib/api/types";
@@ -31,7 +31,7 @@ export function TemplateHub({
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<TemplateCategory>("All");
   const [selectedRatio, setSelectedRatio] = useState<AspectRatio | "all">("all");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(BROADCAST_TEMPLATES[0].id);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("v2-yt-channel-intro-16:9");
 
   // your own templates (kept on the server) and the starter templates, next to the broadcast ones
   const [mine, setMine] = useState<CustomTemplateStatus[]>([]);
@@ -58,12 +58,13 @@ export function TemplateHub({
     };
   }, []);
   const starters = useMemo(() => TEMPLATES.filter((t) => !BROADCAST_TEMPLATES_BY_ID.has(t.id)).map(legacyToBroadcast), []);
-  const allTemplates = useMemo(() => [...mine.map(customToBroadcast), ...BROADCAST_TEMPLATES, ...starters], [mine, starters]);
+  const v2 = useMemo(() => v2Cards(), []);
+  const allTemplates = useMemo(() => [...mine.map(customToBroadcast), ...v2, ...BROADCAST_TEMPLATES, ...starters], [mine, v2, starters]);
   // the groups: yours first (when you have any), then the library's, then the starter groups
   const categories = useMemo(() => {
     const used = new Set(allTemplates.map((t) => t.category));
     const yours = [...new Set(mine.map((t) => t.category))] as TemplateCategory[];
-    return ["All" as TemplateCategory, ...yours, ...ALL_TEMPLATE_CATEGORIES.filter((c) => c !== "All" && !yours.includes(c) && (used.has(c) || BROADCAST_TEMPLATES.some((t) => t.tags.some((g) => g.toLowerCase() === c.toLowerCase()))))];
+    return [...new Set(["All" as TemplateCategory, ...yours, ...ALL_TEMPLATE_CATEGORIES.filter((c) => c !== "All" && !yours.includes(c) && (used.has(c) || BROADCAST_TEMPLATES.some((t) => t.tags.some((g) => g.toLowerCase() === c.toLowerCase()))))])];
   }, [allTemplates, mine]);
   const renameMine = async (t: BroadcastTemplate, newName: string) => {
     if (!t.custom) return;

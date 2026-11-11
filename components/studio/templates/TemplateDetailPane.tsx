@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BroadcastTemplate } from "@/lib/templates/types";
 import { renderProceduralMotion } from "@/lib/templates/motionEngine";
+import { createFrameCache, drawFrame, type FrameSources } from "@/lib/render/frame";
+import { docDuration } from "@/lib/edit/doc";
+
+/** A template project has no files yet: the frame renderer draws its scenes, text and graphics. */
+const NO_MEDIA_FRAME: FrameSources = { media: {}, video: () => null, image: () => null, live: () => null };
 import { BroadcastAudioEngine } from "@/lib/templates/broadcastAudioEngine";
 import { drawBackdrop } from "@/lib/backdrops";
 import { clipLength, type AnyClip, type ElementClip, type TextClip } from "@/lib/edit/doc";
@@ -57,6 +62,7 @@ export function TemplateDetailPane({
     pictureRef.current = img;
   }, [template.previewImageUrl]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const frameCacheRef = useRef(createFrameCache());
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
@@ -181,6 +187,12 @@ export function TemplateDetailPane({
       if (!ctx) return;
 
       try {
+        // a v2 template: the project itself, drawn like the editor's preview and the export
+        if (template.previewFrame && docRef.current) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          drawFrame(ctx, docRef.current, t % Math.max(0.5, docDuration(docRef.current)), NO_MEDIA_FRAME, frameCacheRef.current);
+          return;
+        }
         const engine = template.previewCanvasEngine ?? "newsroomMatrix";
 
         // Reset transform and clear

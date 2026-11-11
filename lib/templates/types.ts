@@ -29,10 +29,31 @@ export type TemplateCategory =
   | "Business"
   | "Educational"
   | "Festival"
-  | "Gaming";
+  | "Gaming"
+  // the v2 templates' groups (lib/templates/v2/catalog)
+  | "Intros & Outros"
+  | "Sales & Ads"
+  | "Slideshows"
+  | "Celebrations"
+  | "Quotes"
+  | "Events";
 
 export const ALL_TEMPLATE_CATEGORIES: TemplateCategory[] = [
   "All",
+  // (the made-for-every-shape templates first)
+  "YouTube",
+  "Intros & Outros",
+  "Shorts / Reels",
+  "Social Media",
+  "Gaming",
+  "Business",
+  "Sales & Ads",
+  "Slideshows",
+  "Celebrations",
+  "Educational",
+  "Podcast",
+  "Quotes",
+  "Events",
   "News & Broadcast",
   "Breaking News",
   "News Presenter",
@@ -54,12 +75,7 @@ export const ALL_TEMPLATE_CATEGORIES: TemplateCategory[] = [
   "YouTube News",
   "Shorts / Reels",
   // the starter templates' groups ("My Templates" is added first by the Hub when you have your own)
-  "YouTube",
-  "Social Media",
-  "Business",
-  "Educational",
   "Festival",
-  "Gaming",
 ];
 
 export type AspectRatio = "16:9" | "9:16" | "1:1";
@@ -122,5 +138,11 @@ export interface BroadcastTemplate {
   previewImageUrl?: string;
   /** Draw the project's own backdrop (studio set / gradient) on the card instead of the motion engine (starter templates). */
   previewBackdrop?: boolean;
+  /** Draw the card with the editor's own frame renderer (lib/render/frame): exactly what the project shows (v2 templates). */
+  previewFrame?: boolean;
+  /** A music bed from the library (lib/library STARTER), added when the template is used. */
+  music?: { id: string; volume?: number };
+  /** The v2 spec it was built from (lib/templates/v2), and its shape. */
+  v2?: { id: string; ratio: AspectRatio; summary: string };
 }
 

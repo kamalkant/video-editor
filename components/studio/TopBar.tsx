@@ -10,7 +10,7 @@ import type { Job } from "@/lib/jobs/queue";
 import { formatFps, formatTime } from "@/lib/format";
 import type { ProjectRef, SaveState } from "@/lib/projects/useProjectSync";
 import type { VideoMeta } from "@/lib/videos";
-import { ExportMenu } from "./ExportMenu";
+import { ExportMenu, type ExportQuality } from "./ExportMenu";
 import { MoreMenu } from "./MoreMenu";
 import { ProjectFacts } from "./ProjectFacts";
 import { ProjectMenu } from "./ProjectMenu";
@@ -75,6 +75,10 @@ export function TopBar(p: {
   onVideoExport?: (id: VideoPresetId | "project" | "social-set") => void;
   /** Export ▾ → Thumbnail maker */
   onThumbnail?: () => void;
+  /** Export → a quality tile → Continue */
+  onQualityExport?: (q: ExportQuality) => void;
+  gifDisabled?: string | null;
+  canvas?: { width: number; height: number };
   videoDisabled?: string | null;
   quickDisabled: string | null;
   onHelp: () => void;
@@ -213,6 +217,10 @@ export function TopBar(p: {
           onVideo={p.onVideoExport}
           videoDisabled={p.videoDisabled}
           onThumbnail={p.onThumbnail}
+          onQuality={p.onQualityExport}
+          gifDisabled={p.gifDisabled}
+          canvas={p.canvas}
+          hasJob={!!running || job?.state === "done"}
         />
         <span aria-hidden="true" className="mx-0.5 h-6 w-px bg-line" />
         <NotificationBell className={iconBtn} />

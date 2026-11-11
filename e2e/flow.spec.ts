@@ -56,6 +56,23 @@ async function savedLocal(page: Page, id: string | null): Promise<any> {
   );
 }
 
+/** Export & Share (every format): the Export button shows the quality box first, unless an export is running or ready. */
+async function openExport(page: Page) {
+  await page.getByTestId("export-button").click();
+  const box = page.getByTestId("export-quality");
+  const dialog = page.getByRole("dialog", { name: "Export & Share" });
+  await expect(box.or(dialog).first()).toBeVisible();
+  if (await box.isVisible()) {
+    await box.getByRole("button", { name: "Export options" }).click();
+    await page.getByRole("menuitem", { name: /All formats/ }).click();
+  }
+}
+/** The list of quick presets (social sizes, website packs): Export → More options. */
+async function exportOptions(page: Page) {
+  await page.getByTestId("export-button").click();
+  await page.getByTestId("export-quality").getByRole("button", { name: "Export options" }).click();
+}
+
 /** A text or element card's tab (Text · Style · Animate · Transform; Element · Animate · Transform). Other cards have none: nothing happens. */
 async function cardTab(page: Page, name: "Text" | "Element" | "Style" | "Animate" | "Transform") {
   const tab = page.getByTestId("card-tabs").getByRole("tab", { name, exact: true });
@@ -391,7 +408,7 @@ test.describe.serial("one-screen studio", () => {
     ).toHaveCount(0);
 
     // export (survives a reload) → the Export & Share dialog shows the files; the final file plays in the preview
-    await page.getByTestId("export-button").click();
+    await openExport(page);
     const dialog = page.getByRole("dialog", { name: "Export & Share" });
     // MP4 is the recommended default; the see-through website pack is one of the formats
     await expect(
@@ -415,7 +432,7 @@ test.describe.serial("one-screen studio", () => {
       timeout: 120_000,
     });
     if (!(await dialog.isVisible()))
-      await page.getByTestId("export-button").click();
+      await openExport(page);
     await expect(
       dialog.getByText("Your transparent video is ready"),
     ).toBeVisible();
@@ -445,7 +462,7 @@ test.describe.serial("one-screen studio", () => {
       /avatar\.webm$/,
     );
     // the top Export opens the finished files with the download
-    await page.getByTestId("export-button").click();
+    await openExport(page);
     await expect(
       page
         .getByRole("dialog", { name: "Export & Share" })
@@ -537,7 +554,7 @@ test("old results/edit links open in the studio, in a project", async ({
   await expect(page).toHaveURL(/\?p=[0-9a-f-]{36}$/);
   await expect(page.getByTestId("export-button")).toContainText("Export ✓");
   await page.reload();
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   await expect(page.getByText("Your transparent video is ready")).toBeVisible();
 });
 
@@ -625,7 +642,7 @@ test("background removal can be switched off and on", async ({ page }) => {
     "Background removal is off",
   );
   // MP4 (the default) never needs background removal; only the see-through formats do
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   await expect(
     page.getByRole("dialog").getByRole("button", { name: "Make video (MP4)" }),
   ).not.toHaveAttribute("aria-disabled", "true");
@@ -708,7 +725,7 @@ test("crop empty area shows the box and the new size; export shows an estimated 
   await upload(page);
   await useDetectedGreen(page);
   // output settings are in the Export dialog
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await pickFormat(dialog, /Website pack/);
   await dialog
@@ -720,7 +737,7 @@ test("crop empty area shows the box and the new size; export shows an estimated 
   );
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("crop-box")).toBeVisible();
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   await expect(page.getByTestId("size-estimate")).toContainText(
     /Estimated size: WebM ~\d+ [KM]B · Safari MOV ~\d+ [KM]B/,
     { timeout: 60_000 },
@@ -1077,10 +1094,18 @@ test("Export ▾ menu, Help dialog and the timeline", async ({ page }) => {
 
   await upload(page);
   await useDetectedGreen(page);
-  // the menu: arrow keys move, Esc closes and returns focus
-  await page
-    .getByRole("button", { name: "Export options", exact: true })
-    .click();
+  // Export: a small box with the quality first (the nearest to the project starts chosen), then Continue
+  await page.getByTestId("export-button").click();
+  const box = page.getByTestId("export-quality");
+  await expect(box.getByRole("radio")).toHaveCount(5);
+  await expect(box.getByRole("radio", { name: /^720p/ })).toHaveAttribute("aria-checked", "true");
+  await expect(box.getByTestId("export-quality-size")).toHaveText("MP4 · 1280 × 720");
+  await box.getByRole("radio", { name: /^1080p/ }).click();
+  await expect(box.getByTestId("export-quality-size")).toHaveText("MP4 · 1920 × 1080");
+  await page.keyboard.press("Escape");
+  await expect(box).toBeHidden();
+  // More options: the list of quick presets. Arrow keys move, Esc closes and returns focus
+  await exportOptions(page);
   const menu = page.getByRole("menu", { name: "Export options" });
   // MP4 at the project size (recommended, first) + 4 video sizes + 2 website packs + "All formats…"
   // (also "All 3 sizes" and the website packs: 10 in all)
@@ -1093,13 +1118,9 @@ test("Export ▾ menu, Help dialog and the timeline", async ({ page }) => {
   await expect(menu.getByRole("menuitem").nth(1)).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(menu).toBeHidden();
-  await expect(
-    page.getByRole("button", { name: "Export options", exact: true }),
-  ).toBeFocused();
+  await expect(page.getByTestId("export-button")).toBeFocused();
   // "All formats & settings…" opens the dialog
-  await page
-    .getByRole("button", { name: "Export options", exact: true })
-    .click();
+  await exportOptions(page);
   await page.getByRole("menuitem", { name: /All formats/ }).click();
   await expect(
     page.getByRole("dialog", { name: "Export & Share" }),
@@ -1118,9 +1139,7 @@ test("Export ▾ menu, Help dialog and the timeline", async ({ page }) => {
   ).not.toHaveValue("0");
   await expect(ruler).not.toHaveAttribute("aria-valuenow", "0");
   // a quick preset starts the export right away
-  await page
-    .getByRole("button", { name: "Export options", exact: true })
-    .click();
+  await exportOptions(page);
   await page
     .getByRole("menu", { name: "Export options" })
     .getByRole("menuitem")
@@ -1160,7 +1179,7 @@ test("AI Removal cuts out the subject of a clip without a green screen", async (
     .poll(() => alphaAt(page, "exact-frame", 640, 360))
     .toBeGreaterThan(240);
   // export: the job has an AI step and the file is transparent
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await pickFormat(dialog, /Website pack/);
   await dialog.getByRole("button", { name: "Make transparent video" }).click();
@@ -1310,7 +1329,7 @@ test("two clips on a colored canvas export as one MP4", async ({ page }) => {
   const project = page.getByRole("region", { name: "Project" });
   await project.getByRole("radio", { name: "Color" }).check({ force: true });
   await expect(project).toContainText("Exports as a normal video (MP4)");
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
   await expect(dialog.getByText("Your video is ready")).toBeVisible({
@@ -1397,7 +1416,7 @@ test("text: a lower third shows on the preview, moves by dragging, and is in the
     .getByRole("region", { name: "Project" })
     .getByRole("radio", { name: "Color" })
     .check({ force: true });
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
   await expect(dialog.getByText("Your video is ready")).toBeVisible({
@@ -1894,9 +1913,7 @@ test("Easy: Replace background with a studio set, and an MP4 at Shorts size", as
   expect(px[2]).toBeGreaterThan(px[1]);
   expect(px[1]).toBeLessThan(100);
   // Export ▾ → Shorts / Reels 9:16 → a 1080×1920 MP4 (the project stays 1280×720)
-  await page
-    .getByRole("button", { name: "Export options", exact: true })
-    .click();
+  await exportOptions(page);
   await page
     .getByRole("menuitem", { name: /Shorts \/ Reels \/ TikTok 9:16/ })
     .click();
@@ -2486,7 +2503,7 @@ test("export formats: MP4 is recommended; GIF, MP3 and a PNG picture are real fi
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1, {
     timeout: 30_000,
   });
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   const formats = dialog.getByTestId("export-formats");
   await expect(
@@ -2566,7 +2583,7 @@ test("a single see-through file (WebM VP9 + alpha, no MOV) exports without break
   await expect(
     page.getByRole("switch", { name: "Background removal" }),
   ).toHaveAttribute("aria-checked", "true");
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await pickFormat(dialog, /WebM \(VP9 \+ alpha\)/);
   await dialog.getByRole("button", { name: "Make WebM + alpha" }).click();
@@ -3076,7 +3093,7 @@ test("Export & Share: the file size shows before exporting, for every format, an
   await page.goto("/");
   await upload(page);
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   const formats = dialog.getByTestId("export-formats");
   // each format card shows its estimated size ("Est. 1.2 MB")
@@ -3562,7 +3579,7 @@ test("keyframes: ◆ at the playhead; a change later adds one and the clip glide
   ]);
   expect(saved.keyframes[0].ease).toBe("linear");
   // an MP4 with the moving picture
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
   await expect(dialog.getByText("Your video is ready")).toBeVisible({
@@ -3671,7 +3688,7 @@ test("Brand Kit logo: a box in a brand color, rounded corners, a part of the vid
     anim: { in: "fade" },
   });
   // an MP4 with the drawn badge
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
   await expect(dialog.getByText("Your video is ready")).toBeVisible({
@@ -3967,7 +3984,7 @@ test("project menu: switch to another saved project, duplicate this one; backgro
   // an export shows in Background tasks while it runs, then under Recently finished; a click opens Export & Share
   const tasks = page.getByRole("button", { name: /^Background tasks/ });
   await expect(tasks).toHaveAccessibleName("Background tasks: nothing running");
-  await page.getByRole("button", { name: "Export options" }).click();
+  await exportOptions(page);
   await page.getByRole("menuitem", { name: /MP4 · project size/ }).click();
   // (a short clip exports in a moment: "Export ready" is only listed for an export seen running)
   await expect(page.getByTestId("export-button")).toContainText("Export ✓", {
@@ -4399,7 +4416,7 @@ test("Elements export: a timeline of only elements makes an MP4 with them in it 
     page.locator('[data-testid="timeline-clip"][data-type="element"]'),
   ).toHaveCount(2);
   await expect(page).toHaveURL(/\?p=[0-9a-f-]{36}$/, { timeout: 15_000 });
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
   await expect(dialog.getByText("Your video is ready")).toBeVisible({
@@ -4600,7 +4617,7 @@ test("Start with a blank on an empty project; its MP4 shows it; New project with
     .getByRole("region", { name: "Blank", exact: true })
     .locator('input[type="color"][aria-label="Color"]')
     .fill("#ff0000");
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
   await expect(dialog.getByText("Your video is ready")).toBeVisible({

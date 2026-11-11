@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -70,6 +70,23 @@ const doc = {
   ],
 };
 
+/** Export & Share (every format): the Export button shows the quality box first, unless an export is running or ready. */
+async function openExport(page: Page) {
+  await page.getByTestId("export-button").click();
+  const box = page.getByTestId("export-quality");
+  const dialog = page.getByRole("dialog", { name: "Export & Share" });
+  await expect(box.or(dialog).first()).toBeVisible();
+  if (await box.isVisible()) {
+    await box.getByRole("button", { name: "Export options" }).click();
+    await page.getByRole("menuitem", { name: /All formats/ }).click();
+  }
+}
+/** The list of quick presets (social sizes, website packs): Export → More options. */
+async function exportOptions(page: Page) {
+  await page.getByTestId("export-button").click();
+  await page.getByTestId("export-quality").getByRole("button", { name: "Export options" }).click();
+}
+
 test("the browser export has the preview's transition, text animation, styled letters and element", async ({ page }) => {
   test.setTimeout(240_000);
   const r = await page.request.post("/api/projects", { data: { doc, name: "Export parity" } });
@@ -79,7 +96,7 @@ test("the browser export has the preview's transition, text animation, styled le
   await expect(page.getByTestId("program-canvas")).toBeVisible({ timeout: 60_000 });
 
   // Export ▾ → MP4 · project size (made in this browser: no media, nothing to send)
-  await page.getByRole("button", { name: "Export options" }).click();
+  await exportOptions(page);
   await page.getByRole("menuitem", { name: /MP4 · project size/ }).click();
   const result = page.getByTestId("mp4-result");
   await expect(result).toBeVisible({ timeout: 180_000 });
@@ -159,7 +176,7 @@ test("the Export dialog's preview plays the export itself: its transition and el
   const { id } = await r.json();
   await page.goto(`/editor?p=${id}`);
   await expect(page.getByTestId("program-canvas")).toBeVisible({ timeout: 60_000 });
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const canvas = page.getByTestId("export-preview").locator("canvas");
   await expect(canvas).toBeVisible();
   const px = (fx: number, fy: number) =>
@@ -189,7 +206,7 @@ test("the quick presets show the export at their sizes, also of a file kept on t
   await page.goto("/editor");
   await page.getByTestId("file-input").setInputFiles(join(__dirname, ".fixtures", "red.mp4"));
   await expect(page.getByTestId("lane-main").getByTestId("timeline-clip")).toHaveCount(1, { timeout: 30_000 });
-  await page.getByTestId("export-button").click();
+  await openExport(page);
   const thumbs = page.getByRole("dialog", { name: "Export & Share" }).getByTestId("preset-thumb");
   await expect(thumbs).toHaveCount(10);
   // drawn here, like the preview (lib/render/frame): one per preset
@@ -232,7 +249,7 @@ test("the Thumbnail maker takes the playhead's frame of a file kept on this comp
   await page.goto("/editor");
   await page.getByTestId("file-input").setInputFiles(join(__dirname, ".fixtures", "red.mp4"));
   await expect(page.getByTestId("lane-main").getByTestId("timeline-clip")).toHaveCount(1, { timeout: 30_000 });
-  await page.getByRole("button", { name: "Export options" }).click();
+  await exportOptions(page);
   await page.getByRole("menuitem", { name: /Thumbnail maker/ }).click();
   const dialog = page.getByRole("dialog", { name: "Thumbnail maker" });
   const canvas = dialog.getByLabel("Thumbnail preview");

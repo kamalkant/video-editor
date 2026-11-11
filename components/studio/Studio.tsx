@@ -243,6 +243,7 @@ import { MediaPanel } from "./MediaPanel";
 import { OutputSettings } from "./OutputSettings";
 import { ProjectsPanel } from "./ProjectsPanel";
 import { DESKTOP as RAIL_ITEMS, MORE_PANELS, Rail, type PanelId } from "./Rail";
+import type { ExportQuality } from "./ExportMenu";
 import type { Command } from "@/lib/editor/commands";
 import { useTask } from "@/lib/editor/tasks";
 import { setTheme, THEMES } from "@/lib/editor/theme";
@@ -5721,6 +5722,22 @@ function StudioInner(props: Props) {
     );
   };
 
+  /** Export → a quality tile → Continue: an MP4 with that short side (the project's shape), or a GIF. */
+  const qualityExport = (q: ExportQuality) => {
+    if (q === "gif") {
+      setExportFormat("gif");
+      setExportOpen(true);
+      void generate(undefined, undefined, "gif");
+      return;
+    }
+    const { width, height } = doc.canvas;
+    const k = q / Math.min(width, height);
+    const even = (n: number) => Math.max(2, Math.round((n * k) / 2) * 2);
+    setExportFormat("mp4");
+    setExportOpen(true);
+    void generate(undefined, Math.abs(k - 1) < 1e-6 ? undefined : { width: even(width), height: even(height) }, "mp4");
+  };
+
   /** Export ▾ → a website pack (VP9 + HEVC alpha, optionally with the ProRes master). */
   const quickExport = (id: ExportPresetId) => {
     const preset = EXPORT_PRESETS.find((x) => x.id === id)!;
@@ -6765,6 +6782,9 @@ function StudioInner(props: Props) {
       onShare={() => setShareOpen(true)}
       onQuickExport={quickExport}
       onVideoExport={videoExport}
+      onQualityExport={qualityExport}
+      gifDisabled={exportBlocked("gif") ?? busy}
+      canvas={{ width: doc.canvas.width, height: doc.canvas.height }}
       onThumbnail={() => {
         // the frame Video 1 shows at the playhead is the starting picture
         const f = mainFrameAt(doc, clock.get());

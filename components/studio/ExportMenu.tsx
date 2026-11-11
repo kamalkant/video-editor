@@ -4,7 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { EXPORT_PRESETS, VIDEO_PRESETS, type ExportPresetId, type VideoPresetId } from "@/lib/export/presets";
 
-/** The Export button plus a ▾ menu of quick presets (they start right away). */
+/** The qualities offered first (as in Clideo): the short side of the picture, in pixels. */
+export type ExportQuality = 480 | 720 | 1080 | 2160 | "gif";
+const QUALITIES: { id: ExportQuality; label: string; detail: string }[] = [
+  { id: 480, label: "480p", detail: "Standard quality" },
+  { id: 720, label: "720p", detail: "Standard quality, HD" },
+  { id: 1080, label: "1080p", detail: "High quality, Full HD" },
+  { id: 2160, label: "2160p", detail: "High quality, 4K" },
+];
+
+/**
+ * The Export button: a small box to choose the quality, then Continue (as in Clideo). "More options" in it
+ * lists the quick presets (social sizes, see-through website packs) and opens the dialog with every format.
+ * While an export is running or ready, the button opens the dialog straight away.
+ */
 export function ExportMenu({
   label,
   onOpen,
@@ -13,6 +26,10 @@ export function ExportMenu({
   onVideo,
   videoDisabled,
   onThumbnail,
+  onQuality,
+  gifDisabled,
+  canvas,
+  hasJob,
 }: {
   label: string;
   onOpen: () => void;
@@ -23,19 +40,39 @@ export function ExportMenu({
   videoDisabled?: string | null;
   /** Open the thumbnail maker (YouTube 16:9 / Shorts cover). */
   onThumbnail?: () => void;
+  /** Make an MP4 with this short side (the shape stays the project's), or a GIF. */
+  onQuality?: (q: ExportQuality) => void;
+  gifDisabled?: string | null;
+  /** The project's size (the tiles show the size each quality gives; the nearest one starts selected). */
+  canvas?: { width: number; height: number };
+  /** An export is running or ready: the button opens the dialog. */
+  hasJob?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  // (the box: the quality tiles first; "more": the list of quick presets)
+  const [box, setBox] = useState<null | "quality" | "more">(null);
+  const open = box === "more";
+  const setOpen = (o: boolean | ((x: boolean) => boolean)) => setBox((b) => ((typeof o === "function" ? o(b === "more") : o) ? "more" : null));
+  const short = canvas ? Math.min(canvas.width, canvas.height) : 1080;
+  const nearest = ([...QUALITIES].reverse().find((q) => (q.id as number) <= short)?.id ?? 480) as ExportQuality;
+  const [quality, setQuality] = useState<ExportQuality | null>(null);
+  const chosen = quality ?? nearest;
+  const sizeOf = (q: number) => {
+    if (!canvas) return "";
+    const k = q / short;
+    const even = (n: number) => Math.max(2, Math.round((n * k) / 2) * 2);
+    return `${even(canvas.width)} × ${even(canvas.height)}`;
+  };
   const wrap = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
   const items = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
-    if (!open) return;
-    items.current[0]?.focus();
-    const outside = (e: PointerEvent) => !wrap.current?.contains(e.target as Node) && setOpen(false);
+    if (!box) return;
+    if (box === "more") items.current[0]?.focus();
+    const outside = (e: PointerEvent) => !wrap.current?.contains(e.target as Node) && setBox(null);
     window.addEventListener("pointerdown", outside);
     return () => window.removeEventListener("pointerdown", outside);
-  }, [open]);
+  }, [box]);
 
   const close = (focus = true) => {
     setOpen(false);
@@ -61,25 +98,94 @@ export function ExportMenu({
   return (
     <div ref={wrap} className="relative ml-1 flex shrink-0">
       <button
+        ref={toggle}
         type="button"
         data-testid="export-button"
-        className="btn btn-primary shrink-0 whitespace-nowrap rounded-r-none px-3.5 max-sm:px-2.5"
-        onClick={onOpen}
+        className="btn btn-primary shrink-0 whitespace-nowrap px-3.5 max-sm:px-2.5"
+        aria-haspopup={hasJob || !onQuality ? undefined : "dialog"}
+        aria-expanded={hasJob || !onQuality ? undefined : !!box}
+        onClick={() => (hasJob || !onQuality ? onOpen() : setBox((b) => (b ? null : "quality")))}
       >
         <Icon name="export" className="size-4 shrink-0" />
         <span className="whitespace-nowrap max-sm:sr-only">{label}</span>
       </button>
-      <button
-        ref={toggle}
-        type="button"
-        className="btn btn-primary shrink-0 rounded-l-none border-l border-white/40 px-2"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="Export options"
-        onClick={() => setOpen((o) => !o)}
-      >
-        <Icon name="chevronDown" className="size-4 shrink-0" />
-      </button>
+      {box === "quality" && onQuality && (
+        <div
+          role="dialog"
+          aria-label="Export settings"
+          data-testid="export-quality"
+          className="anim-rise absolute right-0 top-full z-50 mt-1 w-80 rounded-xl border border-control bg-surface p-4 shadow-2xl"
+          onKeyDown={(e) => {
+            if (e.key !== "Escape") return;
+            e.preventDefault();
+            e.stopPropagation();
+            close();
+          }}
+        >
+          <p className="mb-3 text-center text-sm font-medium text-muted">Export settings</p>
+          <div role="radiogroup" aria-label="Quality" className="grid grid-cols-2 gap-2">
+            {QUALITIES.map((q) => {
+              const on = chosen === q.id;
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  aria-label={`${q.label}. ${q.detail}`}
+                  title={sizeOf(q.id as number)}
+                  onClick={() => setQuality(q.id)}
+                  className={`flex flex-col items-center gap-0.5 rounded-lg border px-2 py-3 ${on ? "border-primary bg-primary-soft text-ink" : "border-transparent bg-raised text-muted hover:text-ink"}`}
+                >
+                  <span className="text-sm font-semibold">{q.label}</span>
+                  <span className="text-2xs">{q.detail}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              role="radio"
+              aria-checked={chosen === "gif"}
+              aria-label="GIF. For projects up to 30 seconds"
+              aria-disabled={!!gifDisabled}
+              title={gifDisabled ?? undefined}
+              onClick={() => !gifDisabled && setQuality("gif")}
+              className={`col-span-2 flex flex-col items-center gap-0.5 rounded-lg border px-2 py-3 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 ${chosen === "gif" ? "border-primary bg-primary-soft text-ink" : "border-transparent bg-raised text-muted hover:text-ink"}`}
+            >
+              <span className="text-sm font-semibold">GIF</span>
+              <span className="text-2xs">For projects up to 30 seconds</span>
+            </button>
+          </div>
+          {chosen !== "gif" && canvas && (
+            <p className="mt-2 text-center text-2xs text-muted" data-testid="export-quality-size">
+              MP4 · {sizeOf(chosen as number)}
+            </p>
+          )}
+          <button
+            type="button"
+            className="btn btn-primary mt-3 w-full justify-center"
+            aria-disabled={!!videoDisabled}
+            title={videoDisabled ?? undefined}
+            onClick={() => {
+              if (videoDisabled) return;
+              setBox(null);
+              onQuality(chosen);
+            }}
+          >
+            Continue
+          </button>
+          {videoDisabled && <p className="mt-1.5 text-center text-2xs text-muted">{videoDisabled}</p>}
+          <button
+            type="button"
+            className="mt-2 w-full rounded-md py-1.5 text-center text-xs text-link hover:bg-raised"
+            aria-label="Export options"
+            aria-haspopup="menu"
+            onClick={() => setBox("more")}
+          >
+            More options
+          </button>
+        </div>
+      )}
       {open && (
         <div role="menu" aria-label="Export options" className="absolute right-0 top-full z-50 mt-1 max-h-[80dvh] w-80 overflow-y-auto rounded-lg border border-control bg-surface p-1 shadow-2xl" onKeyDown={onKey}>
           {onVideo && (

@@ -1,7 +1,12 @@
+import { mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { dataRoot } from "../dataRoot";
 import { APPLE_MEDIA, FFMPEG, FfmpegError, runFfmpeg } from "./run";
+
+/** The system's "not now" (as lib/ffmpeg/run's BUSY_ERRNO): the account's limit on running programs, or memory. */
+const BUSY_ERRNO = new Set(["EAGAIN", "ENOMEM"]);
 
 /** What makes the Safari see-through MOV: Apple's encoder (a Mac), x265's alpha layer (FFmpeg 8+, e.g. Linux), else ProRes 4444 (a big file). */
 export type MovEncoder = "videotoolbox" | "x265" | "prores";
@@ -17,6 +22,8 @@ export type Capabilities = {
   ffmpegVersion: string | null;
   checks: { name: string; ok: boolean; why: string }[];
   message: string | null;
+  /** FFmpeg is fine, but the system said "not now" (EAGAIN): it passes by itself, so it is no reason to warn anyone */
+  busy?: boolean;
 };
 
 const NEEDED_ENCODERS = [
@@ -156,16 +163,22 @@ async function detect(): Promise<Capabilities> {
       });
   } catch (err) {
     // the reason only (EACCES, ENOENT, "exited with code 126"...), not the server's folders
-    const why = /\b(E[A-Z]{3,})\b|exited with code -?\d+/.exec(String((err as Error)?.message))?.[0] ?? "unknown error";
+    const why = (err as { errno?: string })?.errno ?? /\b(E[A-Z]{3,})\b|exited with code -?\d+/.exec(String((err as Error)?.message))?.[0] ?? "unknown error";
+    // FFmpeg is there, but the system said "not now" (shared hosting: the account's limit on running programs is
+    // full for the moment): nothing to install, it comes back by itself (getCapabilities checks again soon)
+    const busy = BUSY_ERRNO.has(why);
     return {
       ok: false,
+      busy,
       safariAlpha: false,
       movEncoder: "prores",
       aiRemoval: APPLE_MEDIA,
       macVoices: APPLE_MEDIA,
       ffmpegVersion: null,
       checks,
-      message: APPLE_MEDIA
+      message: busy
+        ? `The server is busy right now: the hosting account's limit on running programs is full (${why}). Video features come back by themselves when it frees up; reload the page in a minute.`
+        : APPLE_MEDIA
         ? "FFmpeg was not found. Install it with: brew install ffmpeg"
         : `FFmpeg can't run on the server (${FFMPEG.includes("vendor") ? "vendor/ffmpeg" : FFMPEG}: ${why}). Run npm install again (it fetches FFmpeg: scripts/fetch-ffmpeg.mjs), or set FFMPEG_PATH.`,
     };
@@ -191,10 +204,111 @@ async function detect(): Promise<Capabilities> {
   };
 }
 
-const g = globalThis as unknown as { __VDOCaps?: Promise<Capabilities> };
+const g = globalThis as unknown as { __VDOCaps?: Promise<Capabilities>; __VDOCapsFailedAt?: number; __VDOCapsDone?: Capabilities };
 
-/** Cached for the life of the server process. */
+/** How long a failed check is kept before the next request checks again (it's often a passing "busy"). */
+export const FAILED_CHECK_TTL_MS = 30_000;
+
+/**
+ * The check runs FFmpeg six times, which on a busy shared host can take 20 s. A passing result is kept on disk
+ * (dataRoot: it outlives restarts) with the FFmpeg it was made with, so a restarted server reads it instead of
+ * checking again. Another FFmpeg (a new size or date: an upgrade, a new deploy) is checked afresh.
+ */
+const cacheFile = () => process.env.VDO_CAPS_PATH ?? join(dataRoot(), "data", "ffmpeg-capabilities.json");
+
+function ffmpegStamp(): string | null {
+  try {
+    const s = statSync(FFMPEG);
+    return `${FFMPEG}|${s.size}|${Math.round(s.mtimeMs)}`;
+  } catch {
+    return null; // (FFmpeg from the PATH, or not there yet: nothing to tie a saved result to)
+  }
+}
+
+function readSaved(): Capabilities | null {
+  const stamp = ffmpegStamp();
+  if (!stamp) return null;
+  try {
+    const saved = JSON.parse(readFileSync(cacheFile(), "utf8")) as { stamp?: string; caps?: Capabilities };
+    return saved.stamp === stamp && saved.caps?.ok ? saved.caps : null;
+  } catch {
+    return null;
+  }
+}
+
+function save(caps: Capabilities): void {
+  const stamp = ffmpegStamp();
+  if (!stamp || !caps.ok) return;
+  try {
+    mkdirSync(dirname(cacheFile()), { recursive: true });
+    writeFileSync(cacheFile(), JSON.stringify({ stamp, caps }));
+  } catch {
+    // (a read-only disk: the result is still kept in memory)
+  }
+}
+
+/** Load a saved result, if there is one for this FFmpeg (the server's start does this, before anyone asks). */
+export function loadSavedCapabilities(): Capabilities | null {
+  if (g.__VDOCapsDone) return g.__VDOCapsDone;
+  const saved = readSaved();
+  if (saved) {
+    g.__VDOCaps = Promise.resolve(saved);
+    g.__VDOCapsDone = saved;
+  }
+  return saved;
+}
+
+/** Cached for the life of the server process (and on disk) when FFmpeg works; a failure only for FAILED_CHECK_TTL_MS. */
 export function getCapabilities(refresh = false): Promise<Capabilities> {
-  if (refresh || !g.__VDOCaps) g.__VDOCaps = detect();
+  if (!refresh && !g.__VDOCaps) loadSavedCapabilities();
+  const stale = g.__VDOCapsFailedAt !== undefined && Date.now() - g.__VDOCapsFailedAt > FAILED_CHECK_TTL_MS;
+  if (refresh || stale || !g.__VDOCaps) {
+    g.__VDOCapsFailedAt = undefined;
+    const p = detect();
+    g.__VDOCaps = p;
+    void p.then((c) => {
+      if (g.__VDOCaps !== p) return;
+      g.__VDOCapsDone = c;
+      if (c.ok) save(c);
+      else g.__VDOCapsFailedAt = Date.now();
+    });
+  }
   return g.__VDOCaps;
+}
+
+/**
+ * The latest finished check, without waiting for one: pages call this so they never stand still while FFmpeg is
+ * probed. null when no check has finished yet (one is started). Work that needs FFmpeg (jobs) waits for
+ * getCapabilities() instead, and says what's wrong then.
+ */
+export function peekCapabilities(): Capabilities | null {
+  void getCapabilities().catch(() => undefined);
+  return g.__VDOCapsDone ?? null;
+}
+
+/** Whether to warn people that videos can't be made here: a real lack, not a check still running or a passing "busy". */
+export function capabilityWarning(caps: Capabilities | null): string | null {
+  return caps && !caps.ok && !caps.busy ? caps.message : null;
+}
+
+/**
+ * After a deploy (a new FFmpeg) there is no saved result, and the first visitor would start the 20 s check. Instead
+ * the server starts it by itself, `delayMs` after it comes up (out of the way of its own start), and once more
+ * `retryMs` later if the host was busy. Returns the way to stop it (tests).
+ */
+export function warmCapabilities(delayMs = 15_000, retryMs = 60_000): () => void {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const later = (ms: number, fn: () => void) => {
+    timer = setTimeout(fn, ms);
+    timer.unref?.();
+  };
+  if (loadSavedCapabilities()) return () => undefined;
+  later(delayMs, () => {
+    void getCapabilities()
+      .then((c) => {
+        if (c.busy) later(retryMs, () => void getCapabilities(true).catch(() => undefined));
+      })
+      .catch(() => undefined);
+  });
+  return () => clearTimeout(timer);
 }

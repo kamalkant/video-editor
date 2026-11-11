@@ -5,7 +5,7 @@ import { AnnouncementBanner } from "@/components/studio/AnnouncementBanner";
 import { getAnnouncement } from "@/lib/announcement";
 import { getCurrentUser } from "@/lib/auth/session";
 import { mediaIdsOf } from "@/lib/edit/doc";
-import { getCapabilities } from "@/lib/ffmpeg/capabilities";
+import { capabilityWarning, peekCapabilities } from "@/lib/ffmpeg/capabilities";
 import { getJob } from "@/lib/jobs/queue";
 import { getProject } from "@/lib/projects/store";
 import { getVideo, type VideoMeta } from "@/lib/videos";
@@ -47,7 +47,8 @@ export default async function EditorPage({
   const jobId = project ? project.jobId : typeof job === "string" ? job : null;
   const j = jobId ? await getJob(jobId) : null;
   const initialJob = j && j.state !== "canceled" && (project || j.videoId === media[0]?.id) ? j : null;
-  const caps = await getCapabilities();
+  // (never waits for the FFmpeg check: an export says what's wrong, if anything, when it runs)
+  const warning = capabilityWarning(peekCapabilities());
   const announcement = getAnnouncement();
 
   return (
@@ -60,7 +61,7 @@ export default async function EditorPage({
       initialProject={project ? { id: project.id, name: project.name } : null}
       notice={notice}
       initialTemplateId={project ? null : templateId}
-      capability={{ ok: caps.ok, message: caps.message }}
+      capability={{ ok: !warning, message: warning }}
     />
     {announcement && <AnnouncementBanner {...announcement} />}
     </>

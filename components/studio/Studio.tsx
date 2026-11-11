@@ -341,6 +341,7 @@ import {
   extractClipStyle,
   type CopiedStyle,
 } from "@/lib/edit/clipStyle";
+import { trackExportJob, trackImport, usage } from "@/lib/usage/wire";
 
 export const LAST_SPEC_KEY = "VDO:v2:last";
 
@@ -1233,6 +1234,7 @@ function StudioInner(props: Props) {
     },
   );
   const job = localJob ?? serverJob;
+  useEffect(() => trackExportJob(job), [job]);
   const connection = localJob ? "ok" : serverConnection;
   const running = !!job && (job.state === "queued" || job.state === "running");
 
@@ -2089,6 +2091,7 @@ function StudioInner(props: Props) {
           const id = newUuid();
           // kept on this computer: sent to the server only when a server feature needs it (ensureOnServer)
           addLocal(id, f, probe.kind, probe.poster, "local");
+          trackImport(probe.kind, f.size);
           const meta = provisionalMeta(id, f, probe);
           onUploaded.current(meta);
           // (its green screen, found here: the file isn't on the server, which would look for it)
@@ -5888,6 +5891,7 @@ function StudioInner(props: Props) {
       return !o;
     });
   const onRail = (id: PanelId) => {
+    usage("tool_use", { tool: `panel:${id}` });
     // (phones: Templates is the full gallery; on a desktop it's a panel like the others, with "Browse all" for the full view)
     if (id === "templates" && !wide) {
       setWorkspaceView((v) => (v === "templates" ? "studio" : "templates"));
@@ -10215,6 +10219,7 @@ function StudioInner(props: Props) {
           <div className="flex-1 overflow-hidden panel">
             <TemplateHub
               onUseTemplate={async (template, custom) => {
+                usage("project_new", { kind: "template" });
                 setWorkspaceView("studio");
                 await applyBroadcastTemplate(template, custom);
               }}

@@ -111,27 +111,28 @@ export function TopBar(p: {
   const menu = <ProjectMenu {...p.projectMenu} currentId={p.project?.id ?? null} onRename={rename} />;
   return (
     <header className="flex min-h-14 items-center gap-x-2 border-b border-line bg-surface px-3 py-1 sm:gap-x-3">
-      <Link
-        href="/"
-        className="flex min-h-hit shrink-0 items-center gap-2.5 rounded-md pr-1 text-ink no-underline"
-        title="New project with default settings"
-        onClick={(e) => {
-          // plain clicks reset in place; ⌘/Ctrl-click still opens a new tab
-          if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-          e.preventDefault();
-          p.onHome();
-        }}
+      <a
+        href="https://viplay.in"
+        className="flex min-h-hit shrink-0 items-center gap-2 rounded-md pr-1 text-ink no-underline hover:opacity-85 transition-opacity"
+        title="Return to ViPlay Main Site"
+        aria-label="ViPlay Main Site"
       >
         <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center">
-          <img src="/vdo-icon.png" alt="ViPlay Logo" className="size-full object-contain drop-shadow-[0_2px_6px_rgba(59,130,246,0.25)]" />
+          <img src="/vdo-icon.png" alt="ViPlay Logo" className="size-full object-contain drop-shadow-[0_2px_6px_rgba(59,130,246,0.25)] transition-transform hover:scale-105" />
         </span>
         <span className="flex flex-col leading-tight max-[1439px]:sr-only">
-          <span className="text-base font-bold tracking-tight">
-            ViPlay <span className="font-semibold text-muted text-xs">Studio</span>
-          </span>
+          <span className="text-base font-bold tracking-tight">ViPlay</span>
         </span>
-        <span className="sr-only"> — new project</span>
-      </Link>
+      </a>
+      <span className="text-muted text-xs font-semibold px-0.5" aria-hidden>/</span>
+      <button
+        type="button"
+        onClick={p.onHome}
+        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-muted hover:bg-raised hover:text-ink transition"
+        title="New project with default settings"
+      >
+        <span>Video Studio</span>
+      </button>
       <span aria-hidden="true" className="h-7 w-px bg-line max-sm:hidden" />
       <div className="flex min-w-0 items-center gap-2">
         {p.project ? (

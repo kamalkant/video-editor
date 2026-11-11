@@ -113,7 +113,10 @@ test("local-first: an imported clip shows its first frame at once and plays from
 
   // 4. the export: made in this browser when it can (WebCodecs; then the file never leaves this computer),
   // else on the server after sending the file first. Either way the video is made.
+  // (Export shows the quality box first; More options → All formats opens the dialog)
   await page.getByTestId("export-button").click();
+  await page.getByTestId("export-quality").getByRole("button", { name: "Export options" }).click();
+  await page.getByRole("menuitem", { name: /All formats/ }).click();
   const dialog = page.getByRole("dialog", { name: "Export & Share" });
   await dialog.getByRole("button", { name: "Make video (MP4)" }).click();
   await expect(page.getByTestId("export-button")).toContainText("Export ✓", { timeout: 120_000 });

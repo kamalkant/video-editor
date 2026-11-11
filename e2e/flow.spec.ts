@@ -27,14 +27,23 @@ async function downloadBytes(page: Page, href: string): Promise<Buffer> {
 /** A saved project: projects are kept in this browser (IndexedDB, lib/storage/db), the server only knows synced ones. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function savedProject(page: Page, id: string | null): Promise<any> {
-  // (projects are saved in this browser: wait a moment for the write to land)
-  // (the record is there before its timeline is: wait for the timeline too)
+  // (a project made a moment ago: its id reaches the address a little after "Saved" shows)
+  let pid = id;
+  for (let i = 0; i < 20 && !pid; i++) {
+    await page.waitForTimeout(500);
+    pid = new URL(page.url()).searchParams.get("p");
+  }
+  // (projects are saved in this browser; the record is there before its timeline is: wait for the timeline too)
+  let got: { doc?: unknown } | null = null;
   for (let i = 0; i < 30; i++) {
-    const got = await savedLocal(page, id);
+    got = await savedLocal(page, pid);
     if (got?.doc) return got;
     await page.waitForTimeout(500);
   }
-  return (await page.request.get(`/api/projects/${id}`)).json();
+  const remote = await (await page.request.get(`/api/projects/${pid}`)).json();
+  if (!remote?.doc)
+    throw new Error(`The project ${pid} (asked for: ${id}) has no saved timeline. In this browser: ${JSON.stringify(got)?.slice(0, 300)}. On the server: ${JSON.stringify(remote)?.slice(0, 200)}`);
+  return remote;
 }
 async function savedLocal(page: Page, id: string | null): Promise<any> {
   return page.evaluate(

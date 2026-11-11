@@ -1142,3 +1142,30 @@ export function interruptOrphanedGenerations(doc: TimelineDoc): TimelineDoc {
   return changed ? { ...doc, tracks } : doc;
 }
 
+
+/**
+ * Fill a template's slot with the person's video or picture. It keeps the slot's place on the timeline, its
+ * length, the transition into it and its transform (a frame's size and place); a longer video is cut to the
+ * slot, a shorter one keeps its own length. Null: the slot does not take that kind of media.
+ */
+export function replacePlaceholder(doc: TimelineDoc, clipId: string, m: MediaLite): { doc: TimelineDoc; clipId: string } | null {
+  const f = findClip(doc, clipId);
+  const slot = f?.clip as (AnyClip & { placeholder?: { accepts: "video" | "image" | "both" } }) | undefined;
+  if (!f || !slot?.placeholder || m.kind === "audio") return null;
+  if (slot.placeholder.accepts !== "both" && slot.placeholder.accepts !== m.kind) return null;
+  const length = clipLength(slot);
+  const overlay = f.track.kind === "overlay";
+  const start = overlay ? (slot as unknown as { start: number }).start : 0;
+  const slotTransform = (slot as { transform?: Transform }).transform;
+  const without = mapTrack(doc, f.track.id, (t) => ({ ...t, clips: (t.clips as AnyClip[]).filter((c) => c.id !== clipId) }) as Track);
+  const added = overlay
+    ? addMedia(without, m, { at: start, trackId: f.track.id, duration: length, overlay: true })
+    : addMedia(without, m, { index: f.index, duration: length });
+  let next = added.doc;
+  const patch: Record<string, unknown> = {};
+  if (m.kind === "video") patch.out = Math.min(m.duration, length);
+  if ("transitionIn" in slot && slot.transitionIn) patch.transitionIn = slot.transitionIn;
+  if (overlay && slotTransform) patch.transform = { ...slotTransform, fit: "fill" };
+  if (Object.keys(patch).length) next = setClip(next, added.clipId, patch);
+  return { doc: next, clipId: added.clipId };
+}

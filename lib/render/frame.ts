@@ -10,7 +10,7 @@ import { colorMatrix, cropRect, isIdentity, maskRadius, rotationOf, vignetteOf }
 import { fillFromBorder, patchRect } from "../player/patches";
 import { boxQuad, hasCorners, quadOk } from "../player/quad";
 import { docTransitionsAt, type LayerState, type Reveal } from "../player/transitions";
-import { drawBackdrop } from "../backdrops";
+import { drawBackdrop, isMotionSet } from "../backdrops";
 import { drawElement, movesByItself } from "../elements/draw";
 import { elementRect } from "../elements/geometry";
 import { textAnchor } from "../text/layout";
@@ -445,6 +445,9 @@ export function drawFrame(ctx: CanvasRenderingContext2D, d: TimelineDoc, t: numb
       const kb = Math.max(CW / sw, CH / sh);
       ctx.drawImage(pic, (CW - sw * kb) / 2, (CH - sh * kb) / 2, sw * kb, sh * kb);
     }
+  } else if (bd?.kind === "set" && isMotionSet(bd.id)) {
+    // (a moving studio set: drawn at this frame's time, so the export moves like the preview)
+    drawBackdrop(ctx, bd, CW, CH, t);
   } else if (bd) {
     const key = `${JSON.stringify(bd)}|${CW}x${CH}`;
     if (cache.backdrop?.key !== key) {

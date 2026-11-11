@@ -402,6 +402,13 @@ export const elementLookSchema = z.object({
   labelColor: hex.optional(),
   speed: z.number().finite().min(0.2).max(10).optional(),
 });
+/** A slot a template leaves for the person's own video or picture (lib/edit/docEdit replacePlaceholder). */
+export const placeholderSchema = z.object({
+  role: z.string().max(60),
+  accepts: z.enum(["video", "image", "both"]),
+  keywords: z.array(z.string().max(40)).max(8).optional(),
+});
+export type Placeholder = z.infer<typeof placeholderSchema>;
 export const elementClipSchema = z.object({
   id: localId,
   type: z.literal("element"),
@@ -412,6 +419,8 @@ export const elementClipSchema = z.object({
   ...fades,
   ...motion,
   transitionIn: transitionSchema.optional(),
+  /** A picture-in-picture slot of a template: the element is its frame until it is replaced. */
+  placeholder: placeholderSchema.optional(),
 });
 export const audioClipSchema = z.object({
   id: localId,
@@ -464,6 +473,8 @@ export const blankClipSchema = z.object({
   fill: hex,
   /** Optional backdrop definition (gradient, set, media) for background layer clips on timeline */
   backdrop: backdropSchema.optional(),
+  /** A full-scene slot of a template, filled by its backdrop until replaced. */
+  placeholder: placeholderSchema.optional(),
   duration: z.number().finite().min(0.1).max(3600),
   ...fades,
   transform: transformSchema.optional(),

@@ -28,9 +28,10 @@ async function downloadBytes(page: Page, href: string): Promise<Buffer> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function savedProject(page: Page, id: string | null): Promise<any> {
   // (projects are saved in this browser: wait a moment for the write to land)
-  for (let i = 0; i < 20; i++) {
+  // (the record is there before its timeline is: wait for the timeline too)
+  for (let i = 0; i < 30; i++) {
     const got = await savedLocal(page, id);
-    if (got) return got;
+    if (got?.doc) return got;
     await page.waitForTimeout(500);
   }
   return (await page.request.get(`/api/projects/${id}`)).json();
@@ -571,7 +572,7 @@ test("full screen fits and centers the picture", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Full screen" })).toBeVisible();
 });
 
-test("clicking the logo starts over with default settings", async ({
+test("Video Studio in the top bar starts over with default settings", async ({
   page,
 }) => {
   await page.goto("/");
@@ -585,7 +586,8 @@ test("clicking the logo starts over with default settings", async ({
     localStorage.setItem("VDO:v2:last", JSON.stringify({ remembered: true })),
   );
 
-  await page.getByRole("link", { name: /ViPlay Studio/ }).click();
+  // (the logo goes to the ViPlay site now; "Video Studio" beside it starts over)
+  await page.getByRole("button", { name: "Video Studio", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "No video loaded" }),
   ).toBeVisible();

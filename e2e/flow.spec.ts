@@ -307,36 +307,43 @@ test.describe.serial("one-screen studio", () => {
     await expect(
       page.getByRole("slider", { name: "Split between original and removed" }),
     ).toHaveCount(0);
-    await expect(page.getByTestId("exact-frame")).toBeVisible();
-    await expect(page.getByTestId("preview-caption")).toContainText(
-      "Exact frame",
-    );
+    // the server's exact frame comes only for a file that is on the server; a file kept in this browser
+    // (the default now) is checked on its live picture alone
+    const onServer = await page
+      .getByTestId("exact-frame")
+      .waitFor({ timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (onServer)
+      await expect(page.getByTestId("preview-caption")).toContainText("Exact frame");
 
-    // live GPU layer agrees with the exact FFmpeg frame
+    // the green is gone, the subject stays (and the live GPU layer agrees with the exact FFmpeg frame)
     for (const [x, y, solid] of [
       [100, 100, false],
       [640, 250, true],
     ] as const) {
+      await expect
+        .poll(() => alphaAt(page, "live-canvas", x, y), { message: `live alpha at ${x},${y}` })
+        [solid ? "toBeGreaterThan" : "toBeLessThan"](solid ? 245 : 10);
+      if (!onServer) continue;
       const live = await alphaAt(page, "live-canvas", x, y);
       const exact = await alphaAt(page, "exact-frame", x, y);
       expect(Math.abs(live - exact), `alpha at ${x},${y}`).toBeLessThanOrEqual(
         12,
       );
-      if (solid) expect(exact).toBeGreaterThan(245);
-      else expect(exact).toBeLessThan(10);
     }
 
     // hold to compare shows the original while held
-    const hold = page.getByRole("button", { name: "Hold to compare" });
+    const hold = page.getByRole("button", { name: "Hold to see original" });
     await hold.hover();
     await page.mouse.down();
     await expect(page.getByTestId("preview-caption")).toContainText(
       "Original (release to go back)",
     );
     await page.mouse.up();
-    await expect(page.getByTestId("preview-caption")).toContainText(
-      "Exact frame",
-    );
+    await expect(page.getByTestId("preview-caption")).not.toContainText("Original (release");
+    if (onServer)
+      await expect(page.getByTestId("preview-caption")).toContainText("Exact frame");
 
     // split view with a draggable line
     await page
@@ -364,11 +371,12 @@ test.describe.serial("one-screen studio", () => {
       "Live preview",
     );
     await page.getByRole("button", { name: "Pause" }).click();
-    await expect(page.getByTestId("preview-caption")).toContainText(
-      "Exact frame",
-    );
+    if (onServer)
+      await expect(page.getByTestId("preview-caption")).toContainText(
+        "Exact frame",
+      );
 
-    // one exact-frame request per pause in slider movement
+    // one exact-frame request per pause in slider movement (none for a file kept in this browser)
     await fineTune(page);
     const previews: string[] = [];
     page.on(
@@ -378,7 +386,7 @@ test.describe.serial("one-screen studio", () => {
     await page.getByRole("slider", { name: "Edge softness" }).focus();
     for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowRight");
     await page.waitForTimeout(1200);
-    expect(previews.length).toBe(1);
+    expect(previews.length).toBe(onServer ? 1 : 0);
 
     // undo brings the slider back; redo re-applies it
     const soft = page.getByRole("textbox", { name: "Edge softness" });
@@ -435,16 +443,21 @@ test.describe.serial("one-screen studio", () => {
     await expect(page.getByTestId("export-button")).toContainText(
       /Exporting|Export ✓/,
     );
+    if (!onServer) {
+      // a file kept in this browser is made into the website pack here; the files, the reload and the final
+      // file below are the server's (a file that was sent there)
+      await expect(dialog.getByText("Your transparent video is ready")).toBeVisible({ timeout: 120_000 });
+      test.info().annotations.push({ type: "note", description: "file kept in the browser: server-only checks skipped" });
+      return;
+    }
     await page.waitForTimeout(700);
     await page.reload();
-    await expect(page.getByTestId("export-button")).toContainText("Export ✓", {
-      timeout: 120_000,
-    });
-    if (!(await dialog.isVisible()))
-      await openExport(page);
+    // (after a reload the job is the dialog's: open it and wait for the files there)
+    await expect(page.getByTestId("export-button")).toBeVisible();
+    if (!(await dialog.isVisible())) await openExport(page);
     await expect(
       dialog.getByText("Your transparent video is ready"),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 120_000 });
     shared.url = page.url();
     const zipHref = (await dialog
       .getByRole("link", { name: /Download website files/ })

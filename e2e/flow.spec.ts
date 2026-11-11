@@ -247,6 +247,8 @@ test.describe.serial("one-screen studio", () => {
     // the clip keeps its background until you ask: the removal card (on Cutout) offers it
     if (!(await page.getByTestId("remove-found").isVisible())) await inspTab(page, "Cutout");
     await expect(page.getByTestId("remove-found")).toBeVisible();
+    // (tuning the removal in "This clip": a pick started there stays there; from Program it goes back to Program)
+    await page.getByRole("radio", { name: "This clip" }).check({ force: true });
     await startPick(page);
     await expect(page.getByRole("radio", { name: "Original" })).toBeChecked();
     await expect(
@@ -3746,6 +3748,8 @@ test("an empty timeline: the first thing dropped starts at 0", async ({
   await lane.dispatchEvent("drop", at);
   // (the first clip opens its settings in the Media panel's place: the tile is gone, and the app ends the drag itself)
   await expect(page.getByTestId("timeline-clip")).toHaveCount(1);
+  // (the emptied project was dropped: the new clip starts a new one)
+  await expect(page).toHaveURL(/\?p=[0-9a-f-]{36}$/, { timeout: 15_000 });
   await expect(page.getByTestId("save-state")).toHaveText("✓ Saved", {
     timeout: 15_000,
   });

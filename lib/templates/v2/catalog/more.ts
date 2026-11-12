@@ -109,7 +109,7 @@ export const SOCIAL: TemplateSpec[] = [
   },
   {
     id: "so-story-announce",
-    name: "Story announcement",
+    name: "Story big news",
     category: "Social Media",
     tags: ["story", "announcement", "news", "instagram"],
     summary: "1 photo, an announcement",
@@ -173,7 +173,7 @@ export const GAMING: TemplateSpec[] = [
 export const BUSINESS: TemplateSpec[] = [
   {
     id: "bu-company-update",
-    name: "Company update",
+    name: "Quarterly update",
     category: "Business",
     tags: ["company", "update", "corporate", "team"],
     summary: "2 videos or photos, a headline",
@@ -194,7 +194,7 @@ export const BUSINESS: TemplateSpec[] = [
   },
   {
     id: "bu-hiring",
-    name: "We're hiring",
+    name: "Join our team",
     category: "Business",
     tags: ["hiring", "jobs", "careers", "recruit"],
     summary: "1 photo of your team, the role",
@@ -222,7 +222,7 @@ export const SALES: TemplateSpec[] = [
   },
   {
     id: "sa-launch",
-    name: "Product launch",
+    name: "Launch reveal",
     category: "Sales & Ads",
     tags: ["launch", "new", "product", "reveal"],
     summary: "1 product video, its name",
@@ -417,7 +417,7 @@ export const PODCAST: TemplateSpec[] = [
 export const QUOTES: TemplateSpec[] = [
   {
     id: "qu-quote-card",
-    name: "Quote card",
+    name: "Quote of the day",
     category: "Quotes",
     tags: ["quote", "motivation", "words"],
     summary: "A quote and who said it",
@@ -443,7 +443,7 @@ export const QUOTES: TemplateSpec[] = [
 export const EVENTS: TemplateSpec[] = [
   {
     id: "ev-invite",
-    name: "Event invite",
+    name: "Meetup invite",
     category: "Events",
     tags: ["event", "invite", "meetup", "launch"],
     summary: "1 photo of the venue, date and place",

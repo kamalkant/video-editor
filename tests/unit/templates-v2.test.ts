@@ -7,6 +7,7 @@ import { V2_TEMPLATES } from "@/lib/templates/v2/catalog";
 import { STARTER } from "@/lib/library";
 import { elementPreset } from "@/lib/elements/catalog";
 import { TEXT_STYLES } from "@/lib/text/layout";
+import { TEMPLATES } from "@/lib/templates";
 import { CANVAS, insideSafe, offsetOf } from "@/lib/templates/v2/layout";
 import { RATIOS } from "@/lib/templates/v2/spec";
 
@@ -32,6 +33,9 @@ describe("templates v2", () => {
 
   it("every template: a unique id, a music bed that exists, text styles and elements that exist, a slot", () => {
     expect(new Set(V2_TEMPLATES.map((t) => t.id)).size).toBe(V2_TEMPLATES.length);
+    // (a name an older template has would show two cards of that name in the library)
+    const older = new Set(TEMPLATES.map((t) => t.name.toLowerCase()));
+    expect(V2_TEMPLATES.filter((t) => older.has(t.name.toLowerCase())).map((t) => t.name)).toEqual([]);
     expect(V2_TEMPLATES.length).toBeGreaterThanOrEqual(40);
     const beds = new Set(STARTER.filter((r) => r.kind === "music").map((r) => r.name));
     for (const t of V2_TEMPLATES) {

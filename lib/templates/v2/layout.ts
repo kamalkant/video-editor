@@ -14,10 +14,13 @@ export const SAFE: Record<Ratio, { l: number; t: number; r: number; b: number }>
   "1:1": { l: 0.07, t: 0.08, r: 0.07, b: 0.08 },
 };
 
-/** Text sizes are written for 16:9; a narrow canvas takes smaller text, so a line still fits. */
+/**
+ * Text sizes are written for 16:9; a narrow canvas takes smaller text, so a line still fits. (Text grows with
+ * the canvas height: a 1080 × 1920 canvas would draw it 1.8 times as big, on a canvas 0.56 times as wide.)
+ */
 export const textScale = (r: Ratio): number => {
-  const c = CANVAS[r];
-  return Math.min(1, Math.sqrt(c.width / c.height / (16 / 9)));
+  // (the share of 16:9's line width each shape can give: a 16:9 title at most 55 % wide fits the safe area)
+  return r === "16:9" ? 1 : r === "1:1" ? 0.62 : 0.48;
 };
 
 /**

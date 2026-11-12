@@ -16,7 +16,7 @@ export const YOUTUBE: TemplateSpec[] = [
         fill: grad("#1e1b4b", "#7c3aed"),
         layers: [
           text("bigTitle", "YOUR CHANNEL", C, { anim: ["zoom", "fade"] }),
-          text("chapter", "NEW VIDEOS EVERY WEEK", at("center", "center", 0, 0.16), { from: 0.6, anim: ["rise", "fade"] }),
+          text("chapter", "NEW VIDEOS EVERY WEEK", at("center", "center", 0, 0.16), { from: 0.6, anim: ["rise", "fade"], over: tall(at("center", "center", 0, 0.24)) }),
         ],
       },
       {
@@ -43,9 +43,9 @@ export const YOUTUBE: TemplateSpec[] = [
         length: 8,
         fill: grad("#111827", "#be123c", 120),
         layers: [
-          text("title", "Thanks for watching!", at("center", "top"), { size: 96, anim: ["rise", "fade"] }),
-          frame("Watch next (video 1)", "video", at("left", "center", 0, 0.05), { keywords: ["vlog"], over: tall(at("center", "center", 0, -0.12)) }),
-          frame("Watch next (video 2)", "video", at("right", "center", 0, 0.05), { keywords: ["travel"], over: tall(at("center", "center", 0, 0.18)) }),
+          text("title", "Thanks for watching!", at("center", "top"), { size: 96, anim: ["rise", "fade"], over: tall(at("center", "top", 0, -0.08)) }),
+          frame("Watch next (video 1)", "video", at("left", "center", 0, 0.05), { keywords: ["vlog"], over: tall(at("center", "center", 0, -0.2)) }),
+          frame("Watch next (video 2)", "video", at("right", "center", 0, 0.05), { keywords: ["travel"], over: tall(at("center", "center", 0, 0.22)) }),
           text("subscribe", "SUBSCRIBE", at("center", "bottom"), { from: 0.8, anim: ["pop", "fade"] }),
           el("bell", at("center", "bottom", 0.18, 0), { from: 1.2, over: { "9:16": { hidden: true } } }),
         ],

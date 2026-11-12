@@ -1,5 +1,7 @@
 import { join } from "node:path";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, rm, stat, writeFile } from "node:fs/promises";
+import { cutsOnKeyframes, joinArgs, muxArgs, partArgs, passthroughPlan, type PassInfo } from "../export/passthrough";
+import { keyframeTimes } from "../ffmpeg/probe";
 import type { CropBox } from "../edit/geometry";
 import { createZipArchive } from "../storage/VDO/container";
 import { ensureMask } from "../ai/masks";
@@ -601,6 +603,49 @@ async function speechOnMain(doc: TimelineDoc): Promise<Range[]> {
   return speechRanges(doc, silences, hasAudio);
 }
 
+/**
+ * Smart render: a timeline of plain cuts of one H.264 file (lib/export/passthrough) is written by copying its
+ * own video and sound, part by part, when every part starts on a keyframe. False: not possible, encode instead.
+ */
+async function streamCopy(
+  job: Job,
+  doc: TimelineDoc,
+  byId: Record<string, { info: PassInfo } | undefined>,
+  out: string,
+  signal: AbortSignal,
+  onPercent: (pct: number) => void,
+): Promise<boolean> {
+  const plan = passthroughPlan(doc, (id) => byId[id]?.info ?? null);
+  if (!plan) return false;
+  const src = sourcePath(plan.mediaId);
+  try {
+    const keys = await keyframeTimes(src);
+    if (!cutsOnKeyframes(plan.parts, keys, doc.canvas.fps)) return false;
+    const dir = jobDir(job.id);
+    const names: string[] = [];
+    const steps = plan.parts.length + 2;
+    for (let i = 0; i < plan.parts.length; i++) {
+      const name = `part-${i}.mp4`;
+      await runFfmpeg(partArgs(src, plan.parts[i], doc.canvas.fps, join(dir, name)), { signal, timeoutMs: 5 * 60 * 1000 });
+      names.push(name);
+      onPercent(Math.round(((i + 1) / steps) * 100));
+    }
+    const list = join(dir, "parts.txt");
+    const joined = join(dir, "parts-joined.mp4");
+    await writeFile(list, names.map((n) => `file '${n}'`).join("\n") + "\n");
+    await runFfmpeg(joinArgs(list, joined), { signal, timeoutMs: 5 * 60 * 1000 });
+    onPercent(Math.round(((steps - 1) / steps) * 100));
+    await runFfmpeg(muxArgs(joined, src, plan.parts, plan.withSound, out), { signal, timeoutMs: 10 * 60 * 1000 });
+    await Promise.all([...names, "parts.txt", "parts-joined.mp4"].map((n) => rm(join(dir, n), { force: true })));
+    console.log(`[jobs] ${job.id}: stream copy (${plan.parts.length} part${plan.parts.length === 1 ? "" : "s"})`);
+    return true;
+  } catch (e) {
+    if (e instanceof AbortedError || signal.aborted) throw e;
+    // (anything odd about the file: the normal encode makes it)
+    return false;
+  }
+}
+
 async function runDocJob(job: Job, doc: TimelineDoc, signal: AbortSignal) {
   const ids = mediaIdsOf(doc);
   const metas = await Promise.all(ids.map(getVideo));
@@ -699,7 +744,12 @@ async function runDocJob(job: Job, doc: TimelineDoc, signal: AbortSignal) {
       const kind = step.kind as ComposeKind;
       const spec = DOC_FILES[kind];
       const out = storagePath("jobs", job.id, spec.name);
-      await runFfmpeg(
+      // plain cuts of one file: copied as they are (fast, no quality lost); otherwise every frame is drawn
+      const copied = kind === "mp4" && (await streamCopy(job, doc, byId, out, signal, (pct) => {
+        step.percent = pct;
+        void save(job, false);
+      }));
+      if (!copied) await runFfmpeg(
         buildComposeArgs(doc, media, kind, out, {
           movEncoder: (await getCapabilities()).movEncoder,
           maskOf: (c) => masks.get(maskKeyOf(c) ?? "") ?? null,

@@ -197,3 +197,15 @@ export async function probeVideo(path: string): Promise<VideoInfo> {
   const soundDetected = info.hasAudio ? await detectSound(path) : false;
   return { ...info, soundDetected };
 }
+
+/** The times of a video's keyframes, in seconds (for a stream copy, which can start only on one). */
+export async function keyframeTimes(path: string): Promise<number[]> {
+  const out = await runFfprobe(
+    [...SAFE_INPUT, "-select_streams", "v:0", "-skip_frame", "nokey", "-show_entries", "frame=pts_time", "-of", "csv=p=0", path],
+    { timeoutMs: 60_000 },
+  );
+  return out
+    .split("\n")
+    .map((l) => Number(l.trim().replace(/,$/, "")))
+    .filter((n) => Number.isFinite(n));
+}

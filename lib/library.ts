@@ -125,7 +125,7 @@ export const STARTER: Recipe[] = [
     mood: "Cinematic",
     d: 30,
     src: `aevalsrc='(${chord([65.41, 98, 130.81], 0.12)})*(0.6+0.4*sin(2*PI*0.125*t))+0.06*sin(2*PI*(261.63+t*2)*t)*(0.5+0.5*sin(2*PI*0.5*t))+0.35*sin(2*PI*45*t)*exp(-6*mod(t\\,4))'`,
-    af: "lowpass=f=2200,aecho=0.8:0.8:250|500:0.35|0.2,afade=t=in:d=3,afade=t=out:st=26:d=4",
+    af: "lowpass=f=2200,aecho=0.8:0.8:250|500:0.35|0.2,afade=t=in:d=3,afade=t=out:st=26:d=4,atrim=end=30",
   },
   {
     name: "game-drive",
